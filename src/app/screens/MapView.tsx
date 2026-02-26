@@ -4,15 +4,16 @@ import {
   Search,
   Navigation,
   MapPin,
-  Clock,
   ChevronRight,
   BookOpen,
-  FlaskConical,
-  Briefcase,
-  Utensils,
-  Library,
+  Laptop,
+  Building2,
+  School,
+  UtensilsCrossed,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+
+type LocationIconKey = "library" | "lab" | "office" | "classroom" | "canteen";
 
 const categories = [
   "All",
@@ -31,7 +32,7 @@ const locations = [
     floor: "Ground Floor",
     building: "Academic Bldg",
     distance: "120m",
-    icon: "📚",
+    iconKey: "library" as LocationIconKey,
     color: "#7C3AED",
   },
   {
@@ -41,7 +42,7 @@ const locations = [
     floor: "2nd Floor",
     building: "ICT Building",
     distance: "85m",
-    icon: "💻",
+    iconKey: "lab" as LocationIconKey,
     color: "#059669",
   },
   {
@@ -51,7 +52,7 @@ const locations = [
     floor: "3rd Floor",
     building: "Tech Building",
     distance: "200m",
-    icon: "🏢",
+    iconKey: "office" as LocationIconKey,
     color: c.baseRed,
   },
   {
@@ -61,7 +62,7 @@ const locations = [
     floor: "3rd Floor",
     building: "Tech Building",
     distance: "195m",
-    icon: "🏫",
+    iconKey: "classroom" as LocationIconKey,
     color: "#D97706",
   },
   {
@@ -71,7 +72,7 @@ const locations = [
     floor: "Ground Floor",
     building: "Main Building",
     distance: "60m",
-    icon: "🍽️",
+    iconKey: "canteen" as LocationIconKey,
     color: "#EA4335",
   },
 ];
@@ -370,6 +371,17 @@ export function MapView() {
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState("All");
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+  const getIcon = (
+    iconKey: LocationIconKey,
+    size = 18,
+    color = c.darkBrown,
+  ) => {
+    if (iconKey === "library") return <BookOpen size={size} color={color} />;
+    if (iconKey === "lab") return <Laptop size={size} color={color} />;
+    if (iconKey === "office") return <Building2 size={size} color={color} />;
+    if (iconKey === "classroom") return <School size={size} color={color} />;
+    return <UtensilsCrossed size={size} color={color} />;
+  };
 
   const filtered = locations.filter(
     (l) => activeCategory === "All" || l.category === activeCategory,
@@ -580,7 +592,7 @@ export function MapView() {
                   flexShrink: 0,
                 }}
               >
-                <span style={{ fontSize: 18 }}>{loc.icon}</span>
+                {getIcon(loc.iconKey, 18, loc.color)}
               </div>
               <div style={{ flex: 1 }}>
                 <p

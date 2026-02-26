@@ -1,20 +1,20 @@
 export const c = {
-  darkestRed: '#3E0703',
-  darkRed: '#660B05',
-  baseRed: '#8C1007',
-  cream: '#FFF0C4',
-  creamLight: '#FFFBEF',
-  white: '#FFFFFF',
-  darkBrown: '#2D1B0E',
-  warmGray: '#8B7355',
-  warmGrayLight: '#C4A882',
+  darkestRed: "#3A0909",
+  darkRed: "#4B0C0C",
+  baseRed: "#5E1010",
+  cream: "#FFF0C4",
+  creamLight: "#FFFBEF",
+  white: "#FFFFFF",
+  darkBrown: "#2D1B0E",
+  warmGray: "#8B7355",
+  warmGrayLight: "#C4A882",
 };
 
 export const g = {
-  button: 'linear-gradient(135deg, #660B05 0%, #8C1007 100%)',
-  header: 'linear-gradient(180deg, #3E0703 0%, #660B05 100%)',
-  sentBubble: 'linear-gradient(135deg, #8C1007 0%, #660B05 100%)',
-  splash: 'linear-gradient(160deg, #3E0703 0%, #660B05 60%, #8C1007 100%)',
+  button: `linear-gradient(135deg, ${c.darkRed} 0%, ${c.baseRed} 100%)`,
+  header: `linear-gradient(180deg, ${c.darkestRed} 0%, ${c.darkRed} 100%)`,
+  sentBubble: `linear-gradient(135deg, ${c.baseRed} 0%, ${c.darkRed} 100%)`,
+  splash: `linear-gradient(160deg, ${c.darkestRed} 0%, ${c.darkRed} 60%, ${c.baseRed} 100%)`,
 };
 
 export const fonts = {
@@ -24,9 +24,9 @@ export const fonts = {
 };
 
 export const shadow = {
-  card: '0 4px 20px rgba(62,7,3,0.12)',
-  cardHover: '0 8px 32px rgba(62,7,3,0.18)',
-  nav: '0 -4px 20px rgba(62,7,3,0.10)',
-  toast: '0 8px 32px rgba(0,0,0,0.18)',
-  button: '0 4px 14px rgba(140,16,7,0.35)',
+  card: "0 4px 20px rgba(62,7,3,0.12)",
+  cardHover: "0 8px 32px rgba(62,7,3,0.18)",
+  nav: "0 -4px 20px rgba(62,7,3,0.10)",
+  toast: "0 8px 32px rgba(0,0,0,0.18)",
+  button: "0 4px 14px rgba(94,16,16,0.35)",
 };

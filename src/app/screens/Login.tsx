@@ -176,7 +176,7 @@ export function Login() {
             </label>
             <InputField
               icon={<User size={18} />}
-              placeholder="e.g. 2021-10432 or email"
+              placeholder="e.g. 01230001234 or email"
               value={email}
               onChange={setEmail}
             />

@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { c, g, fonts } from "../theme";
+
+const SCHOOL_LOGO_SRC = "/branding/school-logo.png";
 
 function OLFULogo() {
   return (
@@ -49,6 +52,28 @@ function OLFULogo() {
       <circle cx="33" cy="63" r="2" fill="#FFF0C4" opacity={0.5} />
       <circle cx="63" cy="63" r="2" fill="#FFF0C4" opacity={0.5} />
     </svg>
+  );
+}
+
+function CenterLogo() {
+  const [useFallback, setUseFallback] = useState(false);
+
+  if (useFallback) {
+    return <OLFULogo />;
+  }
+
+  return (
+    <img
+      src={SCHOOL_LOGO_SRC}
+      alt="School logo"
+      onError={() => setUseFallback(true)}
+      style={{
+        width: 96,
+        height: 96,
+        objectFit: "contain",
+        display: "block",
+      }}
+    />
   );
 }
 
@@ -171,7 +196,7 @@ export function Splash() {
               "0 0 60px rgba(255,240,196,0.15), inset 0 0 30px rgba(255,240,196,0.05)",
           }}
         >
-          <OLFULogo />
+          <CenterLogo />
         </div>
 
         <div style={{ textAlign: "center" }}>
