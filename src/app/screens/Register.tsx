@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import type { CSSProperties, ReactNode } from "react";
+import { useApp } from "../context/AppContext";
 
 function FormField({
   icon,
@@ -106,8 +107,12 @@ function FormField({
 
 export function Register() {
   const navigate = useNavigate();
+  const { signUp } = useApp();
   const [role, setRole] = useState<"student" | "faculty">("student");
   const [showPass, setShowPass] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
+  const [submitError, setSubmitError] = useState("");
 
   const studentDepartments = [
     {
@@ -264,6 +269,40 @@ export function Register() {
   const isFormValid = Object.values(errors).every((v) => v === "");
   const showMatchIndicator = form.confirm.length > 0;
   const isPasswordMatch = form.confirm === form.password;
+
+  const handleRegister = async () => {
+    setSubmitError("");
+    setSubmitMessage("");
+
+    if (!isFormValid) {
+      setSubmitError("Complete all required fields before creating account.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const result = await signUp({
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      identifier: form.id.trim(),
+      email: form.email.trim(),
+      department: form.dept.trim(),
+      yearSection: role === "student" ? form.yearSection.trim() : "",
+      program: role === "faculty" ? form.program.trim() : "",
+      role,
+      password: form.password,
+    });
+    setIsSubmitting(false);
+
+    if (result.error) {
+      setSubmitError(result.error);
+      return;
+    }
+
+    setSubmitMessage(
+      result.message ??
+        "Registration successful. Your account is waiting for admin approval.",
+    );
+  };
 
   return (
     <div
@@ -758,10 +797,13 @@ export function Register() {
             )}
 
             <button
-              onClick={() => navigate("/app/home")}
-              disabled={!isFormValid}
+              onClick={handleRegister}
+              disabled={!isFormValid || isSubmitting}
               style={{
-                background: isFormValid ? g.button : "rgba(139,115,85,0.25)",
+                background:
+                  isFormValid && !isSubmitting
+                    ? g.button
+                    : "rgba(139,115,85,0.25)",
                 border: "none",
                 borderRadius: 12,
                 height: 52,
@@ -769,14 +811,44 @@ export function Register() {
                 fontFamily: fonts.ui,
                 fontSize: 16,
                 fontWeight: 600,
-                color: isFormValid ? c.cream : c.warmGray,
-                cursor: isFormValid ? "pointer" : "not-allowed",
-                boxShadow: isFormValid ? shadow.button : "none",
+                color: isFormValid && !isSubmitting ? c.cream : c.warmGray,
+                cursor:
+                  isFormValid && !isSubmitting ? "pointer" : "not-allowed",
+                boxShadow:
+                  isFormValid && !isSubmitting ? shadow.button : "none",
                 marginTop: 8,
               }}
             >
-              Create Account
+              {isSubmitting ? "Creating Account..." : "Create Account"}
             </button>
+
+            {submitError && (
+              <p
+                style={{
+                  margin: "2px 0 0",
+                  fontFamily: fonts.ui,
+                  fontSize: 12,
+                  color: "#B91C1C",
+                  textAlign: "center",
+                }}
+              >
+                {submitError}
+              </p>
+            )}
+
+            {submitMessage && (
+              <p
+                style={{
+                  margin: "2px 0 0",
+                  fontFamily: fonts.ui,
+                  fontSize: 12,
+                  color: "#15803D",
+                  textAlign: "center",
+                }}
+              >
+                {submitMessage}
+              </p>
+            )}
 
             <div style={{ textAlign: "center" }}>
               <span

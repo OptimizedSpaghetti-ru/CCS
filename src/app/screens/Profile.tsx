@@ -171,7 +171,19 @@ function SettingRow({
 
 export function Profile() {
   const navigate = useNavigate();
-  const { currentUser } = useApp();
+  const { currentUser, signOut } = useApp();
+
+  const roleLabel =
+    currentUser.role === "admin"
+      ? "Admin"
+      : currentUser.role === "faculty"
+        ? "Faculty"
+        : "Student";
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <div
@@ -273,7 +285,7 @@ export function Profile() {
                     color: c.white,
                   }}
                 >
-                  Student
+                  {roleLabel}
                 </span>
               </div>
             </div>
@@ -557,6 +569,13 @@ export function Profile() {
               label="App Settings"
               onClick={() => navigate("/app/settings")}
             />
+            {currentUser.role === "admin" && (
+              <SettingRow
+                icon={<Settings size={16} />}
+                label="Admin Dashboard"
+                onClick={() => navigate("/app/admin")}
+              />
+            )}
             <SettingRow
               icon={<Lock size={16} />}
               label="Login & Security"
@@ -569,7 +588,7 @@ export function Profile() {
             <SettingRow
               icon={<LogOut size={16} />}
               label="Log Out"
-              onClick={() => navigate("/")}
+              onClick={handleSignOut}
               destructive
             />
           </div>

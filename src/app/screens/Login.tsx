@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { User, Lock, Eye, EyeOff } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import type { ReactNode } from "react";
+import { useApp } from "../context/AppContext";
 
 function SocialButton({ icon, label }: { icon: ReactNode; label: string }) {
   return (
@@ -83,9 +84,32 @@ function InputField({
 
 export function Login() {
   const navigate = useNavigate();
+  const { signIn } = useApp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleLogin = async () => {
+    setErrorMessage("");
+
+    if (!email.trim() || !password) {
+      setErrorMessage("Enter your email and password.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const result = await signIn(email, password);
+    setIsSubmitting(false);
+
+    if (result.error) {
+      setErrorMessage(result.error);
+      return;
+    }
+
+    navigate("/app/home", { replace: true });
+  };
 
   return (
     <div
@@ -240,9 +264,10 @@ export function Login() {
 
           {/* Login button */}
           <button
-            onClick={() => navigate("/app/home")}
+            onClick={handleLogin}
+            disabled={isSubmitting}
             style={{
-              background: g.button,
+              background: isSubmitting ? "rgba(139,115,85,0.25)" : g.button,
               border: "none",
               borderRadius: 12,
               height: 52,
@@ -250,14 +275,28 @@ export function Login() {
               fontFamily: fonts.ui,
               fontSize: 16,
               fontWeight: 600,
-              color: c.cream,
-              cursor: "pointer",
-              boxShadow: shadow.button,
+              color: isSubmitting ? c.warmGray : c.cream,
+              cursor: isSubmitting ? "not-allowed" : "pointer",
+              boxShadow: isSubmitting ? "none" : shadow.button,
               marginTop: 4,
             }}
           >
-            Log In
+            {isSubmitting ? "Signing In..." : "Log In"}
           </button>
+
+          {errorMessage && (
+            <p
+              style={{
+                margin: "2px 0 0",
+                fontFamily: fonts.ui,
+                fontSize: 12,
+                color: "#B91C1C",
+                textAlign: "center",
+              }}
+            >
+              {errorMessage}
+            </p>
+          )}
 
           {/* Divider */}
           <div
