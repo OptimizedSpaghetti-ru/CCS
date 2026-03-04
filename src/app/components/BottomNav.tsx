@@ -55,7 +55,7 @@ export function BottomNav() {
         left: "50%",
         transform: "translateX(-50%)",
         width: "100%",
-        maxWidth: 390,
+        maxWidth: 480,
         zIndex: 100,
         background: c.white,
         borderRadius: "24px 24px 0 0",

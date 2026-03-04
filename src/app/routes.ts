@@ -60,12 +60,12 @@ export const router = createBrowserRouter([
           { path: "profile/edit", Component: EditProfile },
           { path: "settings", Component: Settings },
           { path: "settings/security", Component: Security },
+          {
+            path: "admin",
+            Component: AdminGuard,
+            children: [{ index: true, Component: AdminDashboard }],
+          },
         ],
-      },
-      {
-        path: "admin",
-        Component: AdminGuard,
-        children: [{ index: true, Component: AdminDashboard }],
       },
     ],
   },

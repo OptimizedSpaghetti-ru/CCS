@@ -9,6 +9,7 @@ interface Suggestion {
   id: string;
   name: string;
   role: string;
+  department: string;
   initials: string;
   color: string;
 }
@@ -47,7 +48,7 @@ export function Compose() {
     const t = setTimeout(async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("id, full_name, role")
+        .select("id, full_name, role, department")
         .neq("id", currentUser.id)
         .eq("status", "approved")
         .ilike("full_name", `%${toSearch.trim()}%`)
@@ -58,6 +59,7 @@ export function Compose() {
             id: p.id,
             name: p.full_name ?? "User",
             role: p.role ?? "student",
+            department: p.department ?? "",
             initials: getInitials(p.full_name ?? "U"),
             color: ROLE_COLORS[p.role] ?? "#059669",
           })),
@@ -86,42 +88,85 @@ export function Compose() {
     setSending(true);
     try {
       const isGroup = recipients.length > 1;
-      /* create conversation */
-      const { data: conv, error: convErr } = await supabase
-        .from("conversations")
-        .insert({
-          title: isGroup
-            ? recipients.map((r) => r.name.split(" ")[0]).join(", ")
-            : null,
-          is_group: isGroup,
-          created_by: currentUser.id,
-        })
-        .select("id")
-        .single();
-      if (convErr || !conv) throw convErr;
+      let convId: string | null = null;
 
-      /* add members (including self) */
-      const members = [
-        { conversation_id: conv.id, user_id: currentUser.id },
-        ...recipients.map((r) => ({
-          conversation_id: conv.id,
-          user_id: r.id,
-        })),
-      ];
-      await supabase.from("conversation_members").insert(members);
+      /* For 1-on-1 chats, check if a conversation already exists */
+      if (!isGroup) {
+        const otherUserId = recipients[0].id;
+
+        /* Get my conversation IDs */
+        const { data: myConvos } = await supabase
+          .from("conversation_members")
+          .select("conversation_id")
+          .eq("user_id", currentUser.id);
+
+        if (myConvos && myConvos.length > 0) {
+          const myConvoIds = myConvos.map((m: any) => m.conversation_id);
+
+          /* Find which of those the other user is also in */
+          const { data: otherConvos } = await supabase
+            .from("conversation_members")
+            .select("conversation_id")
+            .eq("user_id", otherUserId)
+            .in("conversation_id", myConvoIds);
+
+          if (otherConvos && otherConvos.length > 0) {
+            const sharedIds = otherConvos.map((m: any) => m.conversation_id);
+
+            /* Check which shared conversations are NOT groups */
+            const { data: directConvos } = await supabase
+              .from("conversations")
+              .select("id")
+              .in("id", sharedIds)
+              .eq("is_group", false)
+              .limit(1);
+
+            if (directConvos && directConvos.length > 0) {
+              convId = directConvos[0].id;
+            }
+          }
+        }
+      }
+
+      /* Create a new conversation only if one doesn't exist */
+      if (!convId) {
+        const { data: conv, error: convErr } = await supabase
+          .from("conversations")
+          .insert({
+            title: isGroup
+              ? recipients.map((r) => r.name.split(" ")[0]).join(", ")
+              : null,
+            is_group: isGroup,
+            created_by: currentUser.id,
+          })
+          .select("id")
+          .single();
+        if (convErr || !conv) throw convErr;
+        convId = conv.id;
+
+        /* add members (including self) */
+        const members = [
+          { conversation_id: convId, user_id: currentUser.id },
+          ...recipients.map((r) => ({
+            conversation_id: convId!,
+            user_id: r.id,
+          })),
+        ];
+        await supabase.from("conversation_members").insert(members);
+      }
 
       /* send first message */
       await supabase.from("messages").insert({
-        conversation_id: conv.id,
+        conversation_id: convId,
         sender_id: currentUser.id,
         body: body.trim(),
       });
 
-      /* navigate to the new conversation */
+      /* navigate to the conversation */
       if (isGroup) {
-        navigate(`/app/messages/group/${conv.id}`, { replace: true });
+        navigate(`/app/messages/group/${convId}`, { replace: true });
       } else {
-        navigate(`/app/messages/${conv.id}`, { replace: true });
+        navigate(`/app/messages/${convId}`, { replace: true });
       }
     } catch (err: any) {
       showToast({
@@ -376,9 +421,12 @@ export function Compose() {
                   >
                     {s.role === "faculty"
                       ? "Faculty"
-                      : s.role === "group"
-                        ? "Group"
-                        : "Student"}
+                      : s.role === "admin"
+                        ? "Admin"
+                        : s.role === "group"
+                          ? "Group"
+                          : "Student"}
+                    {s.department ? ` · ${s.department}` : ""}
                   </p>
                 </div>
               </button>

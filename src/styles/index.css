@@ -27,7 +27,7 @@ body {
 
 .app-container {
   width: 100%;
-  max-width: 390px;
+  max-width: 480px;
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
