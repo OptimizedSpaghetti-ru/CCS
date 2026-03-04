@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
   Search,
-  MapPin,
   Clock,
   X,
   BookOpen,
@@ -19,6 +18,7 @@ import {
   Map,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+import { supabase } from "../../lib/supabase";
 
 type LocationIconKey =
   | "library"
@@ -32,114 +32,48 @@ type LocationIconKey =
   | "media"
   | "conference";
 
-const allLocations = [
-  {
-    id: "1",
-    name: "Main Library",
-    category: "Library",
-    floor: "Ground Floor",
-    building: "Academic Bldg",
-    distance: "120m",
-    iconKey: "library" as LocationIconKey,
-    color: "#7C3AED",
-  },
-  {
-    id: "2",
-    name: "Computer Lab 204",
-    category: "Labs",
-    floor: "2nd Floor",
-    building: "ICT Building",
-    distance: "85m",
-    iconKey: "lab" as LocationIconKey,
-    color: "#059669",
-  },
-  {
-    id: "3",
-    name: "CCS Department Office",
-    category: "Offices",
-    floor: "3rd Floor",
-    building: "Tech Building",
-    distance: "200m",
-    iconKey: "office" as LocationIconKey,
-    color: c.baseRed,
-  },
-  {
-    id: "4",
-    name: "BSCS 3-A Classroom",
-    category: "Classrooms",
-    floor: "3rd Floor",
-    building: "Tech Building",
-    distance: "195m",
-    iconKey: "classroom" as LocationIconKey,
-    color: "#D97706",
-  },
-  {
-    id: "5",
-    name: "Campus Canteen",
-    category: "Canteen",
-    floor: "Ground Floor",
-    building: "Main Building",
-    distance: "60m",
-    iconKey: "canteen" as LocationIconKey,
-    color: "#EA4335",
-  },
-  {
-    id: "6",
-    name: "Computer Lab 302",
-    category: "Labs",
-    floor: "3rd Floor",
-    building: "ICT Building",
-    distance: "90m",
-    iconKey: "computer" as LocationIconKey,
-    color: "#059669",
-  },
-  {
-    id: "7",
-    name: "Dean's Office",
-    category: "Offices",
-    floor: "4th Floor",
-    building: "Admin Building",
-    distance: "310m",
-    iconKey: "facility" as LocationIconKey,
-    color: "#374151",
-  },
-  {
-    id: "8",
-    name: "Guidance Office",
-    category: "Offices",
-    floor: "2nd Floor",
-    building: "Main Building",
-    distance: "70m",
-    iconKey: "guidance" as LocationIconKey,
-    color: "#7C3AED",
-  },
-  {
-    id: "9",
-    name: "Multimedia Lab",
-    category: "Labs",
-    floor: "2nd Floor",
-    building: "Tech Building",
-    distance: "180m",
-    iconKey: "media" as LocationIconKey,
-    color: c.darkRed,
-  },
-  {
-    id: "10",
-    name: "Conference Room A",
-    category: "Classrooms",
-    floor: "4th Floor",
-    building: "Tech Building",
-    distance: "220m",
-    iconKey: "conference" as LocationIconKey,
-    color: "#D97706",
-  },
-];
-
-const recent = ["Main Library", "Computer Lab 204", "CCS Office"];
+interface MapLoc {
+  id: string;
+  name: string;
+  category: string;
+  floor: string;
+  building: string;
+  iconKey: LocationIconKey;
+  color: string;
+}
 
 export function MapSearch() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [allLocations, setAllLocations] = useState<MapLoc[]>([]);
+  const [catCounts, setCatCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("campus_locations")
+        .select("id, name, category, floor, building, icon_key, color")
+        .order("name");
+      if (data) {
+        const mapped = data.map((r: any) => ({
+          id: String(r.id),
+          name: r.name ?? "",
+          category: r.category ?? "",
+          floor: r.floor ?? "",
+          building: r.building ?? "",
+          iconKey: (r.icon_key ?? "office") as LocationIconKey,
+          color: r.color ?? c.baseRed,
+        }));
+        setAllLocations(mapped);
+        const counts: Record<string, number> = {};
+        mapped.forEach((l) => {
+          counts[l.category] = (counts[l.category] || 0) + 1;
+        });
+        setCatCounts(counts);
+      }
+    })();
+  }, []);
+
   const getIcon = (
     iconKey: LocationIconKey,
     size = 18,
@@ -264,12 +198,12 @@ export function MapSearch() {
                 margin: "0 0 10px",
               }}
             >
-              Recent Searches
+              Recently Added
             </p>
-            {recent.map((r) => (
+            {allLocations.slice(0, 3).map((r) => (
               <button
-                key={r}
-                onClick={() => setQuery(r)}
+                key={r.id}
+                onClick={() => setQuery(r.name)}
                 style={{
                   width: "100%",
                   display: "flex",
@@ -293,11 +227,8 @@ export function MapSearch() {
                     color: c.darkBrown,
                   }}
                 >
-                  {r}
+                  {r.name}
                 </span>
-                <div style={{ marginLeft: "auto" }}>
-                  <X size={14} color={c.warmGrayLight} />
-                </div>
               </button>
             ))}
 
@@ -326,37 +257,31 @@ export function MapSearch() {
                 {
                   label: "Classrooms",
                   iconKey: "classroom" as LocationIconKey,
-                  count: 24,
                   color: "#D97706",
                 },
                 {
                   label: "Labs",
                   iconKey: "lab" as LocationIconKey,
-                  count: 12,
                   color: "#059669",
                 },
                 {
                   label: "Offices",
                   iconKey: "office" as LocationIconKey,
-                  count: 18,
                   color: c.baseRed,
                 },
                 {
                   label: "Canteen",
                   iconKey: "canteen" as LocationIconKey,
-                  count: 3,
                   color: "#EA4335",
                 },
                 {
                   label: "Library",
                   iconKey: "library" as LocationIconKey,
-                  count: 2,
                   color: "#7C3AED",
                 },
                 {
                   label: "Facilities",
                   iconKey: "facility" as LocationIconKey,
-                  count: 8,
                   color: "#374151",
                 },
               ].map((cat) => (
@@ -409,7 +334,7 @@ export function MapSearch() {
                         margin: 0,
                       }}
                     >
-                      {cat.count} locations
+                      {catCounts[cat.label] ?? 0} locations
                     </p>
                   </div>
                 </button>
@@ -487,25 +412,6 @@ export function MapSearch() {
                   </p>
                 </div>
                 <div style={{ flexShrink: 0, textAlign: "right" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 3,
-                      justifyContent: "flex-end",
-                    }}
-                  >
-                    <MapPin size={12} color={c.baseRed} />
-                    <span
-                      style={{
-                        fontFamily: fonts.mono,
-                        fontSize: 11,
-                        color: c.baseRed,
-                      }}
-                    >
-                      {loc.distance}
-                    </span>
-                  </div>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -524,7 +430,7 @@ export function MapSearch() {
                       fontWeight: 600,
                     }}
                   >
-                    Directions
+                    Details
                   </button>
                 </div>
               </button>

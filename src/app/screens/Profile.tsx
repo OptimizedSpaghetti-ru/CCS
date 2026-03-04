@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   Edit2,
@@ -17,6 +18,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
 import type { ReactNode } from "react";
 
@@ -173,6 +175,40 @@ export function Profile() {
   const navigate = useNavigate();
   const { currentUser, signOut } = useApp();
 
+  const [msgCount, setMsgCount] = useState(0);
+  const [groupCount, setGroupCount] = useState(0);
+  const [phone, setPhone] = useState("");
+  const [program, setProgram] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      /* total messages sent */
+      const { count: mc } = await supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("sender_id", currentUser.id);
+      setMsgCount(mc ?? 0);
+
+      /* group conversations count */
+      const { data: groups } = await supabase
+        .from("conversation_members")
+        .select("conversation_id, conversations!inner(is_group)")
+        .eq("user_id", currentUser.id)
+        .eq("conversations.is_group", true);
+      setGroupCount(groups?.length ?? 0);
+
+      /* extra profile fields */
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("program")
+        .eq("id", currentUser.id)
+        .single();
+      if (prof) {
+        setProgram(prof.program ?? "");
+      }
+    })();
+  }, [currentUser.id]);
+
   const roleLabel =
     currentUser.role === "admin"
       ? "Admin"
@@ -310,7 +346,11 @@ export function Profile() {
                   margin: 0,
                 }}
               >
-                {currentUser.yearSection}
+                {currentUser.role === "student"
+                  ? currentUser.yearSection
+                  : currentUser.role === "faculty"
+                    ? "Faculty"
+                    : "Administrator"}
               </p>
               <p
                 style={{
@@ -320,7 +360,9 @@ export function Profile() {
                   margin: "3px 0 0",
                 }}
               >
-                {currentUser.id}
+                {currentUser.role === "student"
+                  ? currentUser.identifier
+                  : currentUser.department}
               </p>
             </div>
 
@@ -360,19 +402,23 @@ export function Profile() {
           {[
             {
               label: "Messages",
-              value: "142",
+              value: String(msgCount),
               icon: <MessageSquare size={16} color={c.baseRed} />,
             },
             {
               label: "Groups",
-              value: "7",
+              value: String(groupCount),
               icon: <Users size={16} color={c.baseRed} />,
             },
-            {
-              label: "GWA",
-              value: "1.75",
-              icon: <BarChart3 size={16} color={c.baseRed} />,
-            },
+            ...(currentUser.role === "student"
+              ? [
+                  {
+                    label: "GWA",
+                    value: "1.75",
+                    icon: <BarChart3 size={16} color={c.baseRed} />,
+                  },
+                ]
+              : []),
           ].map((stat) => (
             <div
               key={stat.label}
@@ -427,119 +473,142 @@ export function Profile() {
             gap: 14,
           }}
         >
-          {/* Academic Info */}
-          <InfoCard title="Academic Information">
-            <InfoRow
-              icon={<BookOpen size={14} />}
-              label="Program"
-              value="Bachelor of Science in Computer Science"
-            />
-            <InfoRow
-              icon={<Building2 size={14} />}
-              label="College"
-              value={currentUser.department}
-            />
-            <InfoRow
-              icon={<CalendarDays size={14} />}
-              label="Year & Section"
-              value={currentUser.yearSection}
-            />
-            <div style={{ display: "flex", gap: 10, marginTop: -4 }}>
-              <div
-                style={{
-                  flex: 1,
-                  background: c.creamLight,
-                  borderRadius: 8,
-                  padding: "8px 10px",
-                  textAlign: "center",
-                }}
-              >
-                <p
+          {/* Academic / Professional Info */}
+          {currentUser.role === "student" ? (
+            <InfoCard title="Academic Information">
+              <InfoRow
+                icon={<BookOpen size={14} />}
+                label="Program"
+                value={program || "Bachelor of Science in Computer Science"}
+              />
+              <InfoRow
+                icon={<Building2 size={14} />}
+                label="College"
+                value={currentUser.department}
+              />
+              <InfoRow
+                icon={<CalendarDays size={14} />}
+                label="Year & Section"
+                value={currentUser.yearSection}
+              />
+              <div style={{ display: "flex", gap: 10, marginTop: -4 }}>
+                <div
                   style={{
-                    fontFamily: fonts.mono,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: c.darkBrown,
-                    margin: 0,
+                    flex: 1,
+                    background: c.creamLight,
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                    textAlign: "center",
                   }}
                 >
-                  21
-                </p>
-                <p
+                  <p
+                    style={{
+                      fontFamily: fonts.mono,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: c.darkBrown,
+                      margin: 0,
+                    }}
+                  >
+                    21
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: fonts.ui,
+                      fontSize: 10,
+                      color: c.warmGray,
+                      margin: 0,
+                    }}
+                  >
+                    Units Enrolled
+                  </p>
+                </div>
+                <div
                   style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 10,
-                    color: c.warmGray,
-                    margin: 0,
+                    flex: 1,
+                    background: c.creamLight,
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                    textAlign: "center",
                   }}
                 >
-                  Units Enrolled
-                </p>
+                  <p
+                    style={{
+                      fontFamily: fonts.mono,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: c.darkBrown,
+                      margin: 0,
+                    }}
+                  >
+                    1.75
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: fonts.ui,
+                      fontSize: 10,
+                      color: c.warmGray,
+                      margin: 0,
+                    }}
+                  >
+                    GWA
+                  </p>
+                </div>
+                <div
+                  style={{
+                    flex: 1,
+                    background: c.creamLight,
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                    textAlign: "center",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontFamily: fonts.mono,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: c.darkBrown,
+                      margin: 0,
+                    }}
+                  >
+                    3rd
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: fonts.ui,
+                      fontSize: 10,
+                      color: c.warmGray,
+                      margin: 0,
+                    }}
+                  >
+                    Year
+                  </p>
+                </div>
               </div>
-              <div
-                style={{
-                  flex: 1,
-                  background: c.creamLight,
-                  borderRadius: 8,
-                  padding: "8px 10px",
-                  textAlign: "center",
-                }}
-              >
-                <p
-                  style={{
-                    fontFamily: fonts.mono,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: c.darkBrown,
-                    margin: 0,
-                  }}
-                >
-                  1.75
-                </p>
-                <p
-                  style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 10,
-                    color: c.warmGray,
-                    margin: 0,
-                  }}
-                >
-                  GWA
-                </p>
-              </div>
-              <div
-                style={{
-                  flex: 1,
-                  background: c.creamLight,
-                  borderRadius: 8,
-                  padding: "8px 10px",
-                  textAlign: "center",
-                }}
-              >
-                <p
-                  style={{
-                    fontFamily: fonts.mono,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: c.darkBrown,
-                    margin: 0,
-                  }}
-                >
-                  3rd
-                </p>
-                <p
-                  style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 10,
-                    color: c.warmGray,
-                    margin: 0,
-                  }}
-                >
-                  Year
-                </p>
-              </div>
-            </div>
-          </InfoCard>
+            </InfoCard>
+          ) : (
+            <InfoCard
+              title={
+                currentUser.role === "faculty"
+                  ? "Faculty Information"
+                  : "Admin Information"
+              }
+            >
+              <InfoRow
+                icon={<Building2 size={14} />}
+                label="Department"
+                value={currentUser.department}
+              />
+              {program && (
+                <InfoRow
+                  icon={<BookOpen size={14} />}
+                  label="Program Handled"
+                  value={program}
+                />
+              )}
+            </InfoCard>
+          )}
 
           {/* Contact */}
           <InfoCard title="Contact Information">
@@ -551,7 +620,7 @@ export function Profile() {
             <InfoRow
               icon={<Phone size={14} />}
               label="Phone"
-              value="+63 912 345 6789"
+              value={phone || "Not set"}
             />
           </InfoCard>
 

@@ -1,101 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { Search, Edit, ChevronRight } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { TopBar } from "../components/TopBar";
+import { supabase } from "../../lib/supabase";
+import { useApp } from "../context/AppContext";
+
+/* ---------- types ---------- */
+interface ConversationRow {
+  id: string;
+  name: string;
+  role: "student" | "faculty" | "group";
+  preview: string;
+  time: string;
+  unread: number;
+  online: boolean;
+  initials: string;
+  color: string;
+}
 
 const filters = ["All", "Students", "Faculty", "Groups"];
 
-const conversations = [
-  {
-    id: "1",
-    name: "Prof. Maria Santos",
-    role: "faculty",
-    preview: "Please check the updated capstone requirements I uploaded...",
-    time: "9:41 AM",
-    unread: 2,
-    online: true,
-    initials: "MS",
-    color: c.darkRed,
-  },
-  {
-    id: "2",
-    name: "BSCS 3-A Group Chat",
-    role: "group",
-    preview: "Alden: Anyone done with the ER diagram? I need help.",
-    time: "9:15 AM",
-    unread: 8,
-    online: false,
-    initials: "GR",
-    color: "#1D4ED8",
-  },
-  {
-    id: "3",
-    name: "Carlo Reyes",
-    role: "student",
-    preview: "Tara na, kumain na.",
-    time: "8:50 AM",
-    unread: 0,
-    online: true,
-    initials: "CR",
-    color: "#059669",
-  },
-  {
-    id: "4",
-    name: "Prof. Jose Bautista",
-    role: "faculty",
-    preview: "Reminder: Submit your final defense form by Friday.",
-    time: "Yesterday",
-    unread: 1,
-    online: false,
-    initials: "JB",
-    color: c.darkestRed,
-  },
-  {
-    id: "5",
-    name: "CCS Department",
-    role: "group",
-    preview: "Enrollment schedule is now posted. Check the board.",
-    time: "Yesterday",
-    unread: 0,
-    online: false,
-    initials: "CS",
-    color: c.baseRed,
-  },
-  {
-    id: "6",
-    name: "Maria Kristel Lim",
-    role: "student",
-    preview: "Thanks! I got it na. Salamat sa tulong.",
-    time: "Mon",
-    unread: 0,
-    online: false,
-    initials: "ML",
-    color: "#7C3AED",
-  },
-  {
-    id: "7",
-    name: "IT Support Desk",
-    role: "group",
-    preview: "Your ticket #0234 has been resolved. Rate your experience.",
-    time: "Mon",
-    unread: 0,
-    online: true,
-    initials: "IT",
-    color: "#D97706",
-  },
-  {
-    id: "8",
-    name: "Prof. Ana Cruz",
-    role: "faculty",
-    preview: "Class is cancelled tomorrow. Async mode.",
-    time: "Sun",
-    unread: 0,
-    online: false,
-    initials: "AC",
-    color: c.warmGray,
-  },
-];
+const ROLE_COLORS: Record<string, string> = {
+  faculty: c.darkRed,
+  student: "#059669",
+  group: "#1D4ED8",
+};
+
+function getInitials(name: string) {
+  const parts = name.split(" ").filter(Boolean).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
+}
+
+function timeAgo(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  if (diff < 60_000) return "now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
+  if (diff < 86_400_000)
+    return d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  if (diff < 172_800_000) return "Yesterday";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 function Avatar({
   initials,
@@ -174,8 +124,136 @@ function RoleBadge({ role }: { role: string }) {
 
 export function Messages() {
   const navigate = useNavigate();
+  const { currentUser } = useApp();
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [conversations, setConversations] = useState<ConversationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadConversations = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    /* 1. My conversation IDs */
+    const { data: memberships } = await supabase
+      .from("conversation_members")
+      .select("conversation_id")
+      .eq("user_id", userId);
+
+    if (!memberships || memberships.length === 0) {
+      setConversations([]);
+      setLoading(false);
+      return;
+    }
+
+    const convIds = memberships.map((m: any) => m.conversation_id);
+
+    /* 2. Conversations + members' profiles */
+    const { data: convos } = await supabase
+      .from("conversations")
+      .select(
+        `id, title, is_group, updated_at,
+         conversation_members ( user_id, profiles:user_id ( id, full_name, role, avatar_url ) )`,
+      )
+      .in("id", convIds)
+      .order("updated_at", { ascending: false });
+
+    if (!convos) {
+      setConversations([]);
+      setLoading(false);
+      return;
+    }
+
+    /* 3. Messages for unread + preview */
+    const { data: allMessages } = await supabase
+      .from("messages")
+      .select("conversation_id, body, sender_id, created_at, read_at")
+      .in("conversation_id", convIds)
+      .order("created_at", { ascending: false });
+
+    const latestMap = new Map<string, { body: string; created_at: string }>();
+    const unreadMap = new Map<string, number>();
+    for (const msg of allMessages ?? []) {
+      if (!latestMap.has(msg.conversation_id)) {
+        latestMap.set(msg.conversation_id, {
+          body: msg.body,
+          created_at: msg.created_at,
+        });
+      }
+      if (!msg.read_at && msg.sender_id !== userId) {
+        unreadMap.set(
+          msg.conversation_id,
+          (unreadMap.get(msg.conversation_id) ?? 0) + 1,
+        );
+      }
+    }
+
+    /* 4. Map to UI rows */
+    const rows: ConversationRow[] = convos.map((conv: any) => {
+      const members: any[] = conv.conversation_members ?? [];
+      const otherMembers = members
+        .filter((m: any) => m.user_id !== userId)
+        .map((m: any) => m.profiles);
+
+      let name = conv.title || "Conversation";
+      let role: ConversationRow["role"] = "student";
+      let color = ROLE_COLORS.student;
+
+      if (conv.is_group) {
+        name = conv.title || "Group Chat";
+        role = "group";
+        color = ROLE_COLORS.group;
+      } else if (otherMembers.length > 0) {
+        const other = otherMembers[0];
+        name = other?.full_name || "User";
+        role =
+          other?.role === "faculty"
+            ? "faculty"
+            : ("student" as ConversationRow["role"]);
+        color = ROLE_COLORS[role] || ROLE_COLORS.student;
+      }
+
+      const latest = latestMap.get(conv.id);
+      const unread = unreadMap.get(conv.id) ?? 0;
+
+      return {
+        id: conv.id,
+        name,
+        role,
+        preview: latest?.body ?? "No messages yet",
+        time: latest ? timeAgo(latest.created_at) : "",
+        unread,
+        online: false,
+        initials: conv.is_group ? "GR" : getInitials(name),
+        color,
+      };
+    });
+
+    setConversations(rows);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadConversations();
+
+    const channel = supabase
+      .channel("messages-list")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        () => {
+          loadConversations();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadConversations]);
 
   const filtered = conversations.filter((c) => {
     const roleMatch =
@@ -291,108 +369,138 @@ export function Messages() {
 
       {/* Conversation List */}
       <div style={{ flex: 1, overflowY: "auto", background: c.creamLight }}>
-        {filtered.map((conv, i) => (
-          <button
-            key={conv.id}
-            onClick={() => navigate(`/app/messages/${conv.id}`)}
-            style={{
-              width: "100%",
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "12px 16px",
-              background: conv.unread > 0 ? c.cream : c.white,
-              border: "none",
-              borderBottom: `1px solid rgba(139,115,85,0.1)`,
-              cursor: "pointer",
-              textAlign: "left",
-            }}
-          >
-            <Avatar
-              initials={conv.initials}
-              color={conv.color}
-              online={conv.online}
-            />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: 2,
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 14,
-                    fontWeight: conv.unread > 0 ? 700 : 500,
-                    color: c.darkBrown,
-                  }}
-                >
-                  {conv.name}
-                </span>
-                <RoleBadge role={conv.role} />
-              </div>
-              <p
-                style={{
-                  fontFamily: fonts.ui,
-                  fontSize: 12,
-                  color: conv.unread > 0 ? c.darkBrown : c.warmGray,
-                  fontWeight: conv.unread > 0 ? 500 : 400,
-                  margin: 0,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {conv.preview}
-              </p>
-            </div>
-            <div
+        {loading ? (
+          <div style={{ padding: "40px 32px", textAlign: "center" }}>
+            <p
               style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-end",
-                gap: 5,
-                flexShrink: 0,
+                fontFamily: fonts.ui,
+                fontSize: 14,
+                color: c.warmGray,
               }}
             >
-              <span
-                style={{
-                  fontFamily: fonts.mono,
-                  fontSize: 10,
-                  color: c.warmGray,
-                }}
-              >
-                {conv.time}
-              </span>
-              {conv.unread > 0 && (
+              Loading conversations…
+            </p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: "40px 32px", textAlign: "center" }}>
+            <p
+              style={{
+                fontFamily: fonts.ui,
+                fontSize: 14,
+                color: c.warmGray,
+              }}
+            >
+              No conversations yet. Tap + to start one.
+            </p>
+          </div>
+        ) : (
+          filtered.map((conv, i) => (
+            <button
+              key={conv.id}
+              onClick={() =>
+                conv.role === "group"
+                  ? navigate(`/app/messages/group/${conv.id}`)
+                  : navigate(`/app/messages/${conv.id}`)
+              }
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "12px 16px",
+                background: conv.unread > 0 ? c.cream : c.white,
+                border: "none",
+                borderBottom: `1px solid rgba(139,115,85,0.1)`,
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <Avatar
+                initials={conv.initials}
+                color={conv.color}
+                online={conv.online}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
-                    background: c.baseRed,
-                    borderRadius: "50%",
-                    width: 18,
-                    height: 18,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
+                    marginBottom: 2,
                   }}
                 >
                   <span
                     style={{
                       fontFamily: fonts.ui,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: c.white,
+                      fontSize: 14,
+                      fontWeight: conv.unread > 0 ? 700 : 500,
+                      color: c.darkBrown,
                     }}
                   >
-                    {conv.unread}
+                    {conv.name}
                   </span>
+                  <RoleBadge role={conv.role} />
                 </div>
-              )}
-            </div>
-          </button>
-        ))}
+                <p
+                  style={{
+                    fontFamily: fonts.ui,
+                    fontSize: 12,
+                    color: conv.unread > 0 ? c.darkBrown : c.warmGray,
+                    fontWeight: conv.unread > 0 ? 500 : 400,
+                    margin: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {conv.preview}
+                </p>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-end",
+                  gap: 5,
+                  flexShrink: 0,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: fonts.mono,
+                    fontSize: 10,
+                    color: c.warmGray,
+                  }}
+                >
+                  {conv.time}
+                </span>
+                {conv.unread > 0 && (
+                  <div
+                    style={{
+                      background: c.baseRed,
+                      borderRadius: "50%",
+                      width: 18,
+                      height: 18,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: fonts.ui,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: c.white,
+                      }}
+                    >
+                      {conv.unread}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </button>
+          ))
+        )}
       </div>
 
       {/* FAB */}

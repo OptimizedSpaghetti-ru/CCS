@@ -1,67 +1,77 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { X, Search, Paperclip, Image, Calendar, Send } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+import { supabase } from "../../lib/supabase";
+import { useApp } from "../context/AppContext";
 
-const suggestions = [
-  {
-    id: "1",
-    name: "Prof. Maria Santos",
-    role: "faculty",
-    initials: "MS",
-    color: c.darkRed,
-  },
-  {
-    id: "2",
-    name: "BSCS 3-A Group",
-    role: "group",
-    initials: "GR",
-    color: "#1D4ED8",
-  },
-  {
-    id: "3",
-    name: "Carlo Reyes",
-    role: "student",
-    initials: "CR",
-    color: "#059669",
-  },
-  {
-    id: "4",
-    name: "Prof. Jose Bautista",
-    role: "faculty",
-    initials: "JB",
-    color: c.darkestRed,
-  },
-  {
-    id: "5",
-    name: "Maria Kristel Lim",
-    role: "student",
-    initials: "ML",
-    color: "#7C3AED",
-  },
-  {
-    id: "6",
-    name: "IT Support Desk",
-    role: "group",
-    initials: "IT",
-    color: "#D97706",
-  },
-];
+interface Suggestion {
+  id: string;
+  name: string;
+  role: string;
+  initials: string;
+  color: string;
+}
+
+const ROLE_COLORS: Record<string, string> = {
+  faculty: "#8C1007",
+  admin: "#374151",
+  student: "#059669",
+};
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 export function Compose() {
   const navigate = useNavigate();
+  const { currentUser, showToast } = useApp();
   const [toSearch, setToSearch] = useState("");
-  const [recipients, setRecipients] = useState<typeof suggestions>([]);
+  const [recipients, setRecipients] = useState<Suggestion[]>([]);
   const [body, setBody] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [sending, setSending] = useState(false);
+
+  /* search users in DB when toSearch changes */
+  useEffect(() => {
+    if (toSearch.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name, role")
+        .neq("id", currentUser.id)
+        .eq("status", "approved")
+        .ilike("full_name", `%${toSearch.trim()}%`)
+        .limit(10);
+      if (data) {
+        setSuggestions(
+          data.map((p: any) => ({
+            id: p.id,
+            name: p.full_name ?? "User",
+            role: p.role ?? "student",
+            initials: getInitials(p.full_name ?? "U"),
+            color: ROLE_COLORS[p.role] ?? "#059669",
+          })),
+        );
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [toSearch, currentUser.id]);
 
   const filteredSuggestions = suggestions.filter(
-    (s) =>
-      s.name.toLowerCase().includes(toSearch.toLowerCase()) &&
-      !recipients.find((r) => r.id === s.id),
+    (s) => !recipients.find((r) => r.id === s.id),
   );
 
-  const addRecipient = (person: (typeof suggestions)[0]) => {
+  const addRecipient = (person: Suggestion) => {
     setRecipients((prev) => [...prev, person]);
     setToSearch("");
     setShowSuggestions(false);
@@ -70,6 +80,60 @@ export function Compose() {
   const removeRecipient = (id: string) => {
     setRecipients((prev) => prev.filter((r) => r.id !== id));
   };
+
+  const handleSend = useCallback(async () => {
+    if (recipients.length === 0 || !body.trim() || sending) return;
+    setSending(true);
+    try {
+      const isGroup = recipients.length > 1;
+      /* create conversation */
+      const { data: conv, error: convErr } = await supabase
+        .from("conversations")
+        .insert({
+          title: isGroup
+            ? recipients.map((r) => r.name.split(" ")[0]).join(", ")
+            : null,
+          is_group: isGroup,
+          created_by: currentUser.id,
+        })
+        .select("id")
+        .single();
+      if (convErr || !conv) throw convErr;
+
+      /* add members (including self) */
+      const members = [
+        { conversation_id: conv.id, user_id: currentUser.id },
+        ...recipients.map((r) => ({
+          conversation_id: conv.id,
+          user_id: r.id,
+        })),
+      ];
+      await supabase.from("conversation_members").insert(members);
+
+      /* send first message */
+      await supabase.from("messages").insert({
+        conversation_id: conv.id,
+        sender_id: currentUser.id,
+        body: body.trim(),
+      });
+
+      /* navigate to the new conversation */
+      if (isGroup) {
+        navigate(`/app/messages/group/${conv.id}`, { replace: true });
+      } else {
+        navigate(`/app/messages/${conv.id}`, { replace: true });
+      }
+    } catch (err: any) {
+      showToast({
+        type: "message",
+        title: "Send failed",
+        preview: err?.message ?? "Something went wrong",
+        time: "now",
+      });
+    } finally {
+      setSending(false);
+    }
+  }, [recipients, body, sending, currentUser.id, navigate, showToast]);
 
   return (
     <div
@@ -409,7 +473,8 @@ export function Compose() {
 
         {/* Send button */}
         <button
-          onClick={() => navigate("/app/messages")}
+          onClick={handleSend}
+          disabled={sending || recipients.length === 0 || !body.trim()}
           style={{
             width: "100%",
             height: 52,
@@ -424,18 +489,21 @@ export function Compose() {
             justifyContent: "center",
             gap: 8,
             cursor:
-              recipients.length > 0 && body.trim() ? "pointer" : "default",
+              recipients.length > 0 && body.trim() && !sending
+                ? "pointer"
+                : "default",
             fontFamily: fonts.ui,
             fontSize: 15,
             fontWeight: 600,
             color: recipients.length > 0 && body.trim() ? c.cream : c.warmGray,
             boxShadow:
               recipients.length > 0 && body.trim() ? shadow.button : "none",
+            opacity: sending ? 0.6 : 1,
             transition: "all 0.2s",
           }}
         >
           <Send size={18} />
-          Send Message
+          {sending ? "Sending…" : "Send Message"}
         </button>
       </div>
     </div>

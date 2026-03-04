@@ -19,11 +19,7 @@ import { Notifications } from "./screens/Notifications";
 import { NotificationSettings } from "./screens/NotificationSettings";
 import { PendingApproval } from "./screens/PendingApproval";
 import { AdminDashboard } from "./screens/AdminDashboard";
-import {
-  AuthGuard,
-  ApprovedGuard,
-  AdminGuard,
-} from "./components/guards/AuthGuards";
+import { ApprovedGuard, AdminGuard } from "./components/guards/AuthGuards";
 
 export const router = createBrowserRouter([
   {
@@ -40,8 +36,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/pending-approval",
-    Component: AuthGuard,
-    children: [{ index: true, Component: PendingApproval }],
+    Component: PendingApproval,
   },
   {
     path: "/app",

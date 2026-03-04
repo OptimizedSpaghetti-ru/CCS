@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   Search,
   Navigation,
-  MapPin,
   ChevronRight,
   BookOpen,
   Laptop,
@@ -12,6 +11,7 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+import { supabase } from "../../lib/supabase";
 
 type LocationIconKey = "library" | "lab" | "office" | "classroom" | "canteen";
 
@@ -24,58 +24,15 @@ const categories = [
   "Canteen",
 ];
 
-const locations = [
-  {
-    id: "1",
-    name: "Main Library",
-    category: "Library",
-    floor: "Ground Floor",
-    building: "Academic Bldg",
-    distance: "120m",
-    iconKey: "library" as LocationIconKey,
-    color: "#7C3AED",
-  },
-  {
-    id: "2",
-    name: "Computer Lab 204",
-    category: "Labs",
-    floor: "2nd Floor",
-    building: "ICT Building",
-    distance: "85m",
-    iconKey: "lab" as LocationIconKey,
-    color: "#059669",
-  },
-  {
-    id: "3",
-    name: "CCS Department Office",
-    category: "Offices",
-    floor: "3rd Floor",
-    building: "Tech Building",
-    distance: "200m",
-    iconKey: "office" as LocationIconKey,
-    color: c.baseRed,
-  },
-  {
-    id: "4",
-    name: "BSCS 3-A Classroom",
-    category: "Classrooms",
-    floor: "3rd Floor",
-    building: "Tech Building",
-    distance: "195m",
-    iconKey: "classroom" as LocationIconKey,
-    color: "#D97706",
-  },
-  {
-    id: "5",
-    name: "Campus Canteen",
-    category: "Canteen",
-    floor: "Ground Floor",
-    building: "Main Building",
-    distance: "60m",
-    iconKey: "canteen" as LocationIconKey,
-    color: "#EA4335",
-  },
-];
+interface MapLocation {
+  id: string;
+  name: string;
+  category: string;
+  floor: string;
+  building: string;
+  iconKey: LocationIconKey;
+  color: string;
+}
 
 // SVG Campus Map Illustration
 function CampusMap({ selectedId }: { selectedId: string | null }) {
@@ -371,6 +328,32 @@ export function MapView() {
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState("All");
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+  const [locations, setLocations] = useState<MapLocation[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("campus_locations")
+        .select("id, name, category, floor, building, icon_key, color")
+        .order("name");
+      if (data) {
+        setLocations(
+          data.map((r: any) => ({
+            id: String(r.id),
+            name: r.name ?? "",
+            category: r.category ?? "",
+            floor: r.floor ?? "",
+            building: r.building ?? "",
+            iconKey: (r.icon_key ?? "office") as LocationIconKey,
+            color: r.color ?? c.baseRed,
+          })),
+        );
+      }
+      setLoading(false);
+    })();
+  }, []);
+
   const getIcon = (
     iconKey: LocationIconKey,
     size = 18,
@@ -560,94 +543,109 @@ export function MapView() {
           </button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {filtered.slice(0, 3).map((loc) => (
-            <button
-              key={loc.id}
-              onClick={() => {
-                setSelectedLocation(loc.id);
-                navigate(`/app/map/location/${loc.id}`);
-              }}
+          {loading ? (
+            <p
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                background:
-                  selectedLocation === loc.id ? `${c.baseRed}08` : c.creamLight,
-                borderRadius: 12,
-                padding: "10px 12px",
-                border: `1px solid ${selectedLocation === loc.id ? c.baseRed + "30" : "transparent"}`,
-                cursor: "pointer",
-                textAlign: "left",
+                fontFamily: fonts.ui,
+                fontSize: 12,
+                color: c.warmGray,
+                textAlign: "center",
+                padding: 16,
               }}
             >
-              <div
+              Loading locations…
+            </p>
+          ) : filtered.length === 0 ? (
+            <p
+              style={{
+                fontFamily: fonts.ui,
+                fontSize: 12,
+                color: c.warmGray,
+                textAlign: "center",
+                padding: 16,
+              }}
+            >
+              No locations found
+            </p>
+          ) : (
+            filtered.slice(0, 3).map((loc) => (
+              <button
+                key={loc.id}
+                onClick={() => {
+                  setSelectedLocation(loc.id);
+                  navigate(`/app/map/location/${loc.id}`);
+                }}
                 style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 10,
-                  background: `${loc.color}18`,
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
+                  gap: 12,
+                  background:
+                    selectedLocation === loc.id
+                      ? `${c.baseRed}08`
+                      : c.creamLight,
+                  borderRadius: 12,
+                  padding: "10px 12px",
+                  border: `1px solid ${selectedLocation === loc.id ? c.baseRed + "30" : "transparent"}`,
+                  cursor: "pointer",
+                  textAlign: "left",
                 }}
               >
-                {getIcon(loc.iconKey, 18, loc.color)}
-              </div>
-              <div style={{ flex: 1 }}>
-                <p
+                <div
                   style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: c.darkBrown,
-                    margin: 0,
+                    width: 38,
+                    height: 38,
+                    borderRadius: 10,
+                    background: `${loc.color}18`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
                   }}
                 >
-                  {loc.name}
-                </p>
-                <p
-                  style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 11,
-                    color: c.warmGray,
-                    margin: "2px 0 0",
-                  }}
-                >
-                  {loc.floor} · {loc.building}
-                </p>
-              </div>
-              <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  <MapPin size={12} color={c.baseRed} />
-                  <span
+                  {getIcon(loc.iconKey, 18, loc.color)}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p
                     style={{
-                      fontFamily: fonts.mono,
-                      fontSize: 11,
-                      color: c.baseRed,
-                      fontWeight: 500,
+                      fontFamily: fonts.ui,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: c.darkBrown,
+                      margin: 0,
                     }}
                   >
-                    {loc.distance}
+                    {loc.name}
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: fonts.ui,
+                      fontSize: 11,
+                      color: c.warmGray,
+                      margin: "2px 0 0",
+                    }}
+                  >
+                    {loc.floor} · {loc.building}
+                  </p>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <span
+                    style={{
+                      fontFamily: fonts.ui,
+                      fontSize: 10,
+                      color: loc.color,
+                      background: `${loc.color}15`,
+                      borderRadius: 20,
+                      padding: "1px 7px",
+                      display: "inline-block",
+                      marginTop: 2,
+                    }}
+                  >
+                    {loc.category}
                   </span>
                 </div>
-                <span
-                  style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 10,
-                    color: loc.color,
-                    background: `${loc.color}15`,
-                    borderRadius: 20,
-                    padding: "1px 7px",
-                    display: "inline-block",
-                    marginTop: 2,
-                  }}
-                >
-                  {loc.category}
-                </span>
-              </div>
-            </button>
-          ))}
+              </button>
+            ))
+          )}
         </div>
       </div>
     </div>

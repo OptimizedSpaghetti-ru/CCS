@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import {
@@ -10,6 +11,7 @@ import {
   Megaphone,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
 
 function QuickAction({
@@ -124,66 +126,62 @@ function StatChip({
   );
 }
 
-const announcements = [
-  {
-    id: 1,
-    title: "Enrollment for 2nd Semester",
-    body: "Online enrollment begins March 3–10. Check your portal for details.",
-    time: "2h ago",
-    type: "urgent",
-  },
-  {
-    id: 2,
-    title: "IT Capstone Defense Schedule",
-    body: "Final defense schedules are now posted in the CCS bulletin.",
-    time: "5h ago",
-    type: "info",
-  },
-  {
-    id: 3,
-    title: "Lab Maintenance — Room 302",
-    body: "Computer Lab 302 will be unavailable Feb 25–26 for maintenance.",
-    time: "1d ago",
-    type: "warning",
-  },
-];
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
-const upcomingEvents = [
-  {
-    id: 1,
-    title: "BSCS 3-A Software Engineering",
-    time: "8:00 AM",
-    room: "Room 302, Tech Bldg",
-    type: "class",
-  },
-  {
-    id: 2,
-    title: "Data Structures Lab",
-    time: "1:00 PM",
-    room: "Lab 204, ICT Bldg",
-    type: "lab",
-  },
-  {
-    id: 3,
-    title: "CCS Student Council Meeting",
-    time: "4:00 PM",
-    room: "Function Hall",
-    type: "event",
-  },
-];
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning,";
+  if (h < 18) return "Good afternoon,";
+  return "Good evening,";
+}
 
 export function Home() {
-  const { currentUser, showToast } = useApp();
+  const { currentUser } = useApp();
   const navigate = useNavigate();
 
-  const handleDemoToast = () => {
-    showToast({
-      type: "message",
-      title: "Prof. Santos messaged you",
-      preview: "Please check the updated capstone requirements...",
-      time: "now",
-    });
-  };
+  const [announcements, setAnnouncements] = useState<
+    { id: string; title: string; body: string; time: string; type: string }[]
+  >([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      /* recent notifications shown as announcements */
+      const { data: notifs } = await supabase
+        .from("notifications")
+        .select("id, title, body, type, created_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (notifs) {
+        setAnnouncements(
+          notifs.map((n: any) => ({
+            id: n.id,
+            title: n.title ?? "",
+            body: n.body ?? "",
+            time: timeAgo(n.created_at),
+            type:
+              n.type === "announcement"
+                ? "urgent"
+                : n.type === "event"
+                  ? "warning"
+                  : "info",
+          })),
+        );
+      }
+      /* unread notifications count */
+      const { count } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true });
+      setUnreadCount(count ?? 0);
+    })();
+  }, [currentUser.id]);
 
   return (
     <div style={{ flex: 1, overflowY: "auto", background: c.creamLight }}>
@@ -236,7 +234,7 @@ export function Home() {
                 margin: "0 0 4px",
               }}
             >
-              Good morning,
+              {getGreeting()}
             </p>
             <h1
               style={{
@@ -257,7 +255,11 @@ export function Home() {
                 margin: 0,
               }}
             >
-              {currentUser.id}
+              {currentUser.role === "admin"
+                ? "Administrator"
+                : currentUser.role === "faculty"
+                  ? "Faculty"
+                  : currentUser.identifier}
             </p>
           </div>
           <div
@@ -280,33 +282,43 @@ export function Home() {
                 color: c.cream,
               }}
             >
-              JC
+              {currentUser.initials}
             </span>
           </div>
         </div>
 
         {/* Stats row */}
         <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-          {[
-            {
-              label: "Unread",
-              value: "3",
-              bg: "rgba(255,240,196,0.15)",
-              color: c.cream,
-            },
-            {
-              label: "GWA",
-              value: "1.75",
-              bg: "rgba(255,240,196,0.10)",
-              color: c.cream,
-            },
-            {
-              label: "Units",
-              value: "21",
-              bg: "rgba(255,240,196,0.10)",
-              color: c.cream,
-            },
-          ].map((s) => (
+          {(currentUser.role === "student"
+            ? [
+                {
+                  label: "Unread",
+                  value: String(unreadCount),
+                  bg: "rgba(255,240,196,0.15)",
+                  color: c.cream,
+                },
+                {
+                  label: "GWA",
+                  value: "1.75",
+                  bg: "rgba(255,240,196,0.10)",
+                  color: c.cream,
+                },
+                {
+                  label: "Units",
+                  value: "21",
+                  bg: "rgba(255,240,196,0.10)",
+                  color: c.cream,
+                },
+              ]
+            : [
+                {
+                  label: "Unread",
+                  value: String(unreadCount),
+                  bg: "rgba(255,240,196,0.15)",
+                  color: c.cream,
+                },
+              ]
+          ).map((s) => (
             <div
               key={s.label}
               style={{
@@ -390,212 +402,113 @@ export function Home() {
               path="/app/notifications"
               color="#D97706"
             />
-            <QuickAction
-              icon={<BookOpen size={20} />}
-              label="Courses"
-              path="/app/profile"
-              color="#059669"
-            />
+            {currentUser.role === "student" && (
+              <QuickAction
+                icon={<BookOpen size={20} />}
+                label="Courses"
+                path="/app/profile"
+                color="#059669"
+              />
+            )}
+            {currentUser.role === "admin" && (
+              <QuickAction
+                icon={<BookOpen size={20} />}
+                label="Admin"
+                path="/app/admin"
+                color="#059669"
+              />
+            )}
+            {currentUser.role === "faculty" && (
+              <QuickAction
+                icon={<BookOpen size={20} />}
+                label="Profile"
+                path="/app/profile"
+                color="#059669"
+              />
+            )}
           </div>
         </motion.div>
 
-        {/* Toast Demo */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-        >
-          <button
-            onClick={handleDemoToast}
-            style={{
-              width: "100%",
-              background: `linear-gradient(135deg, #1D4ED8 0%, #2563EB 100%)`,
-              border: "none",
-              borderRadius: 12,
-              padding: "12px 16px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              cursor: "pointer",
-              boxShadow: "0 4px 14px rgba(29,78,216,0.3)",
-            }}
+        {/* Today's Schedule - Students only */}
+        {currentUser.role === "student" && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Bell size={18} color={c.white} />
-              <div style={{ textAlign: "left" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 10,
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: fonts.ui,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: c.warmGray,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.8,
+                  margin: 0,
+                }}
+              >
+                Today's Schedule
+              </p>
+              <button
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  color: c.baseRed,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: fonts.ui,
+                    fontSize: 12,
+                    fontWeight: 500,
+                  }}
+                >
+                  View all
+                </span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div
+                style={{
+                  background: c.white,
+                  borderRadius: 12,
+                  padding: "24px 14px",
+                  textAlign: "center",
+                  boxShadow: shadow.card,
+                }}
+              >
+                <Calendar
+                  size={28}
+                  color={c.warmGray}
+                  style={{ opacity: 0.4, marginBottom: 8 }}
+                />
                 <p
                   style={{
                     fontFamily: fonts.ui,
                     fontSize: 13,
-                    fontWeight: 600,
-                    color: c.white,
+                    color: c.warmGray,
                     margin: 0,
                   }}
                 >
-                  Demo Toast Notification
-                </p>
-                <p
-                  style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 11,
-                    color: "rgba(255,255,255,0.75)",
-                    margin: 0,
-                  }}
-                >
-                  Tap to trigger a slide-in toast
+                  No classes scheduled today
                 </p>
               </div>
             </div>
-            <ChevronRight size={16} color={c.white} />
-          </button>
-        </motion.div>
-
-        {/* Today's Schedule */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 10,
-            }}
-          >
-            <p
-              style={{
-                fontFamily: fonts.ui,
-                fontSize: 12,
-                fontWeight: 600,
-                color: c.warmGray,
-                textTransform: "uppercase",
-                letterSpacing: 0.8,
-                margin: 0,
-              }}
-            >
-              Today's Schedule
-            </p>
-            <button
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                color: c.baseRed,
-              }}
-            >
-              <span
-                style={{ fontFamily: fonts.ui, fontSize: 12, fontWeight: 500 }}
-              >
-                View all
-              </span>
-              <ChevronRight size={14} />
-            </button>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {upcomingEvents.map((event) => (
-              <div
-                key={event.id}
-                style={{
-                  background: c.white,
-                  borderRadius: 12,
-                  padding: "12px 14px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  boxShadow: shadow.card,
-                }}
-              >
-                <div
-                  style={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: 10,
-                    background:
-                      event.type === "class"
-                        ? `${c.baseRed}18`
-                        : event.type === "lab"
-                          ? "#1D4ED818"
-                          : "#D9770618",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Calendar
-                    size={18}
-                    color={
-                      event.type === "class"
-                        ? c.baseRed
-                        : event.type === "lab"
-                          ? "#1D4ED8"
-                          : "#D97706"
-                    }
-                  />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p
-                    style={{
-                      fontFamily: fonts.ui,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: c.darkBrown,
-                      margin: 0,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {event.title}
-                  </p>
-                  <p
-                    style={{
-                      fontFamily: fonts.ui,
-                      fontSize: 11,
-                      color: c.warmGray,
-                      margin: "2px 0 0",
-                    }}
-                  >
-                    {event.time} · {event.room}
-                  </p>
-                </div>
-                <div
-                  style={{
-                    background:
-                      event.type === "class"
-                        ? `${c.baseRed}15`
-                        : event.type === "lab"
-                          ? "#1D4ED815"
-                          : "#D9770615",
-                    borderRadius: 20,
-                    padding: "3px 8px",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: fonts.ui,
-                      fontSize: 10,
-                      fontWeight: 600,
-                      color:
-                        event.type === "class"
-                          ? c.baseRed
-                          : event.type === "lab"
-                            ? "#1D4ED8"
-                            : "#D97706",
-                    }}
-                  >
-                    {event.type}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
 
         {/* Announcements */}
         <motion.div
@@ -645,68 +558,86 @@ export function Home() {
             </button>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {announcements.map((ann) => (
-              <div
-                key={ann.id}
+            {announcements.length === 0 ? (
+              <p
                 style={{
-                  background: c.white,
-                  borderRadius: 12,
-                  padding: "12px 14px",
-                  boxShadow: shadow.card,
-                  borderLeft: `3px solid ${ann.type === "urgent" ? c.baseRed : ann.type === "warning" ? "#D97706" : "#1D4ED8"}`,
+                  fontFamily: fonts.ui,
+                  fontSize: 12,
+                  color: c.warmGray,
+                  textAlign: "center",
+                  padding: 20,
                 }}
               >
+                No announcements yet
+              </p>
+            ) : (
+              announcements.map((ann) => (
                 <div
-                  style={{ display: "flex", alignItems: "flex-start", gap: 10 }}
+                  key={ann.id}
+                  style={{
+                    background: c.white,
+                    borderRadius: 12,
+                    padding: "12px 14px",
+                    boxShadow: shadow.card,
+                    borderLeft: `3px solid ${ann.type === "urgent" ? c.baseRed : ann.type === "warning" ? "#D97706" : "#1D4ED8"}`,
+                  }}
                 >
-                  <Megaphone
-                    size={16}
-                    color={
-                      ann.type === "urgent"
-                        ? c.baseRed
-                        : ann.type === "warning"
-                          ? "#D97706"
-                          : "#1D4ED8"
-                    }
-                    style={{ flexShrink: 0, marginTop: 2 }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <p
-                      style={{
-                        fontFamily: fonts.ui,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: c.darkBrown,
-                        margin: 0,
-                      }}
-                    >
-                      {ann.title}
-                    </p>
-                    <p
-                      style={{
-                        fontFamily: fonts.ui,
-                        fontSize: 12,
-                        color: c.warmGray,
-                        margin: "3px 0 0",
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      {ann.body}
-                    </p>
-                    <p
-                      style={{
-                        fontFamily: fonts.mono,
-                        fontSize: 10,
-                        color: c.warmGrayLight,
-                        margin: "4px 0 0",
-                      }}
-                    >
-                      {ann.time}
-                    </p>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 10,
+                    }}
+                  >
+                    <Megaphone
+                      size={16}
+                      color={
+                        ann.type === "urgent"
+                          ? c.baseRed
+                          : ann.type === "warning"
+                            ? "#D97706"
+                            : "#1D4ED8"
+                      }
+                      style={{ flexShrink: 0, marginTop: 2 }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <p
+                        style={{
+                          fontFamily: fonts.ui,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: c.darkBrown,
+                          margin: 0,
+                        }}
+                      >
+                        {ann.title}
+                      </p>
+                      <p
+                        style={{
+                          fontFamily: fonts.ui,
+                          fontSize: 12,
+                          color: c.warmGray,
+                          margin: "3px 0 0",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {ann.body}
+                      </p>
+                      <p
+                        style={{
+                          fontFamily: fonts.mono,
+                          fontSize: 10,
+                          color: c.warmGrayLight,
+                          margin: "4px 0 0",
+                        }}
+                      >
+                        {ann.time}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </motion.div>
 

@@ -1,142 +1,29 @@
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
   MapPin,
-  Clock,
   Navigation,
   Share2,
-  Footprints,
-  ChevronRight,
   BookOpen,
   Laptop,
   Building2,
+  Loader,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+import { supabase } from "../../lib/supabase";
 
-const locationData: Record<
-  string,
-  {
-    name: string;
-    category: string;
-    iconKey: "library" | "lab" | "office";
-    color: string;
-    floor: string;
-    building: string;
-    address: string;
-    distance: string;
-    walkTime: string;
-    hours: string;
-    description: string;
-    directions: { step: number; instruction: string; distance: string }[];
-  }
-> = {
-  "1": {
-    name: "Main Library",
-    category: "Library",
-    iconKey: "library",
-    color: "#7C3AED",
-    floor: "Ground Floor",
-    building: "Academic Building",
-    address: "OLFU Valenzuela Campus",
-    distance: "120m",
-    walkTime: "~2 min walk",
-    hours: "Mon–Fri: 7:30 AM – 8:00 PM · Sat: 8:00 AM – 5:00 PM",
-    description:
-      "The main library provides access to academic resources, e-books, journals, and quiet study spaces for students and faculty.",
-    directions: [
-      {
-        step: 1,
-        instruction: "Head south toward the Main Hallway",
-        distance: "15m",
-      },
-      {
-        step: 2,
-        instruction: "Turn right at the Academic Building entrance",
-        distance: "40m",
-      },
-      {
-        step: 3,
-        instruction: "Continue straight past the guard post",
-        distance: "50m",
-      },
-      {
-        step: 4,
-        instruction: "Main Library is on your left at Ground Floor",
-        distance: "15m",
-      },
-    ],
-  },
-  "2": {
-    name: "Computer Lab 204",
-    category: "Labs",
-    iconKey: "lab",
-    color: "#059669",
-    floor: "2nd Floor",
-    building: "ICT Building",
-    address: "OLFU Valenzuela Campus",
-    distance: "85m",
-    walkTime: "~1 min walk",
-    hours: "Mon–Sat: 7:00 AM – 9:00 PM (Schedule-based)",
-    description:
-      "Computer Lab 204 is equipped with 40 desktop computers running the latest software for programming, design, and data analysis courses.",
-    directions: [
-      {
-        step: 1,
-        instruction: "Head north toward the ICT Building",
-        distance: "40m",
-      },
-      {
-        step: 2,
-        instruction: "Enter through the main ICT Building entrance",
-        distance: "20m",
-      },
-      {
-        step: 3,
-        instruction: "Take the stairs or elevator to 2nd Floor",
-        distance: "15m",
-      },
-      {
-        step: 4,
-        instruction: "Computer Lab 204 is at the end of the hallway",
-        distance: "10m",
-      },
-    ],
-  },
-  "3": {
-    name: "CCS Department Office",
-    category: "Offices",
-    iconKey: "office",
-    color: c.baseRed,
-    floor: "3rd Floor",
-    building: "Technology Building",
-    address: "OLFU Valenzuela Campus",
-    distance: "200m",
-    walkTime: "~3 min walk",
-    hours: "Mon–Fri: 8:00 AM – 5:00 PM",
-    description:
-      "The College of Computer Studies department office handles academic concerns, enrollment inquiries, and program-related matters.",
-    directions: [
-      {
-        step: 1,
-        instruction: "Walk east toward the Technology Building",
-        distance: "80m",
-      },
-      {
-        step: 2,
-        instruction: "Enter Technology Building via main entrance",
-        distance: "30m",
-      },
-      { step: 3, instruction: "Take the stairs to 3rd Floor", distance: "60m" },
-      {
-        step: 4,
-        instruction: "CCS Office is Room 301, first door on the left",
-        distance: "30m",
-      },
-    ],
-  },
-};
-
-const defaultLocation = locationData["1"];
+interface LocData {
+  name: string;
+  category: string;
+  iconKey: string;
+  color: string;
+  floor: string;
+  building: string;
+  description: string;
+  latitude: number | null;
+  longitude: number | null;
+}
 
 function RouteMap({ color }: { color: string }) {
   return (
@@ -243,13 +130,102 @@ function RouteMap({ color }: { color: string }) {
 export function LocationDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const loc = locationData[id || "1"] || defaultLocation;
+  const [loc, setLoc] = useState<LocData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("campus_locations")
+        .select(
+          "name, category, description, floor, building, icon_key, color, latitude, longitude",
+        )
+        .eq("id", Number(id) || 0)
+        .single();
+      if (data) {
+        setLoc({
+          name: data.name ?? "",
+          category: data.category ?? "",
+          iconKey: data.icon_key ?? "office",
+          color: data.color ?? c.baseRed,
+          floor: data.floor ?? "",
+          building: data.building ?? "",
+          description: data.description ?? "",
+          latitude: data.latitude,
+          longitude: data.longitude,
+        });
+      }
+      setLoading(false);
+    })();
+  }, [id]);
+
   const locationIcon = (size: number) => {
+    if (!loc) return null;
     if (loc.iconKey === "library")
       return <BookOpen size={size} color={loc.color} />;
     if (loc.iconKey === "lab") return <Laptop size={size} color={loc.color} />;
     return <Building2 size={size} color={loc.color} />;
   };
+
+  const handleGetDirections = () => {
+    if (loc?.latitude && loc?.longitude) {
+      window.open(
+        `https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}`,
+        "_blank",
+      );
+    }
+  };
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Loader
+          size={24}
+          color={c.baseRed}
+          style={{ animation: "spin 1s linear infinite" }}
+        />
+      </div>
+    );
+  }
+
+  if (!loc) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 12,
+        }}
+      >
+        <p style={{ fontFamily: fonts.ui, fontSize: 16, color: c.darkBrown }}>
+          Location not found
+        </p>
+        <button
+          onClick={() => navigate(-1)}
+          style={{
+            fontFamily: fonts.ui,
+            fontSize: 13,
+            color: c.baseRed,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
+          Go back
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -384,90 +360,30 @@ export function LocationDetail() {
           </div>
         </div>
 
-        {/* Walk time */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            background: c.creamLight,
-            borderRadius: 10,
-            padding: "10px 14px",
-            marginBottom: 14,
-          }}
-        >
-          <Footprints size={18} color={c.baseRed} />
-          <div>
-            <p
-              style={{
-                fontFamily: fonts.ui,
-                fontSize: 12,
-                fontWeight: 600,
-                color: c.darkBrown,
-                margin: 0,
-              }}
-            >
-              {loc.walkTime}
-            </p>
-            <p
-              style={{
-                fontFamily: fonts.ui,
-                fontSize: 11,
-                color: c.warmGray,
-                margin: 0,
-              }}
-            >
-              {loc.distance} from your location
-            </p>
-          </div>
-        </div>
-
-        {/* Hours */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 8,
-            marginBottom: 14,
-          }}
-        >
-          <Clock
-            size={16}
-            color={c.warmGray}
-            style={{ marginTop: 2, flexShrink: 0 }}
-          />
+        {/* Description */}
+        {loc.description && (
           <p
             style={{
               fontFamily: fonts.ui,
               fontSize: 13,
-              color: c.warmGray,
-              margin: 0,
-              lineHeight: 1.5,
+              color: c.darkBrown,
+              lineHeight: 1.6,
+              margin: "0 0 16px",
             }}
           >
-            {loc.hours}
+            {loc.description}
           </p>
-        </div>
-
-        {/* Description */}
-        <p
-          style={{
-            fontFamily: fonts.ui,
-            fontSize: 13,
-            color: c.darkBrown,
-            lineHeight: 1.6,
-            margin: "0 0 16px",
-          }}
-        >
-          {loc.description}
-        </p>
+        )}
 
         {/* Action buttons */}
         <button
+          onClick={handleGetDirections}
+          disabled={!loc.latitude || !loc.longitude}
           style={{
             width: "100%",
             height: 50,
-            background: g.button,
+            background:
+              loc.latitude && loc.longitude ? g.button : "rgba(139,115,85,0.2)",
             border: "none",
             borderRadius: 12,
             display: "flex",
@@ -477,14 +393,16 @@ export function LocationDetail() {
             fontFamily: fonts.ui,
             fontSize: 15,
             fontWeight: 600,
-            color: c.cream,
-            cursor: "pointer",
+            color: loc.latitude && loc.longitude ? c.cream : c.warmGray,
+            cursor: loc.latitude && loc.longitude ? "pointer" : "default",
             marginBottom: 10,
-            boxShadow: shadow.button,
+            boxShadow: loc.latitude && loc.longitude ? shadow.button : "none",
           }}
         >
           <Navigation size={18} />
-          Get Directions
+          {loc.latitude && loc.longitude
+            ? "Get Directions"
+            : "No coordinates available"}
         </button>
         <button
           style={{
@@ -508,104 +426,6 @@ export function LocationDetail() {
           <Share2 size={18} />
           Share Location
         </button>
-
-        {/* Step by step directions */}
-        <p
-          style={{
-            fontFamily: fonts.ui,
-            fontSize: 12,
-            fontWeight: 700,
-            color: c.warmGray,
-            textTransform: "uppercase",
-            letterSpacing: 0.8,
-            margin: "0 0 10px",
-          }}
-        >
-          Step-by-Step Directions
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-          {loc.directions.map((dir, i) => (
-            <div
-              key={dir.step}
-              style={{
-                display: "flex",
-                gap: 12,
-                paddingBottom: i < loc.directions.length - 1 ? 16 : 0,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <div
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    background:
-                      i === 0
-                        ? g.button
-                        : i === loc.directions.length - 1
-                          ? loc.color
-                          : c.cream,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    border: `2px solid ${i === 0 ? "transparent" : c.baseRed}`,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: fonts.mono,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: i === 0 ? c.cream : c.baseRed,
-                    }}
-                  >
-                    {dir.step}
-                  </span>
-                </div>
-                {i < loc.directions.length - 1 && (
-                  <div
-                    style={{
-                      width: 2,
-                      flex: 1,
-                      marginTop: 4,
-                      background: `${c.baseRed}30`,
-                      minHeight: 16,
-                    }}
-                  />
-                )}
-              </div>
-              <div style={{ flex: 1, paddingTop: 4 }}>
-                <p
-                  style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 13,
-                    color: c.darkBrown,
-                    margin: "0 0 2px",
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {dir.instruction}
-                </p>
-                <span
-                  style={{
-                    fontFamily: fonts.mono,
-                    fontSize: 11,
-                    color: c.warmGray,
-                  }}
-                >
-                  {dir.distance}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );

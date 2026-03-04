@@ -220,9 +220,9 @@ export function Register() {
     id: !form.id.trim()
       ? `${role === "student" ? "Student" : "Employee"} ID is required.`
       : role === "student"
-        ? /^\d{4}-\d{5}$/.test(form.id.trim())
+        ? /^\d{11}$/.test(form.id.trim())
           ? ""
-          : "Format must be YYYY-12345."
+          : "Format must be 11 digits (e.g. 01230001234)."
         : /^FAC-\d{4}-\d{3}$/i.test(form.id.trim())
           ? ""
           : "Format must be FAC-YYYY-000.",
@@ -298,10 +298,14 @@ export function Register() {
       return;
     }
 
-    setSubmitMessage(
-      result.message ??
-        "Registration successful. Your account is waiting for admin approval.",
-    );
+    // Redirect to pending-approval screen with the user's email
+    navigate("/pending-approval", {
+      replace: true,
+      state: {
+        email: form.email.trim(),
+        name: `${form.firstName} ${form.lastName}`.trim(),
+      },
+    });
   };
 
   return (

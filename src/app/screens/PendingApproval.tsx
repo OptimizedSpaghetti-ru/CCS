@@ -1,14 +1,25 @@
-import { useNavigate } from "react-router";
-import { ShieldCheck, LogOut } from "lucide-react";
+import { useNavigate, useLocation } from "react-router";
+import { ShieldCheck, LogOut, Mail, Clock } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { useApp } from "../context/AppContext";
 
 export function PendingApproval() {
   const navigate = useNavigate();
-  const { currentUser, signOut } = useApp();
+  const location = useLocation();
+  const { currentUser, signOut, isAuthenticated } = useApp();
 
-  const handleSignOut = async () => {
-    await signOut();
+  // Support both authenticated users and post-registration redirect (via route state)
+  const routeState = (location.state ?? {}) as {
+    email?: string;
+    name?: string;
+  };
+  const displayName = currentUser?.name || routeState.name || "there";
+  const displayEmail = currentUser?.email || routeState.email || "";
+
+  const handleAction = async () => {
+    if (isAuthenticated) {
+      await signOut();
+    }
     navigate("/login", { replace: true });
   };
 
@@ -67,23 +78,65 @@ export function PendingApproval() {
             lineHeight: 1.5,
           }}
         >
-          Hi {currentUser.name || "there"}, your account was created
-          successfully but is not active yet. An administrator needs to approve
-          your access.
-        </p>
-        <p
-          style={{
-            fontFamily: fonts.mono,
-            fontSize: 12,
-            margin: "0 0 18px",
-            color: c.warmGray,
-          }}
-        >
-          {currentUser.email}
+          Hi {displayName}, your account was created successfully but is not
+          active yet. An administrator needs to review and approve your access
+          before you can log in.
         </p>
 
+        {displayEmail && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: c.cream,
+              borderRadius: 10,
+              padding: "10px 14px",
+              marginBottom: 14,
+            }}
+          >
+            <Mail size={14} color={c.warmGray} />
+            <p
+              style={{
+                fontFamily: fonts.mono,
+                fontSize: 12,
+                margin: 0,
+                color: c.darkBrown,
+              }}
+            >
+              {displayEmail}
+            </p>
+          </div>
+        )}
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: "#FEF3C7",
+            borderRadius: 10,
+            padding: "10px 14px",
+            marginBottom: 18,
+          }}
+        >
+          <Clock size={14} color="#D97706" />
+          <p
+            style={{
+              fontFamily: fonts.ui,
+              fontSize: 12,
+              margin: 0,
+              color: "#92400E",
+              lineHeight: 1.4,
+            }}
+          >
+            You will be notified once your account has been approved. Please
+            check back later.
+          </p>
+        </div>
+
         <button
-          onClick={handleSignOut}
+          onClick={handleAction}
           style={{
             width: "100%",
             border: "none",
@@ -102,7 +155,7 @@ export function PendingApproval() {
           }}
         >
           <LogOut size={16} />
-          Sign Out
+          {isAuthenticated ? "Sign Out" : "Back to Login"}
         </button>
       </div>
     </div>

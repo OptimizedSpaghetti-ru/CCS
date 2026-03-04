@@ -22,6 +22,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+import { supabase } from "../../lib/supabase";
+import { useApp } from "../context/AppContext";
 
 function Toggle({
   value,
@@ -160,6 +162,7 @@ function SectionCard({ children }: { children: React.ReactNode }) {
 
 export function Settings() {
   const navigate = useNavigate();
+  const { currentUser, signOut, showToast } = useApp();
   const [s, setS] = useState({
     pushNotif: true,
     messageAlerts: true,
@@ -226,21 +229,26 @@ export function Settings() {
         {/* Account */}
         <SectionLabel text="Account" />
         <SectionCard>
-          <SettingRow
-            icon={<KeyRound size={18} />}
-            label="Change Password"
-            rightEl={<ChevronRight size={16} color={c.warmGray} />}
-          />
+          <div
+            onClick={() => navigate("/app/settings/security")}
+            style={{ cursor: "pointer" }}
+          >
+            <SettingRow
+              icon={<KeyRound size={18} />}
+              label="Change Password"
+              rightEl={<ChevronRight size={16} color={c.warmGray} />}
+            />
+          </div>
           <SettingRow
             icon={<Mail size={18} />}
             label="Linked Email"
-            sublabel="juan.delacruz@student.fatima.edu.ph"
+            sublabel={currentUser.email || "Not set"}
             rightEl={<ChevronRight size={16} color={c.warmGray} />}
           />
           <SettingRow
             icon={<BadgeCheck size={18} />}
             label="Student ID"
-            sublabel="01230001234"
+            sublabel={currentUser.id || "Not set"}
             rightEl={<ChevronRight size={16} color={c.warmGray} />}
           />
         </SectionCard>
@@ -443,7 +451,10 @@ export function Settings() {
             }}
           >
             <button
-              onClick={() => navigate("/")}
+              onClick={async () => {
+                await signOut();
+                navigate("/");
+              }}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -481,6 +492,26 @@ export function Settings() {
           </div>
           <div style={{ padding: "12px 0" }}>
             <button
+              onClick={async () => {
+                if (
+                  !window.confirm(
+                    "Are you sure you want to delete your account? This cannot be undone.",
+                  )
+                )
+                  return;
+                const { error } = await supabase.rpc("delete_own_account");
+                if (error) {
+                  showToast({
+                    type: "error",
+                    title: "Delete failed",
+                    preview: error.message,
+                    time: "now",
+                  });
+                } else {
+                  await signOut();
+                  navigate("/");
+                }
+              }}
               style={{
                 display: "flex",
                 alignItems: "center",

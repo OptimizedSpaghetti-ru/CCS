@@ -1,9 +1,15 @@
 import { useNavigate, useLocation } from "react-router";
-import { MessageSquare, Map, Home, Bell, User } from "lucide-react";
+import { MessageSquare, Map, Home, Bell, User, Shield } from "lucide-react";
 import { c, shadow, fonts } from "../theme";
 import { useApp } from "../context/AppContext";
 
-const tabs = [
+type Tab = {
+  icon: typeof Home;
+  label: string;
+  path: string;
+};
+
+const studentTabs: Tab[] = [
   { icon: MessageSquare, label: "Messages", path: "/app/messages" },
   { icon: Map, label: "Map", path: "/app/map" },
   { icon: Home, label: "Home", path: "/app/home" },
@@ -11,10 +17,33 @@ const tabs = [
   { icon: User, label: "Profile", path: "/app/profile" },
 ];
 
+const facultyTabs: Tab[] = [
+  { icon: MessageSquare, label: "Messages", path: "/app/messages" },
+  { icon: Map, label: "Map", path: "/app/map" },
+  { icon: Home, label: "Home", path: "/app/home" },
+  { icon: Bell, label: "Notifs", path: "/app/notifications" },
+  { icon: User, label: "Profile", path: "/app/profile" },
+];
+
+const adminTabs: Tab[] = [
+  { icon: Home, label: "Home", path: "/app/home" },
+  { icon: Shield, label: "Admin", path: "/app/admin" },
+  { icon: MessageSquare, label: "Messages", path: "/app/messages" },
+  { icon: Bell, label: "Notifs", path: "/app/notifications" },
+  { icon: User, label: "Profile", path: "/app/profile" },
+];
+
 export function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { unreadMessages, unreadNotifications } = useApp();
+  const { unreadMessages, unreadNotifications, currentUser } = useApp();
+
+  const tabs =
+    currentUser.role === "admin"
+      ? adminTabs
+      : currentUser.role === "faculty"
+        ? facultyTabs
+        : studentTabs;
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
   Bell,
@@ -11,11 +11,13 @@ import {
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { TopBar } from "../components/TopBar";
+import { supabase } from "../../lib/supabase";
+import { useApp } from "../context/AppContext";
 
 const tabs = ["All", "Messages", "Announcements", "Events"];
 
 interface Notif {
-  id: number;
+  id: string;
   type: "message" | "announcement" | "event";
   title: string;
   body: string;
@@ -24,83 +26,6 @@ interface Notif {
   day: string;
   path?: string;
 }
-
-const initialNotifs: Notif[] = [
-  {
-    id: 1,
-    type: "message",
-    title: "Prof. Santos sent you a message",
-    body: "Please check the updated capstone requirements on the LMS.",
-    time: "9:41 AM",
-    unread: true,
-    day: "Today",
-    path: "/app/messages/1",
-  },
-  {
-    id: 2,
-    type: "announcement",
-    title: "Enrollment Period Open",
-    body: "2nd Semester enrollment begins March 3–10. Log in to the student portal.",
-    time: "8:00 AM",
-    unread: true,
-    day: "Today",
-  },
-  {
-    id: 3,
-    type: "message",
-    title: "BSCS 3-A Group: 8 new messages",
-    body: "Alden: Anyone done with the ER diagram? I need help.",
-    time: "9:15 AM",
-    unread: true,
-    day: "Today",
-    path: "/app/messages/group/1",
-  },
-  {
-    id: 4,
-    type: "event",
-    title: "Capstone Defense Schedule",
-    body: "Your final defense is scheduled for March 15, 2:00 PM at Function Hall.",
-    time: "7:30 AM",
-    unread: false,
-    day: "Today",
-  },
-  {
-    id: 5,
-    type: "announcement",
-    title: "Lab 302 Maintenance Notice",
-    body: "Computer Lab 302 will be unavailable Feb 25–26 for maintenance.",
-    time: "3:00 PM",
-    unread: false,
-    day: "Yesterday",
-  },
-  {
-    id: 6,
-    type: "message",
-    title: "Prof. Bautista: Defense Form Reminder",
-    body: "Reminder: Submit your final defense form by Friday EOD.",
-    time: "2:15 PM",
-    unread: false,
-    day: "Yesterday",
-  },
-  {
-    id: 7,
-    type: "event",
-    title: "CCS Student Council Meeting",
-    body: "Meeting this Friday, 4 PM at the Function Hall. Attendance required.",
-    time: "10:00 AM",
-    unread: false,
-    day: "Yesterday",
-  },
-  {
-    id: 8,
-    type: "announcement",
-    title: "System Maintenance Alert",
-    body: "CCS Connect will undergo maintenance Sunday 12 AM–3 AM.",
-    time: "5:00 PM",
-    unread: false,
-    day: "Monday",
-  },
-];
 
 const typeConfig = {
   message: { icon: MessageSquare, color: c.baseRed, label: "Message" },
@@ -113,10 +38,10 @@ function NotifItem({
   onDismiss,
 }: {
   notif: Notif;
-  onDismiss: (id: number) => void;
+  onDismiss: (id: string) => void;
 }) {
   const navigate = useNavigate();
-  const conf = typeConfig[notif.type];
+  const conf = typeConfig[notif.type] ?? typeConfig.announcement;
   const Icon = conf.icon;
 
   return (
@@ -222,8 +147,82 @@ function NotifItem({
 
 export function Notifications() {
   const navigate = useNavigate();
+  const { currentUser } = useApp();
   const [activeTab, setActiveTab] = useState("All");
-  const [notifs, setNotifs] = useState(initialNotifs);
+  const [notifs, setNotifs] = useState<Notif[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  function dayLabel(iso: string) {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    return d.toLocaleDateString("en-US", { weekday: "long" });
+  }
+
+  function fmtTime(iso: string) {
+    return new Date(iso).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
+  const loadNotifs = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (!error && data) {
+      // Fetch read/dismissed status for current user
+      const ids = data.map((n: any) => n.id);
+      const { data: statuses } = await supabase
+        .from("notification_status")
+        .select("notification_id, read_at, dismissed_at")
+        .eq("user_id", currentUser.id)
+        .in("notification_id", ids);
+      const statusMap = new Map(
+        (statuses ?? []).map((s: any) => [s.notification_id, s]),
+      );
+      setNotifs(
+        data
+          .filter((n: any) => !statusMap.get(n.id)?.dismissed_at)
+          .map((n: any) => ({
+            id: n.id,
+            type: (["message", "announcement", "event"].includes(n.type)
+              ? n.type
+              : "announcement") as Notif["type"],
+            title: n.title,
+            body: n.body,
+            time: fmtTime(n.created_at),
+            unread: !statusMap.get(n.id)?.read_at,
+            day: dayLabel(n.created_at),
+          })),
+      );
+    }
+    setLoading(false);
+  }, [currentUser.id]);
+
+  useEffect(() => {
+    loadNotifs();
+
+    const channel = supabase
+      .channel("notifs-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications" },
+        () => {
+          loadNotifs();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadNotifs]);
 
   const filtered = notifs.filter((n) =>
     activeTab === "All"
@@ -244,10 +243,34 @@ export function Notifications() {
     {} as Record<string, Notif[]>,
   );
 
-  const dismiss = (id: number) =>
+  const dismiss = async (id: string) => {
     setNotifs((prev) => prev.filter((n) => n.id !== id));
-  const markAllRead = () =>
+    await supabase
+      .from("notification_status")
+      .upsert(
+        {
+          notification_id: id,
+          user_id: currentUser.id,
+          dismissed_at: new Date().toISOString(),
+        },
+        { onConflict: "notification_id,user_id" },
+      );
+  };
+
+  const markAllRead = async () => {
+    const unreadIds = notifs.filter((n) => n.unread).map((n) => n.id);
     setNotifs((prev) => prev.map((n) => ({ ...n, unread: false })));
+    if (unreadIds.length > 0) {
+      const rows = unreadIds.map((nid) => ({
+        notification_id: nid,
+        user_id: currentUser.id,
+        read_at: new Date().toISOString(),
+      }));
+      await supabase
+        .from("notification_status")
+        .upsert(rows, { onConflict: "notification_id,user_id" });
+    }
+  };
 
   return (
     <div

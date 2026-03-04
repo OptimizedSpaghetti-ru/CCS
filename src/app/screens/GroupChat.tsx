@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
   Settings,
@@ -15,66 +15,47 @@ import {
   Laugh,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+import { supabase } from "../../lib/supabase";
+import { useApp } from "../context/AppContext";
 
-const groupMessages = [
-  {
-    id: 1,
-    from: "Alden Santos",
-    initials: "AS",
-    color: "#7C3AED",
-    role: "student",
-    text: "Hi everyone. Has anyone finished the ER diagram? I need help.",
-    time: "9:00 AM",
-    reactions: { like: 3, support: 1, seen: 2 },
-    replies: 4,
-  },
-  {
-    id: 2,
-    from: "Me",
-    initials: "JC",
-    color: c.darkRed,
-    role: "student",
-    text: "Done na yung ours! Maraming ganaps, I'll share dito sa group.",
-    time: "9:05 AM",
-    reactions: { like: 5, support: 2 },
-    replies: 1,
-  },
-  {
-    id: 3,
-    from: "Kristine Lim",
-    initials: "KL",
-    color: "#D97706",
-    role: "student",
-    text: "Prof. Santos released the updated requirements. Macheck nyo sa LMS yung section 3.2 ha!",
-    time: "9:10 AM",
-    reactions: { like: 8, seen: 3 },
-    replies: 6,
-  },
-  {
-    id: 4,
-    from: "Renz Dela Cruz",
-    initials: "RD",
-    color: "#059669",
-    role: "student",
-    text: "Saan ba yung LMS? Nagbabago yung link nila.",
-    time: "9:15 AM",
-    reactions: { laugh: 6 },
-    replies: 2,
-  },
-  {
-    id: 5,
-    from: "Me",
-    initials: "JC",
-    color: c.darkRed,
-    role: "student",
-    text: "Hahaha! student.fatima.edu.ph/lms — lagyan ng BSCS 3-A sa search",
-    time: "9:18 AM",
-    reactions: { like: 4, support: 1 },
-    replies: 0,
-  },
+interface GroupMsg {
+  id: string;
+  from: string;
+  initials: string;
+  color: string;
+  role: string;
+  text: string;
+  time: string;
+  reactions: Record<string, number>;
+  replies: number;
+}
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+const MEMBER_COLORS = [
+  "#7C3AED",
+  "#D97706",
+  "#059669",
+  "#1D4ED8",
+  "#EA4335",
+  "#374151",
 ];
 
-function GroupMessage({ msg }: { msg: (typeof groupMessages)[0] }) {
+function GroupMessage({ msg }: { msg: GroupMsg }) {
   const isMe = msg.from === "Me";
   const reactionIcons = {
     like: <ThumbsUp size={11} color={c.warmGray} />,
@@ -222,7 +203,124 @@ function GroupMessage({ msg }: { msg: (typeof groupMessages)[0] }) {
 
 export function GroupChat() {
   const navigate = useNavigate();
+  const { id: conversationId } = useParams();
+  const { currentUser } = useApp();
   const [text, setText] = useState("");
+  const [groupMessages, setGroupMessages] = useState<GroupMsg[]>([]);
+  const [groupTitle, setGroupTitle] = useState("Group Chat");
+  const [memberCount, setMemberCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const loadMessages = useCallback(async () => {
+    if (!conversationId) return;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    /* Conversation meta */
+    const { data: conv } = await supabase
+      .from("conversations")
+      .select(
+        `id, title, conversation_members ( user_id, profiles:user_id ( id, full_name, role ) )`,
+      )
+      .eq("id", conversationId)
+      .maybeSingle();
+
+    if (conv) {
+      setGroupTitle(conv.title || "Group Chat");
+      setMemberCount((conv.conversation_members as any[])?.length ?? 0);
+    }
+
+    /* Build a name map from members */
+    const nameMap = new Map<string, { name: string; role: string }>();
+    for (const m of (conv?.conversation_members as any[]) ?? []) {
+      const p = m.profiles;
+      nameMap.set(m.user_id, {
+        name: m.user_id === userId ? "Me" : p?.full_name || "User",
+        role: p?.role || "student",
+      });
+    }
+
+    /* Messages */
+    const { data: msgs } = await supabase
+      .from("messages")
+      .select("id, body, sender_id, created_at")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true });
+
+    setGroupMessages(
+      (msgs ?? []).map((m: any, i: number) => {
+        const info = nameMap.get(m.sender_id) || {
+          name: "User",
+          role: "student",
+        };
+        return {
+          id: m.id,
+          from: info.name,
+          initials:
+            info.name === "Me" ? currentUser.initials : getInitials(info.name),
+          color:
+            info.name === "Me"
+              ? c.darkRed
+              : MEMBER_COLORS[i % MEMBER_COLORS.length],
+          role: info.role,
+          text: m.body,
+          time: fmtTime(m.created_at),
+          reactions: {},
+          replies: 0,
+        };
+      }),
+    );
+
+    setLoading(false);
+  }, [conversationId, currentUser.initials]);
+
+  useEffect(() => {
+    loadMessages();
+
+    const channel = supabase
+      .channel(`group-${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        () => {
+          loadMessages();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadMessages, conversationId]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [groupMessages]);
+
+  const sendMessage = async () => {
+    if (!text.trim() || !conversationId) return;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.user?.id) return;
+
+    const body = text.trim();
+    setText("");
+    await supabase.from("messages").insert({
+      conversation_id: conversationId,
+      sender_id: session.user.id,
+      body,
+    });
+  };
 
   return (
     <div
@@ -282,7 +380,7 @@ export function GroupChat() {
                 margin: 0,
               }}
             >
-              BSCS 3-A Group Chat
+              {groupTitle}
             </p>
             <p
               style={{
@@ -292,7 +390,7 @@ export function GroupChat() {
                 margin: 0,
               }}
             >
-              42 members · 8 online
+              {memberCount} members
             </p>
           </div>
           <button
@@ -322,96 +420,59 @@ export function GroupChat() {
           background: c.creamLight,
         }}
       >
-        {/* Pinned announcement */}
-        <div
-          style={{
-            background: c.white,
-            borderRadius: 12,
-            padding: "10px 14px",
-            borderLeft: `4px solid ${c.baseRed}`,
-            marginBottom: 16,
-            boxShadow: shadow.card,
-            display: "flex",
-            gap: 10,
-          }}
-        >
-          <Pin
-            size={16}
-            color={c.baseRed}
-            style={{ flexShrink: 0, marginTop: 2 }}
-          />
-          <div>
-            <p
-              style={{
-                fontFamily: fonts.ui,
-                fontSize: 12,
-                fontWeight: 700,
-                color: c.baseRed,
-                margin: "0 0 2px",
-                textTransform: "uppercase",
-                letterSpacing: 0.3,
-              }}
-            >
-              Pinned
-            </p>
-            <p
-              style={{
-                fontFamily: fonts.ui,
-                fontSize: 13,
-                color: c.darkBrown,
-                margin: 0,
-              }}
-            >
-              Reminder: Submit your System Design Document by{" "}
-              <strong>February 28, 11:59 PM</strong>. See requirements on LMS.
-            </p>
-            <p
-              style={{
-                fontFamily: fonts.mono,
-                fontSize: 10,
-                color: c.warmGray,
-                margin: "4px 0 0",
-              }}
-            >
-              Pinned by Prof. Santos · Feb 20
-            </p>
-          </div>
-        </div>
-
         {/* Date divider */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            margin: "8px 0 14px",
-          }}
-        >
-          <div
-            style={{ flex: 1, height: 1, background: "rgba(139,115,85,0.2)" }}
-          />
+        {groupMessages.length > 0 && (
           <div
             style={{
-              background: c.cream,
-              borderRadius: 20,
-              padding: "3px 12px",
-              border: "1px solid rgba(139,115,85,0.15)",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              margin: "8px 0 14px",
             }}
           >
-            <span
-              style={{ fontFamily: fonts.ui, fontSize: 11, color: c.warmGray }}
+            <div
+              style={{ flex: 1, height: 1, background: "rgba(139,115,85,0.2)" }}
+            />
+            <div
+              style={{
+                background: c.cream,
+                borderRadius: 20,
+                padding: "3px 12px",
+                border: "1px solid rgba(139,115,85,0.15)",
+              }}
             >
-              Today
-            </span>
+              <span
+                style={{
+                  fontFamily: fonts.ui,
+                  fontSize: 11,
+                  color: c.warmGray,
+                }}
+              >
+                Today
+              </span>
+            </div>
+            <div
+              style={{ flex: 1, height: 1, background: "rgba(139,115,85,0.2)" }}
+            />
           </div>
-          <div
-            style={{ flex: 1, height: 1, background: "rgba(139,115,85,0.2)" }}
-          />
-        </div>
+        )}
 
-        {groupMessages.map((msg) => (
-          <GroupMessage key={msg.id} msg={msg} />
-        ))}
+        {loading ? (
+          <p
+            style={{
+              fontFamily: fonts.ui,
+              fontSize: 13,
+              color: c.warmGray,
+              textAlign: "center",
+              padding: "20px 0",
+            }}
+          >
+            Loading…
+          </p>
+        ) : (
+          groupMessages.map((msg) => <GroupMessage key={msg.id} msg={msg} />)
+        )}
+        <div ref={bottomRef} />
       </div>
 
       {/* Input */}
@@ -452,7 +513,8 @@ export function GroupChat() {
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Message BSCS 3-A…"
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            placeholder={`Message ${groupTitle}…`}
             style={{
               flex: 1,
               background: "transparent",
@@ -476,6 +538,7 @@ export function GroupChat() {
           </button>
         </div>
         <button
+          onClick={sendMessage}
           style={{
             width: 42,
             height: 42,
@@ -485,7 +548,7 @@ export function GroupChat() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            cursor: "pointer",
+            cursor: text.trim() ? "pointer" : "default",
             boxShadow: text.trim() ? shadow.button : "none",
           }}
         >

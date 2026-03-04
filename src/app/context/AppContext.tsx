@@ -46,6 +46,7 @@ interface AppContextType {
     role: "student" | "faculty" | "admin";
     status: "pending" | "approved" | "rejected";
     id: string;
+    identifier: string;
     department: string;
     yearSection: string;
     email: string;
@@ -61,6 +62,7 @@ const FALLBACK_USER: AppContextType["currentUser"] = {
   role: "student",
   status: "pending",
   id: "",
+  identifier: "",
   department: "",
   yearSection: "",
   email: "",
@@ -153,7 +155,8 @@ function mapUserFromSession(
     name: fullName,
     role,
     status,
-    id: identifier,
+    id: session.user.id,
+    identifier,
     department,
     yearSection,
     email: session.user.email ?? "",
@@ -169,6 +172,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     useState<AppContextType["currentUser"]>(FALLBACK_USER);
   const [authError, setAuthError] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  /* ── Fetch unread counts ─────────────────────────────────── */
+  const refreshUnreadCounts = useCallback(async (userId: string) => {
+    if (!userId) return;
+    // Unread messages: messages where I'm a member of the conversation but not the sender, and read_at is null
+    const { data: myConvos } = await supabase
+      .from("conversation_members")
+      .select("conversation_id")
+      .eq("user_id", userId);
+    if (myConvos && myConvos.length > 0) {
+      const ids = myConvos.map((r: any) => r.conversation_id);
+      const { count: msgCount } = await supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .in("conversation_id", ids)
+        .neq("sender_id", userId)
+        .is("read_at", null);
+      setUnreadMessages(msgCount ?? 0);
+    } else {
+      setUnreadMessages(0);
+    }
+    // Unread notifications: notifications for this user (or role-broadcast) without a read row in notification_status
+    const { count: notifCount } = await supabase
+      .rpc("count_unread_notifications", { p_user_id: userId })
+      .maybeSingle()
+      .then((res) => ({ count: (res.data as any) ?? 0 }));
+    setUnreadNotifications(typeof notifCount === "number" ? notifCount : 0);
+  }, []);
 
   const showToast = useCallback((toast: Omit<ToastData, "id">) => {
     const id = Date.now().toString();
@@ -227,6 +260,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, [hydrateUser]);
+
+  /* ── Real-time unread badge refresh ──────────────────────── */
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const uid = session.user.id;
+    refreshUnreadCounts(uid);
+
+    const msgCh = supabase
+      .channel("unread-msgs")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages" },
+        () => {
+          refreshUnreadCounts(uid);
+        },
+      )
+      .subscribe();
+
+    const notifCh = supabase
+      .channel("unread-notifs")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifications" },
+        () => {
+          refreshUnreadCounts(uid);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notification_status" },
+        () => {
+          refreshUnreadCounts(uid);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(msgCh);
+      supabase.removeChannel(notifCh);
+    };
+  }, [session?.user?.id, refreshUnreadCounts]);
 
   const signIn = useCallback(async (identifier: string, password: string) => {
     const normalized = identifier.trim().toLowerCase();
@@ -300,6 +374,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
+        if (error.message.toLowerCase().includes("rate limit")) {
+          return {
+            error:
+              "Too many sign-up attempts. Please wait a few minutes before trying again.",
+          };
+        }
         return { error: error.message };
       }
 
@@ -345,8 +425,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         isAuthenticated: Boolean(session?.user),
         isApproved: currentUser.status === "approved",
         authError,
-        unreadMessages: 0,
-        unreadNotifications: 0,
+        unreadMessages,
+        unreadNotifications,
         toasts,
         showToast,
         dismissToast,

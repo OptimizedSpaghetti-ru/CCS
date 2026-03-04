@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
@@ -14,119 +14,49 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+import { supabase } from "../../lib/supabase";
+import { useApp } from "../context/AppContext";
 
-const chatData: Record<
-  string,
-  {
-    name: string;
-    role: string;
-    initials: string;
-    color: string;
-    online: boolean;
-    messages: {
-      id: number;
-      from: "me" | "other";
-      text: string;
-      time: string;
-      type?: string;
-    }[];
-  }
-> = {
-  "1": {
-    name: "Prof. Maria Santos",
-    role: "faculty",
-    initials: "MS",
-    color: c.darkRed,
-    online: true,
-    messages: [
-      {
-        id: 1,
-        from: "other",
-        text: "Good morning! I wanted to discuss your capstone project progress.",
-        time: "9:00 AM",
-      },
-      {
-        id: 2,
-        from: "me",
-        text: "Good morning po, Ma'am! We're currently on the design phase.",
-        time: "9:05 AM",
-      },
-      {
-        id: 3,
-        from: "other",
-        text: "Good. Please make sure to update your documentation as you go. Also, I uploaded the updated requirements on the LMS.",
-        time: "9:12 AM",
-      },
-      {
-        id: 4,
-        from: "me",
-        text: "Yes po! We already saw it. We have a question about section 3.2 about the system architecture.",
-        time: "9:15 AM",
-      },
-      {
-        id: 5,
-        from: "other",
-        text: "Of course! The architecture should follow the MVC pattern as discussed in class. Attach your current diagram so I can check.",
-        time: "9:18 AM",
-      },
-      {
-        id: 6,
-        from: "me",
-        text: "Thank you po! Here is our current ER diagram:",
-        time: "9:20 AM",
-        type: "file",
-      },
-      {
-        id: 7,
-        from: "other",
-        text: "I'll review this and give feedback by tomorrow.",
-        time: "9:25 AM",
-      },
-      {
-        id: 8,
-        from: "other",
-        text: "Please check the updated capstone requirements I uploaded on the LMS portal.",
-        time: "9:41 AM",
-      },
-    ],
-  },
-  "3": {
-    name: "Carlo Reyes",
-    role: "student",
-    initials: "CR",
-    color: "#059669",
-    online: true,
-    messages: [
-      { id: 1, from: "other", text: "Pre, kumain na tayo!", time: "8:45 AM" },
-      {
-        id: 2,
-        from: "me",
-        text: "Sandali lang, nagsusubmit pa ako ng assignment.",
-        time: "8:47 AM",
-      },
-      {
-        id: 3,
-        from: "other",
-        text: "Sige antayin kita sa canteen. Huwag ka mahuli sa schedule!",
-        time: "8:48 AM",
-      },
-      { id: 4, from: "me", text: "Tara na, kumain na.", time: "8:50 AM" },
-    ],
-  },
+interface ChatMeta {
+  name: string;
+  role: string;
+  initials: string;
+  color: string;
+  online: boolean;
+}
+
+interface MsgRow {
+  id: string;
+  from: "me" | "other";
+  text: string;
+  time: string;
+  type?: string;
+}
+
+const ROLE_COLORS: Record<string, string> = {
+  faculty: c.darkRed,
+  student: "#059669",
+  group: "#1D4ED8",
 };
 
-const defaultChat = chatData["1"];
+function getInitials(name: string) {
+  const parts = name.split(" ").filter(Boolean).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
+}
+
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 function MessageBubble({
   msg,
+  otherInitials,
 }: {
-  msg: {
-    id: number;
-    from: "me" | "other";
-    text: string;
-    time: string;
-    type?: string;
-  };
+  msg: MsgRow;
+  otherInitials: string;
 }) {
   const isMe = msg.from === "me";
 
@@ -242,7 +172,7 @@ function MessageBubble({
               color: c.white,
             }}
           >
-            MS
+            {otherInitials}
           </span>
         </div>
       )}
@@ -285,33 +215,131 @@ function MessageBubble({
 
 export function Chat() {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id: conversationId } = useParams();
+  const { currentUser } = useApp();
   const [text, setText] = useState("");
-  const [messages, setMessages] = useState(
-    (chatData[id || "1"] || defaultChat).messages,
-  );
-  const chat = chatData[id || "1"] || defaultChat;
+  const [messages, setMessages] = useState<MsgRow[]>([]);
+  const [chat, setChat] = useState<ChatMeta>({
+    name: "Loading…",
+    role: "student",
+    initials: "..",
+    color: ROLE_COLORS.student,
+    online: false,
+  });
+  const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const loadMessages = useCallback(async () => {
+    if (!conversationId) return;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    /* Conversation meta + members */
+    const { data: conv } = await supabase
+      .from("conversations")
+      .select(
+        `id, title, is_group,
+         conversation_members ( user_id, profiles:user_id ( id, full_name, role ) )`,
+      )
+      .eq("id", conversationId)
+      .maybeSingle();
+
+    if (conv) {
+      const members: any[] = conv.conversation_members ?? [];
+      const other = members
+        .filter((m: any) => m.user_id !== userId)
+        .map((m: any) => m.profiles)[0];
+      const name = conv.is_group
+        ? conv.title || "Group Chat"
+        : other?.full_name || "User";
+      const role = conv.is_group
+        ? "group"
+        : other?.role === "faculty"
+          ? "faculty"
+          : "student";
+      setChat({
+        name,
+        role,
+        initials: conv.is_group ? "GR" : getInitials(name),
+        color: ROLE_COLORS[role] || ROLE_COLORS.student,
+        online: false,
+      });
+    }
+
+    /* Messages */
+    const { data: msgs } = await supabase
+      .from("messages")
+      .select("id, body, sender_id, created_at")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true });
+
+    setMessages(
+      (msgs ?? []).map((m: any) => ({
+        id: m.id,
+        from: m.sender_id === userId ? "me" : "other",
+        text: m.body,
+        time: fmtTime(m.created_at),
+      })),
+    );
+
+    /* Mark as read */
+    await supabase
+      .from("messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("conversation_id", conversationId)
+      .neq("sender_id", userId)
+      .is("read_at", null);
+
+    setLoading(false);
+  }, [conversationId]);
+
+  useEffect(() => {
+    loadMessages();
+
+    /* Realtime subscription */
+    const channel = supabase
+      .channel(`chat-${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        () => {
+          loadMessages();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadMessages, conversationId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = () => {
-    if (!text.trim()) return;
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: prev.length + 1,
-        from: "me",
-        text: text.trim(),
-        time: new Date().toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-        }),
-      },
-    ]);
+  const sendMessage = async () => {
+    if (!text.trim() || !conversationId) return;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.user?.id) return;
+
+    const body = text.trim();
     setText("");
+
+    await supabase.from("messages").insert({
+      conversation_id: conversationId,
+      sender_id: session.user.id,
+      body,
+    });
   };
 
   return (
@@ -474,39 +502,91 @@ export function Chat() {
         }}
       >
         {/* Date divider */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            margin: "4px 0 8px",
-          }}
-        >
-          <div
-            style={{ flex: 1, height: 1, background: "rgba(139,115,85,0.2)" }}
-          />
+        {messages.length > 0 && (
           <div
             style={{
-              background: c.cream,
-              borderRadius: 20,
-              padding: "3px 12px",
-              border: "1px solid rgba(139,115,85,0.15)",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              margin: "4px 0 8px",
             }}
           >
-            <span
-              style={{ fontFamily: fonts.ui, fontSize: 11, color: c.warmGray }}
+            <div
+              style={{ flex: 1, height: 1, background: "rgba(139,115,85,0.2)" }}
+            />
+            <div
+              style={{
+                background: c.cream,
+                borderRadius: 20,
+                padding: "3px 12px",
+                border: "1px solid rgba(139,115,85,0.15)",
+              }}
             >
-              Today
-            </span>
+              <span
+                style={{
+                  fontFamily: fonts.ui,
+                  fontSize: 11,
+                  color: c.warmGray,
+                }}
+              >
+                {(() => {
+                  const first = messages[0];
+                  if (!first) return "Today";
+                  const raw = first.time;
+                  // time was formatted via fmtTime so parse from original — fallback to "Today"
+                  const d = new Date();
+                  const now = new Date();
+                  const diffDays = Math.floor(
+                    (now.getTime() - d.getTime()) / 86_400_000,
+                  );
+                  if (diffDays === 0) return "Today";
+                  if (diffDays === 1) return "Yesterday";
+                  return d.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  });
+                })()}
+              </span>
+            </div>
+            <div
+              style={{ flex: 1, height: 1, background: "rgba(139,115,85,0.2)" }}
+            />
           </div>
-          <div
-            style={{ flex: 1, height: 1, background: "rgba(139,115,85,0.2)" }}
-          />
-        </div>
+        )}
 
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} msg={msg} />
-        ))}
+        {loading ? (
+          <p
+            style={{
+              fontFamily: fonts.ui,
+              fontSize: 13,
+              color: c.warmGray,
+              textAlign: "center",
+              padding: "20px 0",
+            }}
+          >
+            Loading messages…
+          </p>
+        ) : messages.length === 0 ? (
+          <p
+            style={{
+              fontFamily: fonts.ui,
+              fontSize: 13,
+              color: c.warmGray,
+              textAlign: "center",
+              padding: "20px 0",
+            }}
+          >
+            No messages yet. Say hello!
+          </p>
+        ) : (
+          messages.map((msg) => (
+            <MessageBubble
+              key={msg.id}
+              msg={msg}
+              otherInitials={chat.initials}
+            />
+          ))
+        )}
         <div ref={bottomRef} />
       </div>
 

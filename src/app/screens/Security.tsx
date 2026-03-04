@@ -13,33 +13,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
-
-const sessions = [
-  {
-    id: 1,
-    device: "iPhone 14 Pro",
-    type: "mobile",
-    location: "Valenzuela, Metro Manila",
-    lastActive: "Active now",
-    current: true,
-  },
-  {
-    id: 2,
-    device: "MacBook Pro",
-    type: "desktop",
-    location: "Valenzuela, Metro Manila",
-    lastActive: "2 hours ago",
-    current: false,
-  },
-  {
-    id: 3,
-    device: "iPad Air",
-    type: "tablet",
-    location: "Caloocan, Metro Manila",
-    lastActive: "Yesterday",
-    current: false,
-  },
-];
+import { supabase } from "../../lib/supabase";
+import { useApp } from "../context/AppContext";
 
 function DeviceIcon({ type }: { type: string }) {
   if (type === "desktop") return <Monitor size={20} color={c.baseRed} />;
@@ -87,10 +62,63 @@ function Toggle({
 
 export function Security() {
   const navigate = useNavigate();
+  const { showToast } = useApp();
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [twoFactor, setTwoFactor] = useState(false);
   const [form, setForm] = useState({ current: "", newPass: "", confirm: "" });
+  const [saving, setSaving] = useState(false);
+
+  const handleUpdatePassword = async () => {
+    if (!form.newPass || !form.confirm) {
+      showToast({
+        type: "error",
+        title: "Missing fields",
+        preview: "Please fill in all password fields",
+        time: "now",
+      });
+      return;
+    }
+    if (form.newPass !== form.confirm) {
+      showToast({
+        type: "error",
+        title: "Mismatch",
+        preview: "New password and confirmation do not match",
+        time: "now",
+      });
+      return;
+    }
+    if (form.newPass.length < 8) {
+      showToast({
+        type: "error",
+        title: "Too short",
+        preview: "Password must be at least 8 characters",
+        time: "now",
+      });
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.auth.updateUser({
+      password: form.newPass,
+    });
+    setSaving(false);
+    if (error) {
+      showToast({
+        type: "error",
+        title: "Update failed",
+        preview: error.message,
+        time: "now",
+      });
+    } else {
+      showToast({
+        type: "message",
+        title: "Password updated",
+        preview: "Your password has been changed successfully",
+        time: "now",
+      });
+      setForm({ current: "", newPass: "", confirm: "" });
+    }
+  };
 
   return (
     <div
@@ -272,6 +300,8 @@ export function Security() {
           </div>
 
           <button
+            onClick={handleUpdatePassword}
+            disabled={saving}
             style={{
               width: "100%",
               height: 46,
@@ -282,11 +312,12 @@ export function Security() {
               fontSize: 14,
               fontWeight: 600,
               color: c.cream,
-              cursor: "pointer",
+              cursor: saving ? "default" : "pointer",
               boxShadow: shadow.button,
+              opacity: saving ? 0.6 : 1,
             }}
           >
-            Update Password
+            {saving ? "Updating…" : "Update Password"}
           </button>
         </div>
 
@@ -410,105 +441,79 @@ export function Security() {
             marginBottom: 20,
           }}
         >
-          {sessions.map((session, i) => (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "14px 16px",
+            }}
+          >
             <div
-              key={session.id}
               style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: `${c.baseRed}10`,
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
-                padding: "14px 16px",
-                borderBottom:
-                  i < sessions.length - 1
-                    ? "1px solid rgba(139,115,85,0.08)"
-                    : "none",
+                justifyContent: "center",
+                flexShrink: 0,
               }}
             >
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  background: `${c.baseRed}10`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <DeviceIcon type={session.type} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <p
-                    style={{
-                      fontFamily: fonts.ui,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: c.darkBrown,
-                      margin: 0,
-                    }}
-                  >
-                    {session.device}
-                  </p>
-                  {session.current && (
-                    <span
-                      style={{
-                        background: "#22C55E20",
-                        color: "#16A34A",
-                        borderRadius: 20,
-                        padding: "1px 7px",
-                        fontFamily: fonts.ui,
-                        fontSize: 10,
-                        fontWeight: 700,
-                      }}
-                    >
-                      Current
-                    </span>
-                  )}
-                </div>
+              <DeviceIcon type="mobile" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <p
                   style={{
                     fontFamily: fonts.ui,
-                    fontSize: 11,
-                    color: c.warmGray,
-                    margin: "2px 0 0",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: c.darkBrown,
+                    margin: 0,
                   }}
                 >
-                  {session.location} · {session.lastActive}
+                  This Device
                 </p>
-              </div>
-              {!session.current && (
-                <button
+                <span
                   style={{
-                    background: "none",
-                    border: `1.5px solid ${c.baseRed}40`,
-                    borderRadius: 8,
-                    padding: "5px 10px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
+                    background: "#22C55E20",
+                    color: "#16A34A",
+                    borderRadius: 20,
+                    padding: "1px 7px",
+                    fontFamily: fonts.ui,
+                    fontSize: 10,
+                    fontWeight: 700,
                   }}
                 >
-                  <LogOut size={13} color={c.baseRed} />
-                  <span
-                    style={{
-                      fontFamily: fonts.ui,
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: c.baseRed,
-                    }}
-                  >
-                    Revoke
-                  </span>
-                </button>
-              )}
+                  Current
+                </span>
+              </div>
+              <p
+                style={{
+                  fontFamily: fonts.ui,
+                  fontSize: 11,
+                  color: c.warmGray,
+                  margin: "2px 0 0",
+                }}
+              >
+                Active now
+              </p>
             </div>
-          ))}
+          </div>
         </div>
 
         <button
+          onClick={async () => {
+            await supabase.auth.signOut({ scope: "others" });
+            showToast({
+              type: "message",
+              title: "Done",
+              preview: "All other sessions have been signed out",
+              time: "now",
+            });
+          }}
           style={{
             width: "100%",
             height: 46,

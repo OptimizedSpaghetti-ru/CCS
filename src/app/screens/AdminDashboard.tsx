@@ -61,6 +61,10 @@ type CampusLocation = {
   id: number;
   name: string;
   category: string;
+  floor: string | null;
+  building: string | null;
+  icon_key: string | null;
+  color: string | null;
   latitude: number | null;
   longitude: number | null;
 };
@@ -90,6 +94,8 @@ export function AdminDashboard() {
   const [locationForm, setLocationForm] = useState({
     name: "",
     category: "",
+    floor: "",
+    building: "",
     latitude: "",
     longitude: "",
   });
@@ -106,7 +112,9 @@ export function AdminDashboard() {
         .order("created_at", { ascending: true }),
       supabase
         .from("campus_locations")
-        .select("id, name, category, latitude, longitude")
+        .select(
+          "id, name, category, floor, building, icon_key, color, latitude, longitude",
+        )
         .order("name", { ascending: true }),
     ]);
 
@@ -228,6 +236,8 @@ export function AdminDashboard() {
       .insert({
         name: locationForm.name.trim(),
         category: locationForm.category.trim(),
+        floor: locationForm.floor.trim() || null,
+        building: locationForm.building.trim() || null,
         latitude: Number.isNaN(latitude) ? null : latitude,
         longitude: Number.isNaN(longitude) ? null : longitude,
       });
@@ -238,7 +248,14 @@ export function AdminDashboard() {
       return;
     }
 
-    setLocationForm({ name: "", category: "", latitude: "", longitude: "" });
+    setLocationForm({
+      name: "",
+      category: "",
+      floor: "",
+      building: "",
+      latitude: "",
+      longitude: "",
+    });
     setFeedback("Campus location added.");
     await loadAdminData();
     setIsSaving(false);
