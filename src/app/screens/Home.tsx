@@ -7,7 +7,6 @@ import {
   Bell,
   BookOpen,
   ChevronRight,
-  Calendar,
   Megaphone,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
@@ -67,62 +66,6 @@ function QuickAction({
         {label}
       </span>
     </button>
-  );
-}
-
-function StatChip({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        background: c.white,
-        borderRadius: 12,
-        padding: "12px 14px",
-        boxShadow: shadow.card,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          marginBottom: 4,
-        }}
-      >
-        <span style={{ color: c.baseRed }}>{icon}</span>
-        <span
-          style={{
-            fontFamily: fonts.ui,
-            fontSize: 10,
-            color: c.warmGray,
-            fontWeight: 500,
-            textTransform: "uppercase",
-            letterSpacing: 0.3,
-          }}
-        >
-          {label}
-        </span>
-      </div>
-      <p
-        style={{
-          fontFamily: fonts.display,
-          fontSize: 20,
-          fontWeight: 700,
-          color: c.darkBrown,
-          margin: 0,
-        }}
-      >
-        {value}
-      </p>
-    </div>
   );
 }
 
@@ -280,60 +223,6 @@ export function Home() {
             </span>
           </div>
         </div>
-
-        {/* Stats row */}
-        {currentUser.role === "student" && (
-          <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-            {[
-              {
-                label: "GWA",
-                value: "1.75",
-                bg: "rgba(255,240,196,0.10)",
-                color: c.cream,
-              },
-              {
-                label: "Units",
-                value: "21",
-                bg: "rgba(255,240,196,0.10)",
-                color: c.cream,
-              },
-            ].map((s) => (
-              <div
-                key={s.label}
-                style={{
-                  flex: 1,
-                  background: s.bg,
-                  borderRadius: 10,
-                  padding: "8px 10px",
-                  textAlign: "center",
-                  border: "1px solid rgba(255,240,196,0.15)",
-                }}
-              >
-                <p
-                  style={{
-                    fontFamily: fonts.display,
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: s.color,
-                    margin: 0,
-                  }}
-                >
-                  {s.value}
-                </p>
-                <p
-                  style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 10,
-                    color: `${c.warmGrayLight}90`,
-                    margin: 0,
-                  }}
-                >
-                  {s.label}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       <div
@@ -408,87 +297,6 @@ export function Home() {
             )}
           </div>
         </motion.div>
-
-        {/* Today's Schedule - Students only */}
-        {currentUser.role === "student" && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 10,
-              }}
-            >
-              <p
-                style={{
-                  fontFamily: fonts.ui,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: c.warmGray,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.8,
-                  margin: 0,
-                }}
-              >
-                Today's Schedule
-              </p>
-              <button
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                  color: c.baseRed,
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 12,
-                    fontWeight: 500,
-                  }}
-                >
-                  View all
-                </span>
-                <ChevronRight size={14} />
-              </button>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div
-                style={{
-                  background: c.white,
-                  borderRadius: 12,
-                  padding: "24px 14px",
-                  textAlign: "center",
-                  boxShadow: shadow.card,
-                }}
-              >
-                <Calendar
-                  size={28}
-                  color={c.warmGray}
-                  style={{ opacity: 0.4, marginBottom: 8 }}
-                />
-                <p
-                  style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 13,
-                    color: c.warmGray,
-                    margin: 0,
-                  }}
-                >
-                  No classes scheduled today
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
 
         {/* Announcements */}
         <motion.div

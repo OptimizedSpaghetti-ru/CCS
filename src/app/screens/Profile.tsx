@@ -383,7 +383,7 @@ export function Profile() {
               <InfoRow
                 icon={<BookOpen size={14} />}
                 label="Program"
-                value={program || "Bachelor of Science in Computer Science"}
+                value={program || "Not set"}
               />
               <InfoRow
                 icon={<Building2 size={14} />}
