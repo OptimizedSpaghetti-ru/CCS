@@ -10,8 +10,6 @@ import {
   HelpCircle,
   LogOut,
   GraduationCap,
-  MessageSquare,
-  Users,
   BarChart3,
   BookOpen,
   Building2,
@@ -175,28 +173,11 @@ export function Profile() {
   const navigate = useNavigate();
   const { currentUser, signOut } = useApp();
 
-  const [msgCount, setMsgCount] = useState(0);
-  const [groupCount, setGroupCount] = useState(0);
   const [phone, setPhone] = useState("");
   const [program, setProgram] = useState("");
 
   useEffect(() => {
     (async () => {
-      /* total messages sent */
-      const { count: mc } = await supabase
-        .from("messages")
-        .select("id", { count: "exact", head: true })
-        .eq("sender_id", currentUser.id);
-      setMsgCount(mc ?? 0);
-
-      /* group conversations count */
-      const { data: groups } = await supabase
-        .from("conversation_members")
-        .select("conversation_id, conversations!inner(is_group)")
-        .eq("user_id", currentUser.id)
-        .eq("conversations.is_group", true);
-      setGroupCount(groups?.length ?? 0);
-
       /* extra profile fields */
       const { data: prof } = await supabase
         .from("profiles")
@@ -399,27 +380,16 @@ export function Profile() {
             zIndex: 5,
           }}
         >
-          {[
-            {
-              label: "Messages",
-              value: String(msgCount),
-              icon: <MessageSquare size={16} color={c.baseRed} />,
-            },
-            {
-              label: "Groups",
-              value: String(groupCount),
-              icon: <Users size={16} color={c.baseRed} />,
-            },
-            ...(currentUser.role === "student"
-              ? [
-                  {
-                    label: "GWA",
-                    value: "1.75",
-                    icon: <BarChart3 size={16} color={c.baseRed} />,
-                  },
-                ]
-              : []),
-          ].map((stat) => (
+          {(currentUser.role === "student"
+            ? [
+                {
+                  label: "GWA",
+                  value: "1.75",
+                  icon: <BarChart3 size={16} color={c.baseRed} />,
+                },
+              ]
+            : []
+          ).map((stat) => (
             <div
               key={stat.label}
               style={{

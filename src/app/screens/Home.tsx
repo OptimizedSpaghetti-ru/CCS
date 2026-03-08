@@ -149,7 +149,6 @@ export function Home() {
   const [announcements, setAnnouncements] = useState<
     { id: string; title: string; body: string; time: string; type: string }[]
   >([]);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -175,11 +174,6 @@ export function Home() {
           })),
         );
       }
-      /* unread notifications count */
-      const { count } = await supabase
-        .from("notifications")
-        .select("id", { count: "exact", head: true });
-      setUnreadCount(count ?? 0);
     })();
   }, [currentUser.id]);
 
@@ -288,72 +282,58 @@ export function Home() {
         </div>
 
         {/* Stats row */}
-        <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-          {(currentUser.role === "student"
-            ? [
-                {
-                  label: "Unread",
-                  value: String(unreadCount),
-                  bg: "rgba(255,240,196,0.15)",
-                  color: c.cream,
-                },
-                {
-                  label: "GWA",
-                  value: "1.75",
-                  bg: "rgba(255,240,196,0.10)",
-                  color: c.cream,
-                },
-                {
-                  label: "Units",
-                  value: "21",
-                  bg: "rgba(255,240,196,0.10)",
-                  color: c.cream,
-                },
-              ]
-            : [
-                {
-                  label: "Unread",
-                  value: String(unreadCount),
-                  bg: "rgba(255,240,196,0.15)",
-                  color: c.cream,
-                },
-              ]
-          ).map((s) => (
-            <div
-              key={s.label}
-              style={{
-                flex: 1,
-                background: s.bg,
-                borderRadius: 10,
-                padding: "8px 10px",
-                textAlign: "center",
-                border: "1px solid rgba(255,240,196,0.15)",
-              }}
-            >
-              <p
+        {currentUser.role === "student" && (
+          <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+            {[
+              {
+                label: "GWA",
+                value: "1.75",
+                bg: "rgba(255,240,196,0.10)",
+                color: c.cream,
+              },
+              {
+                label: "Units",
+                value: "21",
+                bg: "rgba(255,240,196,0.10)",
+                color: c.cream,
+              },
+            ].map((s) => (
+              <div
+                key={s.label}
                 style={{
-                  fontFamily: fonts.display,
-                  fontSize: 18,
-                  fontWeight: 700,
-                  color: s.color,
-                  margin: 0,
+                  flex: 1,
+                  background: s.bg,
+                  borderRadius: 10,
+                  padding: "8px 10px",
+                  textAlign: "center",
+                  border: "1px solid rgba(255,240,196,0.15)",
                 }}
               >
-                {s.value}
-              </p>
-              <p
-                style={{
-                  fontFamily: fonts.ui,
-                  fontSize: 10,
-                  color: `${c.warmGrayLight}90`,
-                  margin: 0,
-                }}
-              >
-                {s.label}
-              </p>
-            </div>
-          ))}
-        </div>
+                <p
+                  style={{
+                    fontFamily: fonts.display,
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: s.color,
+                    margin: 0,
+                  }}
+                >
+                  {s.value}
+                </p>
+                <p
+                  style={{
+                    fontFamily: fonts.ui,
+                    fontSize: 10,
+                    color: `${c.warmGrayLight}90`,
+                    margin: 0,
+                  }}
+                >
+                  {s.label}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div

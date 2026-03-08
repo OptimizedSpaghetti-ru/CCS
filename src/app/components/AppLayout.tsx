@@ -1,9 +1,12 @@
-import { Outlet } from "react-router";
+import { AnimatePresence, motion } from "motion/react";
+import { Outlet, useLocation } from "react-router";
 import { BottomNav } from "./BottomNav";
 import { ToastOverlay } from "./ToastOverlay";
 import { c } from "../theme";
 
 export function AppLayout() {
+  const location = useLocation();
+
   return (
     <div
       style={{
@@ -28,7 +31,23 @@ export function AppLayout() {
           paddingBottom: 70,
         }}
       >
-        <Outlet />
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 14, scale: 0.992 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.992 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              flex: 1,
+              minHeight: 0,
+            }}
+          >
+            <Outlet />
+          </motion.div>
+        </AnimatePresence>
       </div>
       <BottomNav />
     </div>

@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import { useNavigate, useLocation } from "react-router";
 import { MessageSquare, Map, Home, Bell, User, Shield } from "lucide-react";
 import { c, shadow, fonts } from "../theme";
@@ -76,9 +77,14 @@ export function BottomNav() {
               ? unreadNotifications
               : 0;
         return (
-          <button
+          <motion.button
             key={path}
             onClick={() => navigate(path)}
+            whileTap={{ scale: 0.9 }}
+            animate={{
+              y: active ? -1 : 0,
+            }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
             style={{
               flex: 1,
               display: "flex",
@@ -109,6 +115,7 @@ export function BottomNav() {
                 size={22}
                 color={active ? c.baseRed : c.warmGray}
                 strokeWidth={active ? 2.5 : 1.8}
+                style={{ transition: "color 0.16s ease" }}
               />
               {badge > 0 && (
                 <div
@@ -141,11 +148,12 @@ export function BottomNav() {
                 fontWeight: active ? 600 : 400,
                 color: active ? c.baseRed : c.warmGray,
                 letterSpacing: "-0.1px",
+                transition: "color 0.16s ease",
               }}
             >
               {label}
             </span>
-          </button>
+          </motion.button>
         );
       })}
     </div>
