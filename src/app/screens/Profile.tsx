@@ -10,7 +10,6 @@ import {
   HelpCircle,
   LogOut,
   GraduationCap,
-  BarChart3,
   BookOpen,
   Building2,
   CalendarDays,
@@ -370,71 +369,6 @@ export function Profile() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div
-          style={{
-            margin: "-16px 16px 0",
-            display: "flex",
-            gap: 10,
-            position: "relative",
-            zIndex: 5,
-          }}
-        >
-          {(currentUser.role === "student"
-            ? [
-                {
-                  label: "GWA",
-                  value: "1.75",
-                  icon: <BarChart3 size={16} color={c.baseRed} />,
-                },
-              ]
-            : []
-          ).map((stat) => (
-            <div
-              key={stat.label}
-              style={{
-                flex: 1,
-                background: c.white,
-                borderRadius: 12,
-                padding: "10px 8px",
-                textAlign: "center",
-                boxShadow: shadow.card,
-              }}
-            >
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                {stat.icon}
-              </span>
-              <p
-                style={{
-                  fontFamily: fonts.display,
-                  fontSize: 18,
-                  fontWeight: 700,
-                  color: c.darkBrown,
-                  margin: "4px 0 2px",
-                }}
-              >
-                {stat.value}
-              </p>
-              <p
-                style={{
-                  fontFamily: fonts.ui,
-                  fontSize: 10,
-                  color: c.warmGray,
-                  margin: 0,
-                }}
-              >
-                {stat.label}
-              </p>
-            </div>
-          ))}
-        </div>
-
         <div
           style={{
             padding: "20px 16px",
@@ -491,37 +425,6 @@ export function Profile() {
                     }}
                   >
                     Units Enrolled
-                  </p>
-                </div>
-                <div
-                  style={{
-                    flex: 1,
-                    background: c.creamLight,
-                    borderRadius: 8,
-                    padding: "8px 10px",
-                    textAlign: "center",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontFamily: fonts.mono,
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: c.darkBrown,
-                      margin: 0,
-                    }}
-                  >
-                    1.75
-                  </p>
-                  <p
-                    style={{
-                      fontFamily: fonts.ui,
-                      fontSize: 10,
-                      color: c.warmGray,
-                      margin: 0,
-                    }}
-                  >
-                    GWA
                   </p>
                 </div>
                 <div
