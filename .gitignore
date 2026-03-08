@@ -29,3 +29,4 @@ supabase/.temp/
 
 # TypeScript cache
 *.tsbuildinfo
+NUL
