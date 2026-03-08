@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Edit2,
@@ -15,7 +15,6 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
-import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
 import type { ReactNode } from "react";
 
@@ -173,21 +172,6 @@ export function Profile() {
   const { currentUser, signOut } = useApp();
 
   const [phone, setPhone] = useState("");
-  const [program, setProgram] = useState("");
-
-  useEffect(() => {
-    (async () => {
-      /* extra profile fields */
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("program")
-        .eq("id", currentUser.id)
-        .single();
-      if (prof) {
-        setProgram(prof.program ?? "");
-      }
-    })();
-  }, [currentUser.id]);
 
   const roleLabel =
     currentUser.role === "admin"
@@ -381,11 +365,6 @@ export function Profile() {
           {currentUser.role === "student" ? (
             <InfoCard title="Academic Information">
               <InfoRow
-                icon={<BookOpen size={14} />}
-                label="Program"
-                value={program || "Not set"}
-              />
-              <InfoRow
                 icon={<Building2 size={14} />}
                 label="College"
                 value={currentUser.department}
@@ -409,13 +388,6 @@ export function Profile() {
                 label="Department"
                 value={currentUser.department}
               />
-              {program && (
-                <InfoRow
-                  icon={<BookOpen size={14} />}
-                  label="Program Handled"
-                  value={program}
-                />
-              )}
             </InfoCard>
           )}
 
