@@ -1,13 +1,21 @@
 import { RouterProvider } from "react-router";
 import { router } from "./routes";
-import { AppProvider } from "./context/AppContext";
+import { AppProvider, useApp } from "./context/AppContext";
+
+function AppShell() {
+  const { themePreference } = useApp();
+
+  return (
+    <div className="app-container">
+      <RouterProvider key={themePreference} router={router} />
+    </div>
+  );
+}
 
 export default function App() {
   return (
     <AppProvider>
-      <div className="app-container">
-        <RouterProvider router={router} />
-      </div>
+      <AppShell />
     </AppProvider>
   );
 }

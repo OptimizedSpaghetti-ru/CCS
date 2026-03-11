@@ -282,7 +282,7 @@ export function Profile() {
                     fontFamily: fonts.ui,
                     fontSize: 9,
                     fontWeight: 700,
-                    color: c.white,
+                    color: c.cream,
                   }}
                 >
                   {roleLabel}

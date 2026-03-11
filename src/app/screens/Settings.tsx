@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -68,11 +68,13 @@ function SettingRow({
   label,
   sublabel,
   rightEl,
+  iconColor,
 }: {
   icon: React.ReactNode;
   label: string;
   sublabel?: string;
   rightEl: React.ReactNode;
+  iconColor?: string;
 }) {
   return (
     <div
@@ -92,7 +94,7 @@ function SettingRow({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: c.baseRed,
+          color: iconColor ?? c.baseRed,
         }}
       >
         {icon}
@@ -162,18 +164,93 @@ function SectionCard({ children }: { children: React.ReactNode }) {
 
 export function Settings() {
   const navigate = useNavigate();
-  const { currentUser, signOut, showToast } = useApp();
+  const {
+    currentUser,
+    signOut,
+    showToast,
+    themePreference,
+    resolvedThemeMode,
+    setThemePreference,
+  } = useApp();
+  const isDark = resolvedThemeMode === "dark";
   const [s, setS] = useState({
     pushNotif: true,
     messageAlerts: true,
     announcementAlerts: true,
     sound: false,
-    activeStatus: true,
   });
   const toggle = (k: keyof typeof s) => () =>
     setS((prev) => ({ ...prev, [k]: !prev[k] }));
 
-  const [theme, setTheme] = useState<"Light" | "Dark" | "System">("Light");
+  /* ── Active Status (persisted to profiles.show_online_status) ── */
+  const [activeStatus, setActiveStatus] = useState(true);
+  const [activeStatusLoading, setActiveStatusLoading] = useState(true);
+
+  useEffect(() => {
+    if (!currentUser.id) return;
+    supabase
+      .from("profiles")
+      .select("show_online_status")
+      .eq("id", currentUser.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data && typeof data.show_online_status === "boolean") {
+          setActiveStatus(data.show_online_status);
+        }
+        setActiveStatusLoading(false);
+      });
+  }, [currentUser.id]);
+
+  const toggleActiveStatus = async () => {
+    const next = !activeStatus;
+    setActiveStatus(next);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ show_online_status: next })
+      .eq("id", currentUser.id);
+    if (error) {
+      setActiveStatus(!next); // revert on failure
+      showToast({
+        type: "error",
+        title: "Update failed",
+        preview: error.message,
+        time: "now",
+      });
+    }
+  };
+
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) return;
+    setDeleteLoading(true);
+    setDeleteError("");
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: currentUser.email || "",
+      password: deletePassword,
+    });
+    if (authError) {
+      setDeleteError("Incorrect password. Please try again.");
+      setDeleteLoading(false);
+      return;
+    }
+    const { error } = await supabase.rpc("delete_own_account");
+    if (error) {
+      showToast({
+        type: "error",
+        title: "Delete failed",
+        preview: error.message,
+        time: "now",
+      });
+      setDeleteLoading(false);
+      return;
+    }
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <div
@@ -236,6 +313,7 @@ export function Settings() {
             <SettingRow
               icon={<KeyRound size={18} />}
               label="Change Password"
+              iconColor={isDark ? c.cream : c.baseRed}
               rightEl={<ChevronRight size={16} color={c.warmGray} />}
             />
           </div>
@@ -243,12 +321,14 @@ export function Settings() {
             icon={<Mail size={18} />}
             label="Linked Email"
             sublabel={currentUser.email || "Not set"}
+            iconColor={isDark ? c.cream : c.baseRed}
             rightEl={<ChevronRight size={16} color={c.warmGray} />}
           />
           <SettingRow
             icon={<BadgeCheck size={18} />}
             label="Student ID"
             sublabel={currentUser.id || "Not set"}
+            iconColor={isDark ? c.cream : c.baseRed}
             rightEl={<ChevronRight size={16} color={c.warmGray} />}
           />
         </SectionCard>
@@ -259,6 +339,7 @@ export function Settings() {
           <SettingRow
             icon={<Bell size={18} />}
             label="Push Notifications"
+            iconColor={isDark ? c.cream : c.baseRed}
             rightEl={
               <Toggle value={s.pushNotif} onChange={toggle("pushNotif")} />
             }
@@ -266,6 +347,7 @@ export function Settings() {
           <SettingRow
             icon={<MessageSquare size={18} />}
             label="Message Alerts"
+            iconColor={isDark ? c.cream : c.baseRed}
             rightEl={
               <Toggle
                 value={s.messageAlerts}
@@ -276,6 +358,7 @@ export function Settings() {
           <SettingRow
             icon={<Megaphone size={18} />}
             label="Announcement Alerts"
+            iconColor={isDark ? c.cream : c.baseRed}
             rightEl={
               <Toggle
                 value={s.announcementAlerts}
@@ -286,12 +369,14 @@ export function Settings() {
           <SettingRow
             icon={<Volume2 size={18} />}
             label="Sound"
+            iconColor={isDark ? c.cream : c.baseRed}
             rightEl={<Toggle value={s.sound} onChange={toggle("sound")} />}
           />
           <SettingRow
             icon={<SlidersHorizontal size={18} />}
             label="Notification Settings"
             sublabel="Manage categories & quiet hours"
+            iconColor={isDark ? c.cream : c.baseRed}
             rightEl={
               <button
                 onClick={() => navigate("/app/notifications/settings")}
@@ -325,7 +410,7 @@ export function Settings() {
                   textAlign: "center",
                   display: "flex",
                   justifyContent: "center",
-                  color: c.baseRed,
+                  color: isDark ? c.cream : c.baseRed,
                 }}
               >
                 <Palette size={18} />
@@ -344,24 +429,31 @@ export function Settings() {
               </p>
             </div>
             <div style={{ display: "flex", gap: 8, marginLeft: 40 }}>
-              {(["Light", "Dark", "System"] as const).map((t) => (
+              {(
+                [
+                  { label: "Light", value: "light" },
+                  { label: "Dark", value: "dark" },
+                  { label: "System", value: "system" },
+                ] as const
+              ).map((t) => (
                 <button
-                  key={t}
-                  onClick={() => setTheme(t)}
+                  key={t.value}
+                  onClick={() => setThemePreference(t.value)}
                   style={{
                     flex: 1,
                     height: 36,
-                    background: theme === t ? g.button : c.creamLight,
-                    border: `1.5px solid ${theme === t ? "transparent" : "rgba(139,115,85,0.2)"}`,
+                    background:
+                      themePreference === t.value ? g.button : c.creamLight,
+                    border: `1.5px solid ${themePreference === t.value ? "transparent" : "rgba(139,115,85,0.2)"}`,
                     borderRadius: 9,
                     fontFamily: fonts.ui,
                     fontSize: 12,
                     fontWeight: 600,
-                    color: theme === t ? c.cream : c.warmGray,
+                    color: themePreference === t.value ? c.cream : c.warmGray,
                     cursor: "pointer",
                   }}
                 >
-                  {t}
+                  {t.label}
                 </button>
               ))}
             </div>
@@ -375,6 +467,7 @@ export function Settings() {
             icon={<Shield size={18} />}
             label="Who can message me"
             sublabel="Everyone"
+            iconColor={isDark ? c.cream : c.baseRed}
             rightEl={
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <span
@@ -393,12 +486,16 @@ export function Settings() {
           <SettingRow
             icon={<Circle size={16} fill="#22C55E" color="#22C55E" />}
             label="Active Status"
-            sublabel="Show when you're online"
+            sublabel={
+              activeStatusLoading
+                ? "Loading…"
+                : activeStatus
+                  ? "Visible to others"
+                  : "Hidden from others"
+            }
+            iconColor="#22C55E"
             rightEl={
-              <Toggle
-                value={s.activeStatus}
-                onChange={toggle("activeStatus")}
-              />
+              <Toggle value={activeStatus} onChange={toggleActiveStatus} />
             }
           />
         </SectionCard>
@@ -410,6 +507,7 @@ export function Settings() {
             icon={<Smartphone size={18} />}
             label="App Version"
             sublabel="v1.0.0 (Build 2024.02)"
+            iconColor={isDark ? c.cream : c.baseRed}
             rightEl={
               <span
                 style={{
@@ -425,11 +523,13 @@ export function Settings() {
           <SettingRow
             icon={<FileText size={18} />}
             label="Terms of Service"
+            iconColor={isDark ? c.cream : c.baseRed}
             rightEl={<ChevronRight size={16} color={c.warmGray} />}
           />
           <SettingRow
             icon={<Lock size={18} />}
             label="Privacy Policy"
+            iconColor={isDark ? c.cream : c.baseRed}
             rightEl={<ChevronRight size={16} color={c.warmGray} />}
           />
         </SectionCard>
@@ -471,7 +571,7 @@ export function Settings() {
                   textAlign: "center",
                   display: "flex",
                   justifyContent: "center",
-                  color: c.baseRed,
+                  color: isDark ? c.cream : c.baseRed,
                 }}
               >
                 <LogOut size={18} />
@@ -480,7 +580,7 @@ export function Settings() {
                 style={{
                   fontFamily: fonts.ui,
                   fontSize: 14,
-                  color: c.baseRed,
+                  color: isDark ? c.cream : c.baseRed,
                   fontWeight: 600,
                   flex: 1,
                   textAlign: "left",
@@ -492,25 +592,10 @@ export function Settings() {
           </div>
           <div style={{ padding: "12px 0" }}>
             <button
-              onClick={async () => {
-                if (
-                  !window.confirm(
-                    "Are you sure you want to delete your account? This cannot be undone.",
-                  )
-                )
-                  return;
-                const { error } = await supabase.rpc("delete_own_account");
-                if (error) {
-                  showToast({
-                    type: "error",
-                    title: "Delete failed",
-                    preview: error.message,
-                    time: "now",
-                  });
-                } else {
-                  await signOut();
-                  navigate("/");
-                }
+              onClick={() => {
+                setDeletePassword("");
+                setDeleteError("");
+                setDeleteModal(true);
               }}
               style={{
                 display: "flex",
@@ -528,7 +613,7 @@ export function Settings() {
                   textAlign: "center",
                   display: "flex",
                   justifyContent: "center",
-                  color: `${c.baseRed}80`,
+                  color: isDark ? c.warmGrayLight : `${c.baseRed}80`,
                 }}
               >
                 <Trash2 size={18} />
@@ -537,7 +622,7 @@ export function Settings() {
                 style={{
                   fontFamily: fonts.ui,
                   fontSize: 14,
-                  color: `${c.baseRed}80`,
+                  color: isDark ? c.warmGrayLight : `${c.baseRed}80`,
                   fontWeight: 500,
                   flex: 1,
                   textAlign: "left",
@@ -549,6 +634,149 @@ export function Settings() {
           </div>
         </div>
       </div>
+
+      {/* Delete Account Modal */}
+      {deleteModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <div
+            style={{
+              background: c.white,
+              borderRadius: 20,
+              padding: 24,
+              width: "100%",
+              maxWidth: 340,
+              boxShadow: shadow.card,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 10,
+              }}
+            >
+              <Trash2 size={20} color={c.baseRed} />
+              <h2
+                style={{
+                  fontFamily: fonts.display,
+                  fontSize: 18,
+                  color: c.darkBrown,
+                  margin: 0,
+                  fontWeight: 700,
+                }}
+              >
+                Delete Account
+              </h2>
+            </div>
+            <p
+              style={{
+                fontFamily: fonts.ui,
+                fontSize: 13,
+                color: c.warmGray,
+                marginBottom: 16,
+                lineHeight: 1.5,
+              }}
+            >
+              This action is permanent and cannot be undone. Enter your password
+              to confirm.
+            </p>
+            <input
+              type="password"
+              placeholder="Enter your password"
+              value={deletePassword}
+              autoFocus
+              onChange={(e) => {
+                setDeletePassword(e.target.value);
+                setDeleteError("");
+              }}
+              onKeyDown={(e) => e.key === "Enter" && handleDeleteAccount()}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: `1.5px solid ${
+                  deleteError ? c.baseRed : "rgba(139,115,85,0.25)"
+                }`,
+                fontFamily: fonts.ui,
+                fontSize: 14,
+                color: c.darkBrown,
+                background: c.creamLight,
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+            {deleteError && (
+              <p
+                style={{
+                  fontFamily: fonts.ui,
+                  fontSize: 12,
+                  color: c.baseRed,
+                  margin: "6px 0 0",
+                }}
+              >
+                {deleteError}
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+              <button
+                onClick={() => {
+                  setDeleteModal(false);
+                  setDeletePassword("");
+                  setDeleteError("");
+                }}
+                style={{
+                  flex: 1,
+                  height: 42,
+                  background: c.creamLight,
+                  border: "1.5px solid rgba(139,115,85,0.2)",
+                  borderRadius: 12,
+                  fontFamily: fonts.ui,
+                  fontSize: 14,
+                  color: c.warmGray,
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!deletePassword || deleteLoading}
+                onClick={handleDeleteAccount}
+                style={{
+                  flex: 1,
+                  height: 42,
+                  background:
+                    deletePassword && !deleteLoading
+                      ? g.button
+                      : "rgba(139,115,85,0.3)",
+                  border: "none",
+                  borderRadius: 12,
+                  fontFamily: fonts.ui,
+                  fontSize: 14,
+                  color: c.cream,
+                  cursor:
+                    deletePassword && !deleteLoading ? "pointer" : "default",
+                  fontWeight: 600,
+                }}
+              >
+                {deleteLoading ? "Verifying…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

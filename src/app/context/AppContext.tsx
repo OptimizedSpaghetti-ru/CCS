@@ -8,6 +8,14 @@ import {
 import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
+import {
+  applyThemePreference,
+  getStoredThemePreference,
+  persistThemePreference,
+  subscribeToSystemTheme,
+  type ThemeMode,
+  type ThemePreference,
+} from "../theme";
 
 export interface ToastData {
   id: string;
@@ -27,6 +35,9 @@ interface AppContextType {
   toasts: ToastData[];
   showToast: (toast: Omit<ToastData, "id">) => void;
   dismissToast: (id: string) => void;
+  themePreference: ThemePreference;
+  resolvedThemeMode: ThemeMode;
+  setThemePreference: (preference: ThemePreference) => void;
   signIn: (identifier: string, password: string) => Promise<{ error?: string }>;
   signUp: (payload: {
     firstName: string;
@@ -174,6 +185,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [themePreference, setThemePreferenceState] = useState<ThemePreference>(
+    getStoredThemePreference,
+  );
+  const [resolvedThemeMode, setResolvedThemeMode] = useState<ThemeMode>(() =>
+    applyThemePreference(getStoredThemePreference()),
+  );
+
+  const setThemePreference = useCallback((preference: ThemePreference) => {
+    setThemePreferenceState(preference);
+  }, []);
+
+  useEffect(() => {
+    const mode = applyThemePreference(themePreference);
+    setResolvedThemeMode(mode);
+    persistThemePreference(themePreference);
+  }, [themePreference]);
+
+  useEffect(() => {
+    if (themePreference !== "system") return;
+    return subscribeToSystemTheme(() => {
+      const mode = applyThemePreference("system");
+      setResolvedThemeMode(mode);
+    });
+  }, [themePreference]);
 
   /* ── Fetch unread counts ─────────────────────────────────── */
   const refreshUnreadCounts = useCallback(async (userId: string) => {
@@ -225,6 +260,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      await supabase
+        .from("profiles")
+        .update({ is_online: true })
+        .eq("id", nextSession.user.id);
+
       const profile = await fetchProfile(nextSession.user.id);
       setCurrentUser(mapUserFromSession(nextSession, profile));
     } catch (error) {
@@ -430,6 +470,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         toasts,
         showToast,
         dismissToast,
+        themePreference,
+        resolvedThemeMode,
+        setThemePreference,
         signIn,
         signUp,
         signOut,

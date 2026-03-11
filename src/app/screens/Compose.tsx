@@ -288,7 +288,7 @@ export function Compose() {
                     fontFamily: fonts.ui,
                     fontSize: 9,
                     fontWeight: 700,
-                    color: c.white,
+                    color: c.cream,
                   }}
                 >
                   {r.initials}
@@ -393,7 +393,7 @@ export function Compose() {
                       fontFamily: fonts.ui,
                       fontSize: 12,
                       fontWeight: 700,
-                      color: c.white,
+                      color: c.cream,
                     }}
                   >
                     {s.initials}

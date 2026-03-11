@@ -141,6 +141,7 @@ export function Home() {
             height: 120,
             borderRadius: "50%",
             background: "rgba(255,240,196,0.06)",
+            pointerEvents: "none",
           }}
         />
         <div
@@ -152,6 +153,7 @@ export function Home() {
             height: 80,
             borderRadius: "50%",
             background: "rgba(255,240,196,0.04)",
+            pointerEvents: "none",
           }}
         />
         <div
@@ -160,6 +162,8 @@ export function Home() {
             alignItems: "center",
             justifyContent: "space-between",
             paddingTop: 12,
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <div>
@@ -199,7 +203,9 @@ export function Home() {
                   : currentUser.identifier}
             </p>
           </div>
-          <div
+          <button
+            onClick={() => navigate("/app/profile")}
+            aria-label="Open profile"
             style={{
               width: 48,
               height: 48,
@@ -209,6 +215,8 @@ export function Home() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              cursor: "pointer",
+              padding: 0,
             }}
           >
             <span
@@ -221,7 +229,7 @@ export function Home() {
             >
               {currentUser.initials}
             </span>
-          </div>
+          </button>
         </div>
       </div>
 

@@ -93,7 +93,7 @@ function GroupMessage({ msg }: { msg: GroupMsg }) {
               fontFamily: fonts.ui,
               fontSize: 10,
               fontWeight: 700,
-              color: c.white,
+              color: c.cream,
             }}
           >
             {msg.initials}

@@ -2,8 +2,6 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
-  Phone,
-  Video,
   Paperclip,
   Smile,
   Send,
@@ -12,6 +10,7 @@ import {
   Circle,
   BookOpen,
   GraduationCap,
+  ShieldCheck,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { supabase } from "../../lib/supabase";
@@ -23,6 +22,7 @@ interface ChatMeta {
   initials: string;
   color: string;
   online: boolean;
+  otherUserId?: string;
 }
 
 interface MsgRow {
@@ -34,6 +34,7 @@ interface MsgRow {
 }
 
 const ROLE_COLORS: Record<string, string> = {
+  admin: "#7C3AED",
   faculty: c.darkRed,
   student: "#059669",
   group: "#1D4ED8",
@@ -169,7 +170,7 @@ function MessageBubble({
               fontFamily: fonts.ui,
               fontSize: 10,
               fontWeight: 700,
-              color: c.white,
+              color: c.cream,
             }}
           >
             {otherInitials}
@@ -225,6 +226,7 @@ export function Chat() {
     initials: "..",
     color: ROLE_COLORS.student,
     online: false,
+    otherUserId: undefined,
   });
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -237,63 +239,64 @@ export function Chat() {
     const userId = session?.user?.id;
     if (!userId) return;
 
-    /* Conversation meta + members */
-    const { data: conv } = await supabase
-      .from("conversations")
-      .select(
-        `id, title, is_group,
-         conversation_members ( user_id, profiles:user_id ( id, full_name, role ) )`,
-      )
-      .eq("id", conversationId)
-      .maybeSingle();
+    try {
+      /* Conversation meta + members */
+      const { data: conv, error: convError } = await supabase
+        .from("conversations")
+        .select(
+          `id, title, is_group,
+           conversation_members ( user_id, profiles:user_id ( id, full_name, role, show_online_status, is_online ) )`,
+        )
+        .eq("id", conversationId)
+        .maybeSingle();
 
-    if (conv) {
-      const members: any[] = conv.conversation_members ?? [];
-      const other = members
-        .filter((m: any) => m.user_id !== userId)
-        .map((m: any) => m.profiles)[0];
-      const name = conv.is_group
-        ? conv.title || "Group Chat"
-        : other?.full_name || "User";
-      const role = conv.is_group
-        ? "group"
-        : other?.role === "faculty"
-          ? "faculty"
-          : "student";
-      setChat({
-        name,
-        role,
-        initials: conv.is_group ? "GR" : getInitials(name),
-        color: ROLE_COLORS[role] || ROLE_COLORS.student,
-        online: false,
-      });
+      if (conv) {
+        const members: any[] = conv.conversation_members ?? [];
+        const other = members
+          .filter((m: any) => m.user_id !== userId)
+          .map((m: any) => m.profiles)[0];
+        const name = conv.is_group
+          ? conv.title || "Group Chat"
+          : other?.full_name || "User";
+        const role = conv.is_group ? "group" : (other?.role ?? "student");
+        setChat({
+          name,
+          role,
+          initials: conv.is_group ? "GR" : getInitials(name),
+          color: ROLE_COLORS[role] || ROLE_COLORS.student,
+          online: Boolean(
+            other?.show_online_status !== false && other?.is_online,
+          ),
+          otherUserId: other?.id,
+        });
+      }
+
+      /* Messages */
+      const { data: msgs } = await supabase
+        .from("messages")
+        .select("id, body, sender_id, created_at")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true });
+
+      setMessages(
+        (msgs ?? []).map((m: any) => ({
+          id: m.id,
+          from: m.sender_id === userId ? "me" : "other",
+          text: m.body,
+          time: fmtTime(m.created_at),
+        })),
+      );
+
+      /* Mark as read */
+      await supabase
+        .from("messages")
+        .update({ read_at: new Date().toISOString() })
+        .eq("conversation_id", conversationId)
+        .neq("sender_id", userId)
+        .is("read_at", null);
+    } finally {
+      setLoading(false);
     }
-
-    /* Messages */
-    const { data: msgs } = await supabase
-      .from("messages")
-      .select("id, body, sender_id, created_at")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
-
-    setMessages(
-      (msgs ?? []).map((m: any) => ({
-        id: m.id,
-        from: m.sender_id === userId ? "me" : "other",
-        text: m.body,
-        time: fmtTime(m.created_at),
-      })),
-    );
-
-    /* Mark as read */
-    await supabase
-      .from("messages")
-      .update({ read_at: new Date().toISOString() })
-      .eq("conversation_id", conversationId)
-      .neq("sender_id", userId)
-      .is("read_at", null);
-
-    setLoading(false);
   }, [conversationId]);
 
   useEffect(() => {
@@ -396,7 +399,7 @@ export function Chat() {
                 fontFamily: fonts.ui,
                 fontSize: 13,
                 fontWeight: 700,
-                color: c.white,
+                color: c.cream,
               }}
             >
               {chat.initials}
@@ -447,45 +450,19 @@ export function Chat() {
             )}
             {chat.online ? "Active now" : "Offline"}
             <span style={{ opacity: 0.7 }}>·</span>
-            {chat.role === "faculty" ? (
+            {chat.role === "admin" ? (
+              <ShieldCheck size={11} />
+            ) : chat.role === "faculty" ? (
               <BookOpen size={11} />
             ) : (
               <GraduationCap size={11} />
             )}
-            {chat.role === "faculty" ? "Faculty" : "Student"}
+            {chat.role === "admin"
+              ? "Admin"
+              : chat.role === "faculty"
+                ? "Faculty"
+                : "Student"}
           </p>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            style={{
-              background: "rgba(255,240,196,0.15)",
-              border: "none",
-              borderRadius: 8,
-              width: 34,
-              height: 34,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-            }}
-          >
-            <Phone size={16} color={c.cream} />
-          </button>
-          <button
-            style={{
-              background: "rgba(255,240,196,0.15)",
-              border: "none",
-              borderRadius: 8,
-              width: 34,
-              height: 34,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-            }}
-          >
-            <Video size={16} color={c.cream} />
-          </button>
         </div>
       </div>
 

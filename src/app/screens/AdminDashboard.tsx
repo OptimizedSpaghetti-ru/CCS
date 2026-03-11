@@ -739,7 +739,7 @@ export function AdminDashboard() {
                 fontFamily: fonts.ui,
                 fontSize: 9,
                 fontWeight: 700,
-                color: c.white,
+                color: c.cream,
               }}
             >
               Admin
@@ -1269,7 +1269,7 @@ export function AdminDashboard() {
                                 borderRadius: 8,
                                 padding: "7px 12px",
                                 background: "#15803D",
-                                color: c.white,
+                                color: c.cream,
                                 fontFamily: fonts.ui,
                                 fontSize: 11,
                                 fontWeight: 600,
@@ -1290,7 +1290,7 @@ export function AdminDashboard() {
                                 borderRadius: 8,
                                 padding: "7px 12px",
                                 background: "#B91C1C",
-                                color: c.white,
+                                color: c.cream,
                                 fontFamily: fonts.ui,
                                 fontSize: 11,
                                 fontWeight: 600,

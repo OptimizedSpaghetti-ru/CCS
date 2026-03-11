@@ -457,7 +457,7 @@ export function Register() {
                     fontFamily: fonts.ui,
                     fontSize: 11,
                     fontWeight: 600,
-                    color: c.white,
+                    color: c.cream,
                   }}
                 >
                   {role === "student" ? "Student" : "Faculty"}

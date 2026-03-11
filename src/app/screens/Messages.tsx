@@ -10,7 +10,7 @@ import { useApp } from "../context/AppContext";
 interface ConversationRow {
   id: string;
   name: string;
-  role: "student" | "faculty" | "group";
+  role: "student" | "faculty" | "admin" | "group";
   preview: string;
   time: string;
   unread: number;
@@ -22,6 +22,7 @@ interface ConversationRow {
 const filters = ["All", "Students", "Faculty", "Groups"];
 
 const ROLE_COLORS: Record<string, string> = {
+  admin: "#7C3AED",
   faculty: c.darkRed,
   student: "#059669",
   group: "#1D4ED8",
@@ -77,7 +78,7 @@ function Avatar({
             fontFamily: fonts.display,
             fontSize: size * 0.3,
             fontWeight: 700,
-            color: c.white,
+            color: c.cream,
           }}
         >
           {initials}
@@ -103,21 +104,25 @@ function Avatar({
 
 function RoleBadge({ role }: { role: string }) {
   if (role === "group") return null;
-  const isF = role === "faculty";
+  const isAdmin = role === "admin";
+  const isFaculty = role === "faculty";
+  const label = isAdmin ? "Admin" : isFaculty ? "Faculty" : "Student";
+  const bg = isAdmin ? "#7C3AED20" : isFaculty ? `${c.baseRed}20` : "#3B528020";
+  const color = isAdmin ? "#7C3AED" : isFaculty ? c.baseRed : "#3B5280";
   return (
     <span
       style={{
         fontFamily: fonts.ui,
         fontSize: 9,
         fontWeight: 600,
-        background: isF ? `${c.baseRed}20` : "#3B528020",
-        color: isF ? c.baseRed : "#3B5280",
+        background: bg,
+        color,
         borderRadius: 20,
         padding: "1px 5px",
         marginLeft: 4,
       }}
     >
-      {isF ? "Faculty" : "Student"}
+      {label}
     </span>
   );
 }
@@ -137,103 +142,107 @@ export function Messages() {
     const userId = session?.user?.id;
     if (!userId) return;
 
-    /* 1. My conversation IDs */
-    const { data: memberships } = await supabase
-      .from("conversation_members")
-      .select("conversation_id")
-      .eq("user_id", userId);
+    try {
+      /* 1. My conversation IDs */
+      const { data: memberships } = await supabase
+        .from("conversation_members")
+        .select("conversation_id")
+        .eq("user_id", userId);
 
-    if (!memberships || memberships.length === 0) {
-      setConversations([]);
+      if (!memberships || memberships.length === 0) {
+        setConversations([]);
+        return;
+      }
+
+      const convIds = memberships.map((m: any) => m.conversation_id);
+
+      /* 2. Conversations + members' profiles */
+      const { data: convos } = await supabase
+        .from("conversations")
+        .select(
+          `id, title, is_group, updated_at,
+           conversation_members ( user_id, profiles:user_id ( id, full_name, role, show_online_status, is_online ) )`,
+        )
+        .in("id", convIds)
+        .order("updated_at", { ascending: false });
+
+      if (!convos) {
+        setConversations([]);
+        return;
+      }
+
+      /* 3. Messages for unread + preview */
+      const { data: allMessages } = await supabase
+        .from("messages")
+        .select("conversation_id, body, sender_id, created_at, read_at")
+        .in("conversation_id", convIds)
+        .order("created_at", { ascending: false });
+
+      const latestMap = new Map<string, { body: string; created_at: string }>();
+      const unreadMap = new Map<string, number>();
+      for (const msg of allMessages ?? []) {
+        if (!latestMap.has(msg.conversation_id)) {
+          latestMap.set(msg.conversation_id, {
+            body: msg.body,
+            created_at: msg.created_at,
+          });
+        }
+        if (!msg.read_at && msg.sender_id !== userId) {
+          unreadMap.set(
+            msg.conversation_id,
+            (unreadMap.get(msg.conversation_id) ?? 0) + 1,
+          );
+        }
+      }
+
+      /* 4. Map to UI rows */
+      const rows: ConversationRow[] = convos.map((conv: any) => {
+        const members: any[] = conv.conversation_members ?? [];
+        const otherMembers = members
+          .filter((m: any) => m.user_id !== userId)
+          .map((m: any) => m.profiles);
+
+        let name = conv.title || "Conversation";
+        let role: ConversationRow["role"] = "student";
+        let color = ROLE_COLORS.student;
+
+        if (conv.is_group) {
+          name = conv.title || "Group Chat";
+          role = "group";
+          color = ROLE_COLORS.group;
+        } else if (otherMembers.length > 0) {
+          const other = otherMembers[0];
+          name = other?.full_name || "User";
+          const r = other?.role ?? "student";
+          role = (
+            r === "faculty" || r === "admin" ? r : "student"
+          ) as ConversationRow["role"];
+          color = ROLE_COLORS[role] || ROLE_COLORS.student;
+        }
+
+        const latest = latestMap.get(conv.id);
+        const unread = unreadMap.get(conv.id) ?? 0;
+
+        return {
+          id: conv.id,
+          name,
+          role,
+          preview: latest?.body ?? "No messages yet",
+          time: latest ? timeAgo(latest.created_at) : "",
+          unread,
+          online: Boolean(
+            otherMembers[0]?.show_online_status !== false &&
+            otherMembers[0]?.is_online,
+          ),
+          initials: conv.is_group ? "GR" : getInitials(name),
+          color,
+        };
+      });
+
+      setConversations(rows);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const convIds = memberships.map((m: any) => m.conversation_id);
-
-    /* 2. Conversations + members' profiles */
-    const { data: convos } = await supabase
-      .from("conversations")
-      .select(
-        `id, title, is_group, updated_at,
-         conversation_members ( user_id, profiles:user_id ( id, full_name, role, avatar_url ) )`,
-      )
-      .in("id", convIds)
-      .order("updated_at", { ascending: false });
-
-    if (!convos) {
-      setConversations([]);
-      setLoading(false);
-      return;
-    }
-
-    /* 3. Messages for unread + preview */
-    const { data: allMessages } = await supabase
-      .from("messages")
-      .select("conversation_id, body, sender_id, created_at, read_at")
-      .in("conversation_id", convIds)
-      .order("created_at", { ascending: false });
-
-    const latestMap = new Map<string, { body: string; created_at: string }>();
-    const unreadMap = new Map<string, number>();
-    for (const msg of allMessages ?? []) {
-      if (!latestMap.has(msg.conversation_id)) {
-        latestMap.set(msg.conversation_id, {
-          body: msg.body,
-          created_at: msg.created_at,
-        });
-      }
-      if (!msg.read_at && msg.sender_id !== userId) {
-        unreadMap.set(
-          msg.conversation_id,
-          (unreadMap.get(msg.conversation_id) ?? 0) + 1,
-        );
-      }
-    }
-
-    /* 4. Map to UI rows */
-    const rows: ConversationRow[] = convos.map((conv: any) => {
-      const members: any[] = conv.conversation_members ?? [];
-      const otherMembers = members
-        .filter((m: any) => m.user_id !== userId)
-        .map((m: any) => m.profiles);
-
-      let name = conv.title || "Conversation";
-      let role: ConversationRow["role"] = "student";
-      let color = ROLE_COLORS.student;
-
-      if (conv.is_group) {
-        name = conv.title || "Group Chat";
-        role = "group";
-        color = ROLE_COLORS.group;
-      } else if (otherMembers.length > 0) {
-        const other = otherMembers[0];
-        name = other?.full_name || "User";
-        role =
-          other?.role === "faculty"
-            ? "faculty"
-            : ("student" as ConversationRow["role"]);
-        color = ROLE_COLORS[role] || ROLE_COLORS.student;
-      }
-
-      const latest = latestMap.get(conv.id);
-      const unread = unreadMap.get(conv.id) ?? 0;
-
-      return {
-        id: conv.id,
-        name,
-        role,
-        preview: latest?.body ?? "No messages yet",
-        time: latest ? timeAgo(latest.created_at) : "",
-        unread,
-        online: false,
-        initials: conv.is_group ? "GR" : getInitials(name),
-        color,
-      };
-    });
-
-    setConversations(rows);
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -244,6 +253,13 @@ export function Messages() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
+        () => {
+          loadConversations();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles" },
         () => {
           loadConversations();
         },
@@ -490,7 +506,7 @@ export function Messages() {
                         fontFamily: fonts.ui,
                         fontSize: 10,
                         fontWeight: 700,
-                        color: c.white,
+                        color: c.cream,
                       }}
                     >
                       {conv.unread}

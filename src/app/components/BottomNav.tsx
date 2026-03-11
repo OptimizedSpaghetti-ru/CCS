@@ -37,7 +37,16 @@ const adminTabs: Tab[] = [
 export function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { unreadMessages, unreadNotifications, currentUser } = useApp();
+  const {
+    unreadMessages,
+    unreadNotifications,
+    currentUser,
+    resolvedThemeMode,
+  } = useApp();
+
+  const activeColor = resolvedThemeMode === "dark" ? c.cream : c.baseRed;
+  const inactiveColor =
+    resolvedThemeMode === "dark" ? c.warmGrayLight : c.warmGray;
 
   const tabs =
     currentUser.role === "admin"
@@ -113,7 +122,7 @@ export function BottomNav() {
             <div style={{ position: "relative" }}>
               <Icon
                 size={22}
-                color={active ? c.baseRed : c.warmGray}
+                color={active ? activeColor : inactiveColor}
                 strokeWidth={active ? 2.5 : 1.8}
                 style={{ transition: "color 0.16s ease" }}
               />
@@ -124,7 +133,7 @@ export function BottomNav() {
                     top: -4,
                     right: -6,
                     background: c.baseRed,
-                    color: c.white,
+                    color: c.cream,
                     borderRadius: "50%",
                     width: 16,
                     height: 16,
@@ -146,7 +155,7 @@ export function BottomNav() {
                 fontFamily: fonts.ui,
                 fontSize: 10,
                 fontWeight: active ? 600 : 400,
-                color: active ? c.baseRed : c.warmGray,
+                color: active ? activeColor : inactiveColor,
                 letterSpacing: "-0.1px",
                 transition: "color 0.16s ease",
               }}
