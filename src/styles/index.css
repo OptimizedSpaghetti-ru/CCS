@@ -81,6 +81,25 @@ body {
   transform: scale(0.98);
 }
 
+.admin-dashboard button {
+  transition:
+    transform 0.16s ease,
+    filter 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .admin-dashboard button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+  }
+}
+
+.admin-dashboard button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
 @media (max-width: 520px) {
   .app-container {
     width: 100vw;

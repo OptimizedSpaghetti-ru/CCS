@@ -91,7 +91,14 @@ export function Home() {
   const navigate = useNavigate();
 
   const [announcements, setAnnouncements] = useState<
-    { id: string; title: string; body: string; time: string; type: string }[]
+    {
+      id: string;
+      title: string;
+      body: string;
+      time: string;
+      type: string;
+      imageUrl?: string;
+    }[]
   >([]);
 
   useEffect(() => {
@@ -99,7 +106,7 @@ export function Home() {
       /* recent notifications shown as announcements */
       const { data: notifs } = await supabase
         .from("notifications")
-        .select("id, title, body, type, created_at")
+        .select("id, title, body, type, image_url, created_at")
         .order("created_at", { ascending: false })
         .limit(5);
       if (notifs) {
@@ -109,6 +116,7 @@ export function Home() {
             title: n.title ?? "",
             body: n.body ?? "",
             time: timeAgo(n.created_at),
+            imageUrl: n.image_url ?? undefined,
             type:
               n.type === "announcement"
                 ? "urgent"
@@ -432,6 +440,20 @@ export function Home() {
                       >
                         {ann.body}
                       </p>
+                      {ann.imageUrl && (
+                        <img
+                          src={ann.imageUrl}
+                          alt="announcement pubmat"
+                          style={{
+                            width: "100%",
+                            maxHeight: 180,
+                            objectFit: "cover",
+                            borderRadius: 10,
+                            marginTop: 8,
+                            border: "1px solid rgba(139,115,85,0.18)",
+                          }}
+                        />
+                      )}
                       <p
                         style={{
                           fontFamily: fonts.mono,

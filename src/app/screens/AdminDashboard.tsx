@@ -5,6 +5,7 @@ import {
   Megaphone,
   Send,
   MapPinned,
+  Image as ImageIcon,
   Loader2,
   Shield,
   Users,
@@ -56,6 +57,7 @@ type AnnouncementRow = {
   title: string;
   body: string;
   type: string;
+  image_url?: string | null;
   target_role: string | null;
   created_at: string;
   created_by: string | null;
@@ -172,6 +174,16 @@ export function AdminDashboard() {
   const [broadcastTargetRole, setBroadcastTargetRole] = useState<
     "student" | "faculty" | "admin" | ""
   >("student");
+  const [announcementImageFile, setAnnouncementImageFile] =
+    useState<File | null>(null);
+  const [broadcastImageFile, setBroadcastImageFile] = useState<File | null>(
+    null,
+  );
+  const [notificationDeleteTarget, setNotificationDeleteTarget] = useState<{
+    id: string;
+    kind: "announcement" | "broadcast";
+    title: string;
+  } | null>(null);
 
   const [locationForm, setLocationForm] = useState({
     name: "",
@@ -214,7 +226,9 @@ export function AdminDashboard() {
           .order("name", { ascending: true }),
         supabase
           .from("notifications")
-          .select("id, title, body, type, target_role, created_at, created_by")
+          .select(
+            "id, title, body, type, image_url, target_role, created_at, created_by",
+          )
           .order("created_at", { ascending: false })
           .limit(20),
       ]);
@@ -579,10 +593,37 @@ export function AdminDashboard() {
     setError("");
     setFeedback("");
 
+    let imageUrl: string | null = null;
+    const uploadFile =
+      type === "announcement" ? announcementImageFile : broadcastImageFile;
+
+    if (uploadFile) {
+      const ext = uploadFile.name.split(".").pop() ?? "jpg";
+      const safeExt = ext.toLowerCase();
+      const filePath = `notifications/${type}/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}.${safeExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("student-documents")
+        .upload(filePath, uploadFile, { upsert: true });
+
+      if (uploadError) {
+        setError(uploadError.message);
+        setIsSaving(false);
+        return;
+      }
+
+      imageUrl = supabase.storage
+        .from("student-documents")
+        .getPublicUrl(filePath).data.publicUrl;
+    }
+
     const { error: insertError } = await supabase.from("notifications").insert({
       type,
       title,
       body,
+      image_url: imageUrl,
       target_role: targetRole || null,
       created_by: currentUser.id || null,
     });
@@ -597,9 +638,11 @@ export function AdminDashboard() {
       setAnnouncementTitle("");
       setAnnouncementBody("");
       setAnnouncementTargetRole("");
+      setAnnouncementImageFile(null);
     } else {
       setBroadcastBody("");
       setBroadcastTargetRole("student");
+      setBroadcastImageFile(null);
     }
 
     setFeedback(
@@ -607,6 +650,41 @@ export function AdminDashboard() {
     );
     await loadAdminData();
     setIsSaving(false);
+  };
+
+  const deleteNotification = async (
+    notificationId: string,
+    kind: "announcement" | "broadcast",
+  ) => {
+    setIsSaving(true);
+    setError("");
+    setFeedback("");
+
+    const { error: deleteError } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("id", notificationId);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      setIsSaving(false);
+      return;
+    }
+
+    setFeedback(
+      `${kind === "announcement" ? "Announcement" : "Broadcast"} deleted successfully.`,
+    );
+    setNotificationDeleteTarget(null);
+    await loadAdminData();
+    setIsSaving(false);
+  };
+
+  const requestNotificationDelete = (
+    notificationId: string,
+    kind: "announcement" | "broadcast",
+    title: string,
+  ) => {
+    setNotificationDeleteTarget({ id: notificationId, kind, title });
   };
 
   const addLocation = async () => {
@@ -667,9 +745,19 @@ export function AdminDashboard() {
     { key: "locations" as const, label: "Map" },
   ];
 
+  const announcementItems = announcements.filter(
+    (item) => item.type === "announcement",
+  );
+  const broadcastItems = announcements.filter(
+    (item) => item.type === "broadcast",
+  );
+
   /* ---------- Render ---------- */
   return (
-    <div style={{ flex: 1, overflowY: "auto", background: c.creamLight }}>
+    <div
+      className="admin-dashboard"
+      style={{ flex: 1, overflowY: "auto", background: c.creamLight }}
+    >
       {/* ═══ Header ═══ */}
       <div
         style={{
@@ -954,6 +1042,49 @@ export function AdminDashboard() {
                       }}
                     />
                   </div>
+                  <div
+                    style={{
+                      border: `1px solid ${c.warmGray}33`,
+                      borderRadius: 10,
+                      padding: "10px 12px",
+                      background: c.cream,
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontFamily: fonts.ui,
+                        fontSize: 12,
+                        color: c.warmGray,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <ImageIcon size={14} />
+                      Attach pubmat image (optional)
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        onChange={(e) =>
+                          setAnnouncementImageFile(e.target.files?.[0] ?? null)
+                        }
+                      />
+                    </label>
+                    {announcementImageFile && (
+                      <p
+                        style={{
+                          margin: "6px 0 0",
+                          fontFamily: fonts.ui,
+                          fontSize: 11,
+                          color: c.darkBrown,
+                        }}
+                      >
+                        Selected: {announcementImageFile.name}
+                      </p>
+                    )}
+                  </div>
                   <button
                     onClick={() => postNotification("announcement")}
                     disabled={isSaving}
@@ -1000,7 +1131,7 @@ export function AdminDashboard() {
                 Recent Announcements
               </p>
 
-              {announcements.length === 0 ? (
+              {announcementItems.length === 0 ? (
                 <div
                   style={{
                     background: c.white,
@@ -1044,7 +1175,7 @@ export function AdminDashboard() {
                     gap: 10,
                   }}
                 >
-                  {announcements.map((ann) => (
+                  {announcementItems.map((ann) => (
                     <div
                       key={ann.id}
                       style={{
@@ -1086,7 +1217,48 @@ export function AdminDashboard() {
                           >
                             {ann.body}
                           </p>
+                          {ann.image_url && (
+                            <img
+                              src={ann.image_url}
+                              alt="announcement pubmat"
+                              style={{
+                                width: "100%",
+                                maxHeight: 220,
+                                objectFit: "cover",
+                                borderRadius: 10,
+                                marginTop: 8,
+                                border: "1px solid rgba(139,115,85,0.18)",
+                              }}
+                            />
+                          )}
                         </div>
+                        <button
+                          onClick={() =>
+                            requestNotificationDelete(
+                              ann.id,
+                              "announcement",
+                              ann.title || "Untitled announcement",
+                            )
+                          }
+                          disabled={isSaving}
+                          style={{
+                            border: "none",
+                            background: "none",
+                            color: c.baseRed,
+                            cursor: isSaving ? "default" : "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 28,
+                            height: 28,
+                            borderRadius: 8,
+                            flexShrink: 0,
+                            opacity: isSaving ? 0.5 : 1,
+                          }}
+                          aria-label="Delete announcement"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                       <div
                         style={{
@@ -2819,6 +2991,49 @@ export function AdminDashboard() {
                     }}
                   />
                 </div>
+                <div
+                  style={{
+                    border: `1px solid ${c.warmGray}33`,
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                    background: c.cream,
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontFamily: fonts.ui,
+                      fontSize: 12,
+                      color: c.warmGray,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <ImageIcon size={14} />
+                    Attach pubmat image (optional)
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      onChange={(e) =>
+                        setBroadcastImageFile(e.target.files?.[0] ?? null)
+                      }
+                    />
+                  </label>
+                  {broadcastImageFile && (
+                    <p
+                      style={{
+                        margin: "6px 0 0",
+                        fontFamily: fonts.ui,
+                        fontSize: 11,
+                        color: c.darkBrown,
+                      }}
+                    >
+                      Selected: {broadcastImageFile.name}
+                    </p>
+                  )}
+                </div>
                 <button
                   onClick={() => postNotification("broadcast")}
                   disabled={isSaving}
@@ -2846,6 +3061,171 @@ export function AdminDashboard() {
                 </button>
               </div>
             </div>
+
+            <p
+              style={{
+                fontFamily: fonts.ui,
+                fontSize: 10,
+                fontWeight: 700,
+                color: c.warmGray,
+                textTransform: "uppercase",
+                letterSpacing: 0.8,
+                margin: "16px 0 8px 2px",
+              }}
+            >
+              Recent Broadcasts
+            </p>
+
+            {broadcastItems.length === 0 ? (
+              <div
+                style={{
+                  background: c.white,
+                  borderRadius: 16,
+                  padding: "24px 16px",
+                  boxShadow: shadow.card,
+                  textAlign: "center",
+                }}
+              >
+                <p
+                  style={{
+                    fontFamily: fonts.ui,
+                    fontSize: 12,
+                    color: c.warmGray,
+                    margin: 0,
+                  }}
+                >
+                  No broadcasts yet
+                </p>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                {broadcastItems.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      background: c.white,
+                      borderRadius: 14,
+                      padding: "12px 14px",
+                      boxShadow: shadow.card,
+                      borderLeft: "4px solid #3B82F6",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        justifyContent: "space-between",
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <p
+                          style={{
+                            fontFamily: fonts.ui,
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: c.darkBrown,
+                            margin: 0,
+                          }}
+                        >
+                          {item.title || "Broadcast Message"}
+                        </p>
+                        <p
+                          style={{
+                            fontFamily: fonts.ui,
+                            fontSize: 12,
+                            color: c.warmGray,
+                            margin: "6px 0 0",
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {item.body}
+                        </p>
+                        {item.image_url && (
+                          <img
+                            src={item.image_url}
+                            alt="broadcast pubmat"
+                            style={{
+                              width: "100%",
+                              maxHeight: 220,
+                              objectFit: "cover",
+                              borderRadius: 10,
+                              marginTop: 8,
+                              border: "1px solid rgba(139,115,85,0.18)",
+                            }}
+                          />
+                        )}
+                      </div>
+                      <button
+                        onClick={() =>
+                          requestNotificationDelete(
+                            item.id,
+                            "broadcast",
+                            item.title || "Broadcast Message",
+                          )
+                        }
+                        disabled={isSaving}
+                        style={{
+                          border: "none",
+                          background: "none",
+                          color: c.baseRed,
+                          cursor: isSaving ? "default" : "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: 28,
+                          height: 28,
+                          borderRadius: 8,
+                          flexShrink: 0,
+                          opacity: isSaving ? 0.5 : 1,
+                        }}
+                        aria-label="Delete broadcast"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginTop: 8,
+                        paddingTop: 8,
+                        borderTop: "1px solid rgba(139,115,85,0.08)",
+                      }}
+                    >
+                      <p
+                        style={{
+                          fontFamily: fonts.ui,
+                          fontSize: 10,
+                          color: c.warmGrayLight,
+                          margin: 0,
+                        }}
+                      >
+                        Target: {item.target_role || "all"}
+                      </p>
+                      <p
+                        style={{
+                          fontFamily: fonts.mono,
+                          fontSize: 10,
+                          color: c.warmGrayLight,
+                          margin: 0,
+                        }}
+                      >
+                        {timeAgo(item.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -3045,6 +3425,162 @@ export function AdminDashboard() {
               )}
             </div>
           </div>
+        )}
+
+        {notificationDeleteTarget && (
+          <motion.div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15, 10, 10, 0.48)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 16,
+              zIndex: 1100,
+            }}
+            onClick={() => setNotificationDeleteTarget(null)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
+            <motion.div
+              style={{
+                width: "100%",
+                maxWidth: 420,
+                background: c.white,
+                borderRadius: 16,
+                boxShadow: "0 10px 40px rgba(0,0,0,0.28)",
+                overflow: "hidden",
+              }}
+              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.92, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+            >
+              <div
+                style={{
+                  background: g.header,
+                  padding: "12px 16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <p
+                  style={{
+                    margin: 0,
+                    fontFamily: fonts.ui,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: c.cream,
+                  }}
+                >
+                  Confirm Delete
+                </p>
+                <button
+                  onClick={() => setNotificationDeleteTarget(null)}
+                  style={{
+                    border: "none",
+                    background: "rgba(255,255,255,0.15)",
+                    color: c.cream,
+                    borderRadius: 8,
+                    width: 28,
+                    height: 28,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                  }}
+                  aria-label="Close delete confirmation"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div style={{ padding: 16 }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontFamily: fonts.ui,
+                    fontSize: 13,
+                    color: c.darkBrown,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Delete this {notificationDeleteTarget.kind}? This action
+                  cannot be undone.
+                </p>
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    fontFamily: fonts.ui,
+                    fontSize: 12,
+                    color: c.warmGray,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {notificationDeleteTarget.title}
+                </p>
+
+                <div
+                  style={{
+                    marginTop: 14,
+                    display: "flex",
+                    gap: 8,
+                  }}
+                >
+                  <button
+                    onClick={() => setNotificationDeleteTarget(null)}
+                    disabled={isSaving}
+                    style={{
+                      flex: 1,
+                      border: `1.5px solid ${c.warmGray}40`,
+                      background: "transparent",
+                      color: c.warmGray,
+                      borderRadius: 10,
+                      padding: "9px 12px",
+                      fontFamily: fonts.ui,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: isSaving ? "default" : "pointer",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() =>
+                      deleteNotification(
+                        notificationDeleteTarget.id,
+                        notificationDeleteTarget.kind,
+                      )
+                    }
+                    disabled={isSaving}
+                    style={{
+                      flex: 1,
+                      border: "none",
+                      background: "#B91C1C",
+                      color: "#fff",
+                      borderRadius: 10,
+                      padding: "9px 12px",
+                      fontFamily: fonts.ui,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: isSaving ? "default" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 5,
+                      opacity: isSaving ? 0.65 : 1,
+                    }}
+                  >
+                    <Trash2 size={13} />
+                    {isSaving ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </div>
     </div>

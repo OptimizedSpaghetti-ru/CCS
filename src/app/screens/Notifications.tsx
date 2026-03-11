@@ -20,6 +20,8 @@ interface Notif {
   type: "message" | "announcement" | "event";
   title: string;
   body: string;
+  imageUrl?: string;
+  createdBy?: string | null;
   time: string;
   unread: boolean;
   day: string;
@@ -38,7 +40,7 @@ function NotifItem({
   isDark,
 }: {
   notif: Notif;
-  onDismiss: (id: string) => void;
+  onDismiss: (notif: Notif) => void;
   isDark: boolean;
 }) {
   const navigate = useNavigate();
@@ -112,6 +114,20 @@ function NotifItem({
         >
           {notif.body}
         </p>
+        {notif.imageUrl && (
+          <img
+            src={notif.imageUrl}
+            alt="notification pubmat"
+            style={{
+              width: "100%",
+              maxHeight: 170,
+              objectFit: "cover",
+              borderRadius: 10,
+              margin: "4px 0 6px",
+              border: `1px solid ${isDark ? "rgba(255,232,217,0.22)" : "rgba(139,115,85,0.18)"}`,
+            }}
+          />
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span
             style={{
@@ -137,7 +153,7 @@ function NotifItem({
         className="hover-press"
         onClick={(e) => {
           e.stopPropagation();
-          onDismiss(notif.id);
+          onDismiss(notif);
         }}
         style={{
           background: "none",
@@ -206,6 +222,8 @@ export function Notifications() {
               : "announcement") as Notif["type"],
             title: n.title,
             body: n.body,
+            imageUrl: n.image_url ?? undefined,
+            createdBy: n.created_by ?? null,
             time: fmtTime(n.created_at),
             unread: !statusMap.get(n.id)?.read_at,
             day: dayLabel(n.created_at),
@@ -253,16 +271,35 @@ export function Notifications() {
     {} as Record<string, Notif[]>,
   );
 
-  const dismiss = async (id: string) => {
-    setNotifs((prev) => prev.filter((n) => n.id !== id));
-    await supabase.from("notification_status").upsert(
+  const dismiss = async (notif: Notif) => {
+    const previous = [...notifs];
+    setNotifs((prev) => prev.filter((n) => n.id !== notif.id));
+
+    const isAdmin = currentUser.role === "admin";
+
+    if (isAdmin) {
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .eq("id", notif.id);
+      if (error) {
+        setNotifs(previous);
+      }
+      return;
+    }
+
+    const { error } = await supabase.from("notification_status").upsert(
       {
-        notification_id: id,
+        notification_id: notif.id,
         user_id: currentUser.id,
         dismissed_at: new Date().toISOString(),
       },
       { onConflict: "notification_id,user_id" },
     );
+
+    if (error) {
+      setNotifs(previous);
+    }
   };
 
   const markAllRead = async () => {
