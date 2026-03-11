@@ -7,7 +7,14 @@ import { useApp } from "../context/AppContext";
 export function PendingApproval() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser, signOut, isAuthenticated, refreshProfile } = useApp();
+  const {
+    currentUser,
+    signOut,
+    isAuthenticated,
+    refreshProfile,
+    resolvedThemeMode,
+  } = useApp();
+  const isDark = resolvedThemeMode === "dark";
 
   // Support both authenticated users and post-registration redirect (via route state)
   const routeState = (location.state ?? {}) as {
@@ -107,13 +114,17 @@ export function PendingApproval() {
               display: "flex",
               alignItems: "center",
               gap: 8,
-              background: c.cream,
+              background: isDark ? "#2A141A" : c.cream,
+              border: `1px solid ${isDark ? "rgba(255, 232, 217, 0.35)" : "rgba(139,115,85,0.25)"}`,
               borderRadius: 10,
               padding: "10px 14px",
               marginBottom: 14,
             }}
           >
-            <Mail size={14} color={c.warmGray} />
+            <Mail
+              size={14}
+              color={isDark ? "rgba(255, 232, 217, 0.78)" : c.warmGray}
+            />
             <p
               style={{
                 fontFamily: fonts.mono,

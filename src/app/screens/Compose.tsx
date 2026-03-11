@@ -31,7 +31,20 @@ function getInitials(name: string) {
 
 export function Compose() {
   const navigate = useNavigate();
-  const { currentUser, showToast } = useApp();
+  const { currentUser, showToast, resolvedThemeMode } = useApp();
+  const isDark = resolvedThemeMode === "dark";
+  const panelSurface = isDark ? "#1F0F14" : c.white;
+  const fieldSurface = isDark ? "#2A141A" : c.cream;
+  const dropdownSurface = isDark ? "#241118" : c.white;
+  const dividerColor = isDark
+    ? "rgba(255,232,217,0.14)"
+    : "rgba(139,115,85,0.12)";
+  const fieldBorder = isDark
+    ? "rgba(255,232,217,0.34)"
+    : "rgba(139,115,85,0.2)";
+  const placeholderColor = isDark
+    ? "rgba(255,232,217,0.72)"
+    : "rgba(45,27,14,0.55)";
   const [toSearch, setToSearch] = useState("");
   const [recipients, setRecipients] = useState<Suggestion[]>([]);
   const [body, setBody] = useState("");
@@ -187,7 +200,7 @@ export function Compose() {
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        background: c.white,
+        background: panelSurface,
       }}
     >
       {/* Header */}
@@ -234,7 +247,7 @@ export function Compose() {
       <div
         style={{
           padding: "12px 16px",
-          borderBottom: `1px solid rgba(139,115,85,0.12)`,
+          borderBottom: `1px solid ${dividerColor}`,
           position: "relative",
         }}
       >
@@ -321,6 +334,7 @@ export function Compose() {
           ))}
 
           <input
+            className="auth-input"
             value={toSearch}
             onChange={(e) => {
               setToSearch(e.target.value);
@@ -339,6 +353,7 @@ export function Compose() {
               fontFamily: fonts.ui,
               fontSize: 13,
               color: c.darkBrown,
+              ["--auth-placeholder-color" as string]: placeholderColor,
             }}
           />
         </div>
@@ -351,11 +366,12 @@ export function Compose() {
               top: "100%",
               left: 0,
               right: 0,
-              background: c.white,
+              background: dropdownSurface,
               boxShadow: shadow.cardHover,
               borderRadius: "0 0 14px 14px",
               zIndex: 50,
               overflow: "hidden",
+              border: `1px solid ${isDark ? "rgba(255,232,217,0.16)" : "transparent"}`,
             }}
           >
             {filteredSuggestions.map((s) => (
@@ -370,7 +386,7 @@ export function Compose() {
                   padding: "10px 16px",
                   background: "none",
                   border: "none",
-                  borderBottom: `1px solid rgba(139,115,85,0.08)`,
+                  borderBottom: `1px solid ${isDark ? "rgba(255,232,217,0.1)" : "rgba(139,115,85,0.08)"}`,
                   cursor: "pointer",
                   textAlign: "left",
                 }}
@@ -439,10 +455,11 @@ export function Compose() {
       <div
         style={{
           padding: "0 16px",
-          borderBottom: `1px solid rgba(139,115,85,0.12)`,
+          borderBottom: `1px solid ${dividerColor}`,
         }}
       >
         <input
+          className="auth-input"
           placeholder="Subject (optional)"
           style={{
             width: "100%",
@@ -454,6 +471,7 @@ export function Compose() {
             fontSize: 13,
             color: c.darkBrown,
             boxSizing: "border-box",
+            ["--auth-placeholder-color" as string]: placeholderColor,
           }}
         />
       </div>
@@ -461,14 +479,15 @@ export function Compose() {
       {/* Message body */}
       <div style={{ flex: 1, padding: "12px 16px", overflow: "hidden" }}>
         <textarea
+          className="auth-input"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder="Write your message…"
           style={{
             width: "100%",
             height: "100%",
-            background: c.cream,
-            border: "none",
+            background: fieldSurface,
+            border: `1.5px solid ${fieldBorder}`,
             borderRadius: 12,
             padding: "14px",
             outline: "none",
@@ -478,6 +497,7 @@ export function Compose() {
             resize: "none",
             lineHeight: 1.6,
             boxSizing: "border-box",
+            ["--auth-placeholder-color" as string]: placeholderColor,
           }}
         />
       </div>
@@ -486,7 +506,7 @@ export function Compose() {
       <div
         style={{
           padding: "10px 16px 16px",
-          borderTop: `1px solid rgba(139,115,85,0.12)`,
+          borderTop: `1px solid ${dividerColor}`,
           flexShrink: 0,
         }}
       >
@@ -503,8 +523,8 @@ export function Compose() {
                 display: "flex",
                 alignItems: "center",
                 gap: 5,
-                background: c.cream,
-                border: `1px solid rgba(139,115,85,0.2)`,
+                background: fieldSurface,
+                border: `1px solid ${fieldBorder}`,
                 borderRadius: 8,
                 padding: "6px 12px",
                 cursor: "pointer",

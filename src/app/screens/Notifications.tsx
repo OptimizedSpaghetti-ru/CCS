@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
-  Bell,
   MessageSquare,
   Megaphone,
   Calendar,
@@ -36,9 +35,11 @@ const typeConfig = {
 function NotifItem({
   notif,
   onDismiss,
+  isDark,
 }: {
   notif: Notif;
   onDismiss: (id: string) => void;
+  isDark: boolean;
 }) {
   const navigate = useNavigate();
   const conf = typeConfig[notif.type] ?? typeConfig.announcement;
@@ -46,13 +47,20 @@ function NotifItem({
 
   return (
     <div
+      className="hover-row"
       style={{
         display: "flex",
         alignItems: "flex-start",
         gap: 12,
         padding: "12px 16px",
-        background: notif.unread ? c.cream : c.white,
-        borderBottom: "1px solid rgba(139,115,85,0.08)",
+        background: notif.unread
+          ? isDark
+            ? "#2B161D"
+            : c.cream
+          : isDark
+            ? "#1F0F14"
+            : c.white,
+        borderBottom: `1px solid ${isDark ? "rgba(255,232,217,0.1)" : "rgba(139,115,85,0.08)"}`,
         cursor: "pointer",
         position: "relative",
         borderLeft: notif.unread
@@ -126,6 +134,7 @@ function NotifItem({
         </div>
       </div>
       <button
+        className="hover-press"
         onClick={(e) => {
           e.stopPropagation();
           onDismiss(notif.id);
@@ -134,7 +143,7 @@ function NotifItem({
           background: "none",
           border: "none",
           cursor: "pointer",
-          color: c.warmGrayLight,
+          color: isDark ? "rgba(255,232,217,0.65)" : c.warmGrayLight,
           padding: 4,
           flexShrink: 0,
         }}
@@ -147,7 +156,8 @@ function NotifItem({
 
 export function Notifications() {
   const navigate = useNavigate();
-  const { currentUser } = useApp();
+  const { currentUser, resolvedThemeMode } = useApp();
+  const isDark = resolvedThemeMode === "dark";
   const [activeTab, setActiveTab] = useState("All");
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
@@ -245,16 +255,14 @@ export function Notifications() {
 
   const dismiss = async (id: string) => {
     setNotifs((prev) => prev.filter((n) => n.id !== id));
-    await supabase
-      .from("notification_status")
-      .upsert(
-        {
-          notification_id: id,
-          user_id: currentUser.id,
-          dismissed_at: new Date().toISOString(),
-        },
-        { onConflict: "notification_id,user_id" },
-      );
+    await supabase.from("notification_status").upsert(
+      {
+        notification_id: id,
+        user_id: currentUser.id,
+        dismissed_at: new Date().toISOString(),
+      },
+      { onConflict: "notification_id,user_id" },
+    );
   };
 
   const markAllRead = async () => {
@@ -286,6 +294,7 @@ export function Notifications() {
         rightContent={
           <div style={{ display: "flex", gap: 6 }}>
             <button
+              className="hover-press"
               onClick={markAllRead}
               style={{
                 background: "none",
@@ -304,6 +313,7 @@ export function Notifications() {
               </span>
             </button>
             <button
+              className="hover-press"
               onClick={() => navigate("/app/notifications/settings")}
               style={{
                 background: "rgba(255,240,196,0.15)",
@@ -324,19 +334,30 @@ export function Notifications() {
       />
 
       {/* Filter Tabs */}
-      <div style={{ background: c.darkestRed, padding: "8px 14px 10px" }}>
+      <div
+        style={{
+          background: isDark ? "#190A0E" : c.darkestRed,
+          padding: "8px 14px 10px",
+          borderBottom: `1px solid ${isDark ? "rgba(255,232,217,0.12)" : "transparent"}`,
+        }}
+      >
         <div style={{ display: "flex", gap: 8 }}>
           {tabs.map((tab) => (
             <button
+              className="hover-press"
               key={tab}
               onClick={() => setActiveTab(tab)}
               style={{
                 background:
-                  activeTab === tab ? g.button : "rgba(255,240,196,0.12)",
+                  activeTab === tab
+                    ? g.button
+                    : isDark
+                      ? "rgba(255,232,217,0.12)"
+                      : "rgba(255,240,196,0.12)",
                 border:
                   activeTab === tab
                     ? "none"
-                    : "1px solid rgba(255,240,196,0.15)",
+                    : `1px solid ${isDark ? "rgba(255,232,217,0.22)" : "rgba(255,240,196,0.15)"}`,
                 borderRadius: 20,
                 padding: "5px 14px",
                 fontFamily: fonts.ui,
@@ -357,11 +378,6 @@ export function Notifications() {
       <div style={{ flex: 1, overflowY: "auto", background: c.creamLight }}>
         {Object.entries(grouped).length === 0 ? (
           <div style={{ padding: "60px 32px", textAlign: "center" }}>
-            <Bell
-              size={48}
-              color={c.warmGray}
-              style={{ opacity: 0.4, marginBottom: 16 }}
-            />
             <h3
               style={{
                 fontFamily: fonts.display,
@@ -387,7 +403,11 @@ export function Notifications() {
           Object.entries(grouped).map(([day, dayNotifs]) => (
             <div key={day}>
               <div
-                style={{ padding: "10px 16px 6px", background: c.creamLight }}
+                style={{
+                  padding: "10px 16px 6px",
+                  background: c.creamLight,
+                  borderTop: `1px solid ${isDark ? "rgba(255,232,217,0.06)" : "transparent"}`,
+                }}
               >
                 <p
                   style={{
@@ -404,7 +424,12 @@ export function Notifications() {
                 </p>
               </div>
               {dayNotifs.map((n) => (
-                <NotifItem key={n.id} notif={n} onDismiss={dismiss} />
+                <NotifItem
+                  key={n.id}
+                  notif={n}
+                  onDismiss={dismiss}
+                  isDark={isDark}
+                />
               ))}
             </div>
           ))

@@ -148,6 +148,7 @@ function FileUploadField({
   file,
   onFile,
   error,
+  isDark,
 }: {
   label: string;
   hint: string;
@@ -156,10 +157,17 @@ function FileUploadField({
   file: File | null;
   onFile: (f: File | null) => void;
   error?: string;
+  isDark: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrl = file ? URL.createObjectURL(file) : null;
   const isImage = file?.type.startsWith("image/");
+  const idleSurface = isDark ? "#2A141A" : c.cream;
+  const idleBorder = isDark ? "rgba(255, 232, 217, 0.35)" : softBorder;
+  const idleIconSurface = isDark
+    ? "rgba(255, 232, 217, 0.1)"
+    : `${c.warmGray}1A`;
+  const idleHint = isDark ? "rgba(255, 232, 217, 0.72)" : c.warmGray;
 
   return (
     <div>
@@ -182,8 +190,8 @@ function FileUploadField({
         onClick={() => inputRef.current?.click()}
         style={{
           width: "100%",
-          background: file ? successBg : c.cream,
-          border: `2px dashed ${error ? errorColor : file ? successColor : softBorder}`,
+          background: file ? successBg : idleSurface,
+          border: `2px dashed ${error ? errorColor : file ? successColor : idleBorder}`,
           borderRadius: 10,
           padding: "14px 16px",
           cursor: "pointer",
@@ -211,7 +219,7 @@ function FileUploadField({
               width: 48,
               height: 48,
               borderRadius: 8,
-              background: file ? successBg : `${c.warmGray}1A`,
+              background: file ? successBg : idleIconSurface,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -242,7 +250,7 @@ function FileUploadField({
               margin: "2px 0 0",
               fontFamily: fonts.ui,
               fontSize: 11,
-              color: file ? successColor : c.warmGray,
+              color: file ? successColor : idleHint,
             }}
           >
             {file
@@ -1286,6 +1294,7 @@ export function Register() {
                 icon={<FileText size={22} />}
                 accept="image/*,application/pdf"
                 file={regCardFile}
+                isDark={isDark}
                 onFile={(f) => {
                   setRegCardFile(f);
                   setFileErrors((prev) => ({ ...prev, regCard: "" }));
@@ -1299,6 +1308,7 @@ export function Register() {
                 icon={<ImageIcon size={22} />}
                 accept="image/jpeg,image/png,image/webp"
                 file={profilePicFile}
+                isDark={isDark}
                 onFile={(f) => {
                   setProfilePicFile(f);
                   setFileErrors((prev) => ({ ...prev, profilePic: "" }));

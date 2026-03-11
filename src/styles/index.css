@@ -46,6 +46,41 @@ body {
   opacity: 1;
 }
 
+.hover-lift,
+.hover-press,
+.hover-row {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.22s ease,
+    filter 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+  will-change: transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+  }
+
+  .hover-row:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.02);
+  }
+
+  .hover-press:hover {
+    transform: scale(1.04);
+    filter: brightness(1.05);
+  }
+}
+
+.hover-lift:active,
+.hover-press:active,
+.hover-row:active {
+  transform: scale(0.98);
+}
+
 @media (max-width: 520px) {
   .app-container {
     width: 100vw;

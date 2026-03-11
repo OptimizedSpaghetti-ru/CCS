@@ -18,24 +18,27 @@ import { useApp } from "../context/AppContext";
 function FormGroup({
   title,
   children,
+  isDark,
 }: {
   title: string;
   children: React.ReactNode;
+  isDark: boolean;
 }) {
   return (
     <div
       style={{
-        background: c.white,
+        background: isDark ? "#1F0F14" : c.white,
         borderRadius: 16,
         overflow: "hidden",
         boxShadow: shadow.card,
+        border: `1px solid ${isDark ? "rgba(255,232,217,0.16)" : "transparent"}`,
       }}
     >
       <div
         style={{
-          background: c.cream,
+          background: isDark ? "#2A141A" : c.cream,
           padding: "10px 16px",
-          borderBottom: "1px solid rgba(139,115,85,0.15)",
+          borderBottom: `1px solid ${isDark ? "rgba(255,232,217,0.14)" : "rgba(139,115,85,0.15)"}`,
         }}
       >
         <p
@@ -73,6 +76,7 @@ function EditField({
   onChange,
   multiline,
   hint,
+  isDark,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -80,6 +84,7 @@ function EditField({
   onChange: (v: string) => void;
   multiline?: boolean;
   hint?: string;
+  isDark: boolean;
 }) {
   return (
     <div>
@@ -100,11 +105,11 @@ function EditField({
           display: "flex",
           alignItems: multiline ? "flex-start" : "center",
           gap: 10,
-          background: c.cream,
+          background: isDark ? "#2A141A" : c.cream,
           borderRadius: 10,
           padding: multiline ? "12px 14px" : "0 14px",
           height: multiline ? undefined : 46,
-          border: `2px solid transparent`,
+          border: `1.5px solid ${isDark ? "rgba(255,232,217,0.34)" : "rgba(139,115,85,0.28)"}`,
         }}
       >
         <span
@@ -118,6 +123,7 @@ function EditField({
         </span>
         {multiline ? (
           <textarea
+            className="auth-input"
             value={value}
             onChange={(e) => onChange(e.target.value)}
             rows={3}
@@ -132,10 +138,14 @@ function EditField({
               resize: "none",
               lineHeight: 1.5,
               minWidth: 0,
+              ["--auth-placeholder-color" as string]: isDark
+                ? "rgba(255, 232, 217, 0.7)"
+                : "rgba(45, 27, 14, 0.55)",
             }}
           />
         ) : (
           <input
+            className="auth-input"
             value={value}
             onChange={(e) => onChange(e.target.value)}
             style={{
@@ -147,6 +157,9 @@ function EditField({
               fontSize: 13,
               color: c.darkBrown,
               minWidth: 0,
+              ["--auth-placeholder-color" as string]: isDark
+                ? "rgba(255, 232, 217, 0.7)"
+                : "rgba(45, 27, 14, 0.55)",
             }}
           />
         )}
@@ -170,7 +183,9 @@ function EditField({
 
 export function EditProfile() {
   const navigate = useNavigate();
-  const { currentUser, refreshProfile, showToast } = useApp();
+  const { currentUser, refreshProfile, showToast, resolvedThemeMode } =
+    useApp();
+  const isDark = resolvedThemeMode === "dark";
   const [saving, setSaving] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const avatarObjectUrlRef = useRef<string | null>(null);
@@ -478,12 +493,13 @@ export function EditProfile() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <FormGroup title="Personal Information">
+          <FormGroup title="Personal Information" isDark={isDark}>
             <EditField
               icon={<User size={16} />}
               label="Full Name"
               value={form.name}
               onChange={set("name")}
+              isDark={isDark}
             />
             <EditField
               icon={<FileText size={16} />}
@@ -492,34 +508,39 @@ export function EditProfile() {
               onChange={set("bio")}
               multiline
               hint={`${form.bio.length}/150`}
+              isDark={isDark}
             />
           </FormGroup>
 
           {currentUser.role === "student" ? (
-            <FormGroup title="Academic Information">
+            <FormGroup title="Academic Information" isDark={isDark}>
               <EditField
                 icon={<Hash size={16} />}
                 label="Student ID"
                 value={form.id}
                 onChange={set("id")}
+                isDark={isDark}
               />
               <EditField
                 icon={<Book size={16} />}
                 label="Department"
                 value={form.dept}
                 onChange={set("dept")}
+                isDark={isDark}
               />
               <EditField
                 icon={<Book size={16} />}
                 label="Program"
                 value={form.program}
                 onChange={set("program")}
+                isDark={isDark}
               />
               <EditField
                 icon={<Book size={16} />}
                 label="Year & Section"
                 value={form.yearSection}
                 onChange={set("yearSection")}
+                isDark={isDark}
               />
             </FormGroup>
           ) : (
@@ -529,18 +550,21 @@ export function EditProfile() {
                   ? "Faculty Information"
                   : "Admin Information"
               }
+              isDark={isDark}
             >
               <EditField
                 icon={<Hash size={16} />}
                 label="Employee ID"
                 value={form.id}
                 onChange={set("id")}
+                isDark={isDark}
               />
               <EditField
                 icon={<Book size={16} />}
                 label="Department"
                 value={form.dept}
                 onChange={set("dept")}
+                isDark={isDark}
               />
               {currentUser.role === "faculty" && (
                 <EditField
@@ -548,23 +572,26 @@ export function EditProfile() {
                   label="Program Handled"
                   value={form.program}
                   onChange={set("program")}
+                  isDark={isDark}
                 />
               )}
             </FormGroup>
           )}
 
-          <FormGroup title="Contact Information">
+          <FormGroup title="Contact Information" isDark={isDark}>
             <EditField
               icon={<Mail size={16} />}
               label="Email Address"
               value={form.email}
               onChange={set("email")}
+              isDark={isDark}
             />
             <EditField
               icon={<Phone size={16} />}
               label="Phone Number"
               value={form.phone}
               onChange={set("phone")}
+              isDark={isDark}
             />
           </FormGroup>
         </div>

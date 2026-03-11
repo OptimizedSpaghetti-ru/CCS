@@ -27,6 +27,7 @@ function QuickAction({
   const navigate = useNavigate();
   return (
     <button
+      className="hover-lift"
       onClick={() => navigate(path)}
       style={{
         flex: 1,
@@ -204,6 +205,7 @@ export function Home() {
             </p>
           </div>
           <button
+            className="hover-press"
             onClick={() => navigate("/app/profile")}
             aria-label="Open profile"
             style={{
@@ -343,6 +345,7 @@ export function Home() {
               Announcements
             </p>
             <button
+              className="hover-press"
               onClick={() => navigate("/app/notifications")}
               style={{
                 background: "none",
@@ -378,6 +381,7 @@ export function Home() {
             ) : (
               announcements.map((ann) => (
                 <div
+                  className="hover-lift"
                   key={ann.id}
                   style={{
                     background: c.white,
