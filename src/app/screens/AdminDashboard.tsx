@@ -32,6 +32,10 @@ type PendingProfile = {
   email: string | null;
   role: "student" | "faculty" | "admin";
   status: "pending" | "approved" | "rejected";
+  student_documents?: {
+    reg_card_url: string | null;
+    profile_pic_url: string | null;
+  }[];
 };
 
 type UserProfile = {
@@ -191,7 +195,9 @@ export function AdminDashboard() {
       await Promise.all([
         supabase
           .from("profiles")
-          .select("id, full_name, email, role, status")
+          .select(
+            "id, full_name, email, role, status, student_documents(reg_card_url, profile_pic_url)",
+          )
           .eq("status", "pending")
           .order("created_at", { ascending: true }),
         supabase
@@ -270,7 +276,7 @@ export function AdminDashboard() {
     setError("");
     setFeedback("");
 
-    const { error: updateError } = await supabase
+    const { data: updatedRows, error: updateError } = await supabase
       .from("profiles")
       .update({
         status,
@@ -278,10 +284,16 @@ export function AdminDashboard() {
         approved_at: status === "approved" ? new Date().toISOString() : null,
       })
       .eq("id", userId)
-      .eq("status", "pending");
+      .select("id, status");
 
     if (updateError) {
       setError(updateError.message);
+      setIsSaving(false);
+      return;
+    }
+
+    if (!updatedRows || updatedRows.length === 0) {
+      setError("No matching user was updated. Refresh the page and try again.");
       setIsSaving(false);
       return;
     }
@@ -1257,6 +1269,62 @@ export function AdminDashboard() {
                             >
                               {user.email || "No email"}
                             </p>
+                            {/* Document thumbnails for students */}
+                            {user.role === "student" &&
+                              user.student_documents?.[0] && (
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: 6,
+                                    marginTop: 6,
+                                  }}
+                                >
+                                  {user.student_documents[0]
+                                    .profile_pic_url && (
+                                    <img
+                                      src={
+                                        user.student_documents[0]
+                                          .profile_pic_url
+                                      }
+                                      alt="1x1 photo"
+                                      title="1x1 Profile Picture"
+                                      style={{
+                                        width: 36,
+                                        height: 36,
+                                        objectFit: "cover",
+                                        borderRadius: 6,
+                                        border:
+                                          "1.5px solid rgba(139,115,85,0.25)",
+                                      }}
+                                    />
+                                  )}
+                                  {user.student_documents[0].reg_card_url && (
+                                    <a
+                                      href={
+                                        user.student_documents[0].reg_card_url
+                                      }
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      title="View Registration Card"
+                                      style={{
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: 6,
+                                        border:
+                                          "1.5px solid rgba(139,115,85,0.25)",
+                                        background: "#F5F5F0",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        textDecoration: "none",
+                                        fontSize: 18,
+                                      }}
+                                    >
+                                      📄
+                                    </a>
+                                  )}
+                                </div>
+                              )}
                           </div>
                           <div
                             style={{ display: "flex", gap: 6, flexShrink: 0 }}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -14,10 +14,30 @@ import {
   ChevronDown,
   CheckCircle2,
   XCircle,
+  Upload,
+  ImageIcon,
+  FileText,
+  ArrowLeft,
+  ChevronRight,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import type { CSSProperties, ReactNode } from "react";
 import { useApp } from "../context/AppContext";
+
+const successColor = "#16A34A";
+const successBg = `${successColor}1F`;
+const successText = successColor;
+const warningColor = "#D97706";
+const errorColor = "#DC2626";
+const errorText = errorColor;
+const softLine = `${c.warmGray}33`;
+const softBorder = `${c.warmGray}40`;
+const headerGhostBg = `${c.cream}1F`;
+const headerGhostBorder = `${c.cream}33`;
+const infoAccent = "#3B5280";
+const infoSurface = `${infoAccent}1F`;
+const infoBorder = `${infoAccent}33`;
+const fieldSurface = c.white;
 
 function FormField({
   icon,
@@ -29,6 +49,7 @@ function FormField({
   rightEl,
   error,
   success,
+  isDark,
 }: {
   icon: ReactNode;
   label: string;
@@ -39,8 +60,15 @@ function FormField({
   rightEl?: ReactNode;
   error?: string;
   success?: string;
+  isDark: boolean;
 }) {
-  const borderColor = error ? "#DC2626" : success ? "#16A34A" : "transparent";
+  const borderColor = error
+    ? errorColor
+    : success
+      ? successColor
+      : isDark
+        ? "rgba(255, 232, 217, 0.35)"
+        : softBorder;
 
   return (
     <div>
@@ -63,7 +91,7 @@ function FormField({
           display: "flex",
           alignItems: "center",
           gap: 10,
-          background: c.cream,
+          background: fieldSurface,
           borderRadius: 10,
           padding: "0 14px",
           height: 48,
@@ -72,6 +100,7 @@ function FormField({
       >
         <span style={{ color: c.warmGray, flexShrink: 0 }}>{icon}</span>
         <input
+          className="auth-input"
           type={type}
           placeholder={placeholder}
           value={value}
@@ -84,7 +113,12 @@ function FormField({
             fontFamily: fonts.ui,
             fontSize: 14,
             color: c.darkBrown,
+            caretColor: c.darkBrown,
             minWidth: 0,
+            // CSS variable used by .auth-input::placeholder in global styles.
+            ["--auth-placeholder-color" as string]: isDark
+              ? "rgba(255, 232, 217, 0.7)"
+              : "rgba(45, 27, 14, 0.55)",
           }}
         />
         {rightEl}
@@ -95,7 +129,7 @@ function FormField({
             fontFamily: fonts.ui,
             fontSize: 11,
             margin: "5px 2px 0",
-            color: error ? "#B91C1C" : "#15803D",
+            color: error ? errorText : successText,
           }}
         >
           {error || success}
@@ -105,14 +139,241 @@ function FormField({
   );
 }
 
+/* ── File-upload helper ─────────────────────────────────── */
+function FileUploadField({
+  label,
+  hint,
+  icon,
+  accept,
+  file,
+  onFile,
+  error,
+}: {
+  label: string;
+  hint: string;
+  icon: ReactNode;
+  accept: string;
+  file: File | null;
+  onFile: (f: File | null) => void;
+  error?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const previewUrl = file ? URL.createObjectURL(file) : null;
+  const isImage = file?.type.startsWith("image/");
+
+  return (
+    <div>
+      <label
+        style={{
+          fontFamily: fonts.ui,
+          fontSize: 11,
+          fontWeight: 600,
+          color: c.darkBrown,
+          display: "block",
+          marginBottom: 5,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+        }}
+      >
+        {label}
+      </label>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        style={{
+          width: "100%",
+          background: file ? successBg : c.cream,
+          border: `2px dashed ${error ? errorColor : file ? successColor : softBorder}`,
+          borderRadius: 10,
+          padding: "14px 16px",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          textAlign: "left",
+        }}
+      >
+        {previewUrl && isImage ? (
+          <img
+            src={previewUrl}
+            alt="preview"
+            style={{
+              width: 48,
+              height: 48,
+              objectFit: "cover",
+              borderRadius: 8,
+              flexShrink: 0,
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 8,
+              background: file ? successBg : `${c.warmGray}1A`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              color: file ? successColor : c.warmGray,
+            }}
+          >
+            {file ? <CheckCircle2 size={22} /> : icon}
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p
+            style={{
+              margin: 0,
+              fontFamily: fonts.ui,
+              fontSize: 13,
+              fontWeight: 600,
+              color: file ? successText : c.darkBrown,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {file ? file.name : `Tap to upload ${label}`}
+          </p>
+          <p
+            style={{
+              margin: "2px 0 0",
+              fontFamily: fonts.ui,
+              fontSize: 11,
+              color: file ? successColor : c.warmGray,
+            }}
+          >
+            {file
+              ? `${(file.size / 1024).toFixed(0)} KB — tap to change`
+              : hint}
+          </p>
+        </div>
+        <Upload size={16} color={file ? successColor : c.warmGray} />
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const picked = e.target.files?.[0] ?? null;
+          onFile(picked);
+          e.target.value = "";
+        }}
+      />
+      {error && (
+        <p
+          style={{
+            fontFamily: fonts.ui,
+            fontSize: 11,
+            margin: "5px 2px 0",
+            color: errorText,
+          }}
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ── Step indicator ─────────────────────────────────────── */
+function StepIndicator({ step }: { step: 1 | 2 }) {
+  const steps = [
+    { n: 1, label: "Account Info" },
+    { n: 2, label: "Upload Documents" },
+  ];
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 0,
+        padding: "0 8px",
+      }}
+    >
+      {steps.map((s, i) => (
+        <div key={s.n} style={{ display: "flex", alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 3,
+            }}
+          >
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                background:
+                  step >= s.n
+                    ? step === s.n
+                      ? g.button
+                      : successText
+                    : `${c.cream}33`,
+                border: step >= s.n ? "none" : `2px solid ${c.cream}4D`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontFamily: fonts.ui,
+                fontSize: 12,
+                fontWeight: 700,
+                color: step >= s.n ? c.cream : `${c.cream}60`,
+                transition: "all 0.3s",
+              }}
+            >
+              {step > s.n ? <CheckCircle2 size={14} /> : s.n}
+            </div>
+            <span
+              style={{
+                fontFamily: fonts.ui,
+                fontSize: 9,
+                fontWeight: 600,
+                color: step >= s.n ? c.cream : `${c.cream}60`,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {s.label}
+            </span>
+          </div>
+          {i < steps.length - 1 && (
+            <div
+              style={{
+                width: 40,
+                height: 2,
+                background: step > s.n ? successText : `${c.cream}33`,
+                margin: "0 6px",
+                marginBottom: 16,
+                transition: "background 0.3s",
+              }}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function Register() {
   const navigate = useNavigate();
-  const { signUp } = useApp();
+  const { signUp, resolvedThemeMode } = useApp();
+  const [step, setStep] = useState<1 | 2>(1);
   const [role, setRole] = useState<"student" | "faculty">("student");
   const [showPass, setShowPass] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const isDark = resolvedThemeMode === "dark";
+
+  /* ── Step-2 file state ── */
+  const [regCardFile, setRegCardFile] = useState<File | null>(null);
+  const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
+  const [fileErrors, setFileErrors] = useState({ regCard: "", profilePic: "" });
 
   const studentDepartments = [
     {
@@ -162,10 +423,10 @@ export function Register() {
     Object.values(passwordChecks).filter(Boolean).length;
   const strengthMeta =
     passwordStrengthScore <= 2
-      ? { label: "Weak", color: "#DC2626" }
+      ? { label: "Weak", color: errorColor }
       : passwordStrengthScore <= 4
-        ? { label: "Medium", color: "#D97706" }
-        : { label: "Strong", color: "#16A34A" };
+        ? { label: "Medium", color: warningColor }
+        : { label: "Strong", color: successColor };
 
   const selectedStudentDepartment = studentDepartments.find(
     (department) => department.label === form.dept,
@@ -194,12 +455,15 @@ export function Register() {
         }));
 
   const selectStyles: CSSProperties = {
-    background: "#FFF0C4",
-    border: "1px solid #8B7355",
+    background: isDark ? "#2A141A" : fieldSurface,
+    border: isDark
+      ? "1.5px solid rgba(255, 232, 217, 0.35)"
+      : `1px solid ${c.warmGray}`,
     borderRadius: 10,
     padding: "14px 12px",
     width: "100%",
-    color: "#2D1B0E",
+    color: c.darkBrown,
+    caretColor: c.darkBrown,
     fontSize: 14,
     appearance: "none",
     fontFamily: fonts.ui,
@@ -266,17 +530,32 @@ export function Register() {
         : "",
   };
 
-  const isFormValid = Object.values(errors).every((v) => v === "");
+  const isStep1Valid = Object.values(errors).every((v) => v === "");
   const showMatchIndicator = form.confirm.length > 0;
   const isPasswordMatch = form.confirm === form.password;
 
+  /* ── Step 1 → Step 2 ── */
+  const handleProceedToStep2 = () => {
+    setSubmitError("");
+    if (!isStep1Valid) {
+      setSubmitError("Complete all required fields before proceeding.");
+      return;
+    }
+    setStep(2);
+  };
+
+  /* ── Final submit ── */
   const handleRegister = async () => {
     setSubmitError("");
     setSubmitMessage("");
 
-    if (!isFormValid) {
-      setSubmitError("Complete all required fields before creating account.");
-      return;
+    if (role === "student") {
+      const newFileErrors = {
+        regCard: !regCardFile ? "Registration card / ID is required." : "",
+        profilePic: !profilePicFile ? "1x1 profile picture is required." : "",
+      };
+      setFileErrors(newFileErrors);
+      if (newFileErrors.regCard || newFileErrors.profilePic) return;
     }
 
     setIsSubmitting(true);
@@ -290,6 +569,8 @@ export function Register() {
       program: role === "faculty" ? form.program.trim() : "",
       role,
       password: form.password,
+      regCardFile: regCardFile ?? undefined,
+      profilePicFile: profilePicFile ?? undefined,
     });
     setIsSubmitting(false);
 
@@ -298,7 +579,6 @@ export function Register() {
       return;
     }
 
-    // Redirect to pending-approval screen with the user's email
     navigate("/pending-approval", {
       replace: true,
       state: {
@@ -323,10 +603,10 @@ export function Register() {
       <div style={{ background: g.header, paddingBottom: 24, flexShrink: 0 }}>
         <div style={{ padding: "8px 24px 0" }}>
           <button
-            onClick={() => navigate("/login")}
+            onClick={() => (step === 2 ? setStep(1) : navigate("/login"))}
             style={{
-              background: "rgba(255,240,196,0.15)",
-              border: "1px solid rgba(255,240,196,0.2)",
+              background: headerGhostBg,
+              border: `1px solid ${headerGhostBorder}`,
               borderRadius: 8,
               width: 34,
               height: 34,
@@ -356,7 +636,7 @@ export function Register() {
               margin: 0,
             }}
           >
-            Create Account
+            {step === 1 ? "Create Account" : "Upload Documents"}
           </h1>
           <p
             style={{
@@ -366,520 +646,792 @@ export function Register() {
               margin: "3px 0 16px",
             }}
           >
-            Join the CCS Connect community
+            {step === 1
+              ? "Join the CCS Connect community"
+              : "Required for student verification"}
           </p>
 
-          {/* Role Tab Switcher */}
-          <div
-            style={{
-              display: "flex",
-              background: "rgba(255,240,196,0.12)",
-              borderRadius: 12,
-              padding: 4,
-              gap: 4,
-            }}
-          >
-            {(["student", "faculty"] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRole(r)}
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  height: 36,
-                  borderRadius: 9,
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: fonts.ui,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  background: role === r ? g.button : "transparent",
-                  color: role === r ? c.cream : `${c.cream}80`,
-                  transition: "all 0.2s",
-                }}
-              >
-                {r === "student" ? (
-                  <GraduationCap size={15} />
-                ) : (
-                  <BookOpen size={15} />
-                )}
-                {r === "student" ? "Student" : "Faculty"}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+          {/* Step indicator — students only */}
+          {role === "student" && <StepIndicator step={step} />}
 
-      {/* Form */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px 32px" }}>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={role}
-            initial={{ opacity: 0, x: role === "student" ? -20 : 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: role === "student" ? 20 : -20 }}
-            transition={{ duration: 0.25 }}
-            style={{ display: "flex", flexDirection: "column", gap: 12 }}
-          >
-            {/* Role Badge Preview */}
+          {/* Role Tab Switcher — only on step 1 */}
+          {step === 1 && (
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
-                gap: 8,
-                background: c.white,
-                borderRadius: 10,
-                padding: "10px 14px",
-                border: `1.5px solid rgba(140,16,7,0.15)`,
-                marginBottom: 4,
+                background: `${c.cream}1A`,
+                borderRadius: 12,
+                padding: 4,
+                gap: 4,
+                marginTop: role === "student" ? 12 : 0,
               }}
             >
-              <div
-                style={{
-                  background: role === "student" ? "#3B5280" : g.button,
-                  borderRadius: 20,
-                  padding: "3px 10px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                }}
-              >
-                {role === "student" ? (
-                  <GraduationCap size={12} color={c.white} />
-                ) : (
-                  <BookOpen size={12} color={c.white} />
-                )}
-                <span
-                  style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: c.cream,
-                  }}
-                >
-                  {role === "student" ? "Student" : "Faculty"}
-                </span>
-              </div>
-              <span
-                style={{
-                  fontFamily: fonts.ui,
-                  fontSize: 12,
-                  color: c.warmGray,
-                }}
-              >
-                Registering as{" "}
-                {role === "student" ? "a student" : "faculty member"}
-              </span>
-            </div>
-
-            <div style={{ display: "flex", gap: 10 }}>
-              <div style={{ flex: 1 }}>
-                <FormField
-                  icon={<User size={16} />}
-                  label="First Name"
-                  placeholder="Juan"
-                  value={form.firstName}
-                  onChange={set("firstName")}
-                  error={errors.firstName}
-                  success={
-                    !errors.firstName && form.firstName.trim()
-                      ? "Looks good."
-                      : ""
-                  }
-                />
-              </div>
-            </div>
-            <FormField
-              icon={<User size={16} />}
-              label="Last Name"
-              placeholder="Dela Cruz"
-              value={form.lastName}
-              onChange={set("lastName")}
-              error={errors.lastName}
-              success={
-                !errors.lastName && form.lastName.trim() ? "Looks good." : ""
-              }
-            />
-            <FormField
-              icon={<Hash size={16} />}
-              label={role === "student" ? "Student ID" : "Employee ID"}
-              placeholder={
-                role === "student" ? "e.g. 01230001234" : "e.g. FAC-2018-045"
-              }
-              value={form.id}
-              onChange={set("id")}
-              error={errors.id}
-              success={!errors.id && form.id.trim() ? "Looks good." : ""}
-            />
-            <FormField
-              icon={<Mail size={16} />}
-              label="Email Address"
-              placeholder={
-                role === "student"
-                  ? "yourname@student.fatima.edu.ph"
-                  : "yourname@fatima.edu.ph"
-              }
-              type="email"
-              value={form.email}
-              onChange={set("email")}
-              error={errors.email}
-              success={!errors.email && form.email.trim() ? "Looks good." : ""}
-            />
-            {role === "student" ? (
-              <>
-                <div>
-                  <label
-                    style={{
-                      fontFamily: fonts.ui,
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: c.darkBrown,
-                      display: "block",
-                      marginBottom: 5,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.5,
-                    }}
-                  >
-                    Department
-                  </label>
-                  <div style={{ position: "relative" }}>
-                    <select
-                      value={form.dept}
-                      onChange={(event) =>
-                        handleDepartmentChange(event.target.value)
-                      }
-                      style={selectStyles}
-                    >
-                      <option value="">Select department</option>
-                      {studentDepartments.map((department) => (
-                        <option key={department.code} value={department.label}>
-                          {department.label}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size={16}
-                      color={c.warmGray}
-                      style={{
-                        position: "absolute",
-                        right: 12,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        pointerEvents: "none",
-                      }}
-                    />
-                  </div>
-                  {(errors.dept || form.dept.trim()) && (
-                    <p
-                      style={{
-                        fontFamily: fonts.ui,
-                        fontSize: 11,
-                        margin: "5px 2px 0",
-                        color: errors.dept ? "#B91C1C" : "#15803D",
-                      }}
-                    >
-                      {errors.dept || "Looks good."}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label
-                    style={{
-                      fontFamily: fonts.ui,
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: c.darkBrown,
-                      display: "block",
-                      marginBottom: 5,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.5,
-                    }}
-                  >
-                    Year and Section
-                  </label>
-                  <div style={{ position: "relative" }}>
-                    <select
-                      value={form.yearSection}
-                      onChange={(event) =>
-                        set("yearSection")(event.target.value)
-                      }
-                      disabled={!form.dept}
-                      style={{
-                        ...selectStyles,
-                        opacity: !form.dept ? 0.5 : 1,
-                        cursor: !form.dept ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      <option value="">
-                        {!form.dept
-                          ? "Select department first"
-                          : "Select year and section"}
-                      </option>
-                      {yearSectionGroups.map((group) => (
-                        <optgroup key={group.label} label={group.label}>
-                          {group.options.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size={16}
-                      color={c.warmGray}
-                      style={{
-                        position: "absolute",
-                        right: 12,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        pointerEvents: "none",
-                      }}
-                    />
-                  </div>
-                  {(errors.yearSection || form.yearSection.trim()) && (
-                    <p
-                      style={{
-                        fontFamily: fonts.ui,
-                        fontSize: 11,
-                        margin: "5px 2px 0",
-                        color: errors.yearSection ? "#B91C1C" : "#15803D",
-                      }}
-                    >
-                      {errors.yearSection || "Looks good."}
-                    </p>
-                  )}
-                </div>
-              </>
-            ) : (
-              <FormField
-                icon={<Book size={16} />}
-                label="Department"
-                placeholder="e.g. BSCS, BSIT, BSCS-SE"
-                value={form.dept}
-                onChange={set("dept")}
-                error={errors.dept}
-                success={!errors.dept && form.dept.trim() ? "Looks good." : ""}
-              />
-            )}
-
-            {role === "faculty" && (
-              <FormField
-                icon={<Book size={16} />}
-                label="Program Handled"
-                placeholder="e.g. BSCS, BSIT"
-                value={form.program}
-                onChange={set("program")}
-                error={errors.program}
-                success={
-                  !errors.program && form.program.trim() ? "Looks good." : ""
-                }
-              />
-            )}
-            <FormField
-              icon={<Lock size={16} />}
-              label="Password"
-              placeholder="Min. 8 characters"
-              type={showPass ? "text" : "password"}
-              value={form.password}
-              onChange={set("password")}
-              error={errors.password}
-              success={
-                !errors.password && form.password
-                  ? "Password meets requirements."
-                  : ""
-              }
-              rightEl={
+              {(["student", "faculty"] as const).map((r) => (
                 <button
-                  type="button"
-                  onClick={() => setShowPass(!showPass)}
+                  key={r}
+                  onClick={() => setRole(r)}
                   style={{
-                    background: "none",
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    height: 36,
+                    borderRadius: 9,
                     border: "none",
                     cursor: "pointer",
-                    color: c.warmGray,
-                    padding: 0,
+                    fontFamily: fonts.ui,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    background: role === r ? g.button : "transparent",
+                    color: role === r ? c.cream : `${c.cream}80`,
+                    transition: "all 0.2s",
                   }}
                 >
-                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {r === "student" ? (
+                    <GraduationCap size={15} />
+                  ) : (
+                    <BookOpen size={15} />
+                  )}
+                  {r === "student" ? "Student" : "Faculty"}
                 </button>
-              }
-            />
-            {form.password.length > 0 && (
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Form area */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px 32px" }}>
+        <AnimatePresence mode="wait">
+          {/* ═══ STEP 1 ═══ */}
+          {step === 1 && (
+            <motion.div
+              key={`step1-${role}`}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.25 }}
+              style={{ display: "flex", flexDirection: "column", gap: 12 }}
+            >
+              {/* Role Badge */}
               <div
                 style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
                   background: c.white,
                   borderRadius: 10,
-                  padding: "10px 12px",
-                  border: "1px solid rgba(139,115,85,0.15)",
-                  marginTop: -4,
+                  padding: "10px 14px",
+                  border: `1.5px solid ${c.baseRed}26`,
+                  marginBottom: 4,
                 }}
               >
                 <div
                   style={{
+                    background: role === "student" ? "#3B5280" : g.button,
+                    borderRadius: 20,
+                    padding: "3px 10px",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 6,
+                    gap: 5,
                   }}
                 >
+                  {role === "student" ? (
+                    <GraduationCap size={12} color={c.white} />
+                  ) : (
+                    <BookOpen size={12} color={c.white} />
+                  )}
                   <span
                     style={{
                       fontFamily: fonts.ui,
                       fontSize: 11,
-                      color: c.warmGray,
+                      fontWeight: 600,
+                      color: c.cream,
                     }}
                   >
-                    Password Strength
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: fonts.ui,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: strengthMeta.color,
-                    }}
-                  >
-                    {strengthMeta.label}
+                    {role === "student" ? "Student" : "Faculty"}
                   </span>
                 </div>
-                <div style={{ display: "flex", gap: 4 }}>
-                  {[1, 2, 3, 4, 5].map((step) => (
-                    <div
-                      key={step}
-                      style={{
-                        flex: 1,
-                        height: 6,
-                        borderRadius: 4,
-                        background:
-                          passwordStrengthScore >= step
-                            ? strengthMeta.color
-                            : "rgba(139,115,85,0.2)",
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-            <FormField
-              icon={<Lock size={16} />}
-              label="Confirm Password"
-              placeholder="Re-enter password"
-              type="password"
-              value={form.confirm}
-              onChange={set("confirm")}
-              error={errors.confirm}
-              success={
-                !errors.confirm && form.confirm ? "Passwords match." : ""
-              }
-            />
-            {showMatchIndicator && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  marginTop: -6,
-                  color: isPasswordMatch ? "#15803D" : "#B91C1C",
-                }}
-              >
-                {isPasswordMatch ? (
-                  <CheckCircle2 size={14} />
-                ) : (
-                  <XCircle size={14} />
-                )}
-                <span style={{ fontFamily: fonts.ui, fontSize: 11 }}>
-                  {isPasswordMatch
-                    ? "Confirm password matches."
-                    : "Confirm password does not match."}
+                <span
+                  style={{
+                    fontFamily: fonts.ui,
+                    fontSize: 12,
+                    color: c.warmGray,
+                  }}
+                >
+                  Registering as{" "}
+                  {role === "student" ? "a student" : "faculty member"}
                 </span>
               </div>
-            )}
 
-            <button
-              onClick={handleRegister}
-              disabled={!isFormValid || isSubmitting}
-              style={{
-                background:
-                  isFormValid && !isSubmitting
-                    ? g.button
-                    : "rgba(139,115,85,0.25)",
-                border: "none",
-                borderRadius: 12,
-                height: 52,
-                width: "100%",
-                fontFamily: fonts.ui,
-                fontSize: 16,
-                fontWeight: 600,
-                color: isFormValid && !isSubmitting ? c.cream : c.warmGray,
-                cursor:
-                  isFormValid && !isSubmitting ? "pointer" : "not-allowed",
-                boxShadow:
-                  isFormValid && !isSubmitting ? shadow.button : "none",
-                marginTop: 8,
-              }}
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <FormField
+                    icon={<User size={16} />}
+                    label="First Name"
+                    placeholder="Juan"
+                    value={form.firstName}
+                    onChange={set("firstName")}
+                    error={errors.firstName}
+                    success={
+                      !errors.firstName && form.firstName.trim()
+                        ? "Looks good."
+                        : ""
+                    }
+                    isDark={isDark}
+                  />
+                </div>
+              </div>
+              <FormField
+                icon={<User size={16} />}
+                label="Last Name"
+                placeholder="Dela Cruz"
+                value={form.lastName}
+                onChange={set("lastName")}
+                error={errors.lastName}
+                success={
+                  !errors.lastName && form.lastName.trim() ? "Looks good." : ""
+                }
+                isDark={isDark}
+              />
+              <FormField
+                icon={<Hash size={16} />}
+                label={role === "student" ? "Student ID" : "Employee ID"}
+                placeholder={
+                  role === "student" ? "e.g. 01230001234" : "e.g. FAC-2018-045"
+                }
+                value={form.id}
+                onChange={set("id")}
+                error={errors.id}
+                success={!errors.id && form.id.trim() ? "Looks good." : ""}
+                isDark={isDark}
+              />
+              <FormField
+                icon={<Mail size={16} />}
+                label="Email Address"
+                placeholder={
+                  role === "student"
+                    ? "yourname@student.fatima.edu.ph"
+                    : "yourname@fatima.edu.ph"
+                }
+                type="email"
+                value={form.email}
+                onChange={set("email")}
+                error={errors.email}
+                success={
+                  !errors.email && form.email.trim() ? "Looks good." : ""
+                }
+                isDark={isDark}
+              />
+              {role === "student" ? (
+                <>
+                  <div>
+                    <label
+                      style={{
+                        fontFamily: fonts.ui,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: c.darkBrown,
+                        display: "block",
+                        marginBottom: 5,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      Department
+                    </label>
+                    <div style={{ position: "relative" }}>
+                      <select
+                        value={form.dept}
+                        onChange={(event) =>
+                          handleDepartmentChange(event.target.value)
+                        }
+                        style={selectStyles}
+                      >
+                        <option value="">Select department</option>
+                        {studentDepartments.map((department) => (
+                          <option
+                            key={department.code}
+                            value={department.label}
+                          >
+                            {department.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown
+                        size={16}
+                        color={c.warmGray}
+                        style={{
+                          position: "absolute",
+                          right: 12,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    </div>
+                    {(errors.dept || form.dept.trim()) && (
+                      <p
+                        style={{
+                          fontFamily: fonts.ui,
+                          fontSize: 11,
+                          margin: "5px 2px 0",
+                          color: errors.dept ? errorText : successText,
+                        }}
+                      >
+                        {errors.dept || "Looks good."}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        fontFamily: fonts.ui,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: c.darkBrown,
+                        display: "block",
+                        marginBottom: 5,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      Year and Section
+                    </label>
+                    <div style={{ position: "relative" }}>
+                      <select
+                        value={form.yearSection}
+                        onChange={(event) =>
+                          set("yearSection")(event.target.value)
+                        }
+                        disabled={!form.dept}
+                        style={{
+                          ...selectStyles,
+                          opacity: !form.dept ? 0.5 : 1,
+                          cursor: !form.dept ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        <option value="">
+                          {!form.dept
+                            ? "Select department first"
+                            : "Select year and section"}
+                        </option>
+                        {yearSectionGroups.map((group) => (
+                          <optgroup key={group.label} label={group.label}>
+                            {group.options.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                      <ChevronDown
+                        size={16}
+                        color={c.warmGray}
+                        style={{
+                          position: "absolute",
+                          right: 12,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    </div>
+                    {(errors.yearSection || form.yearSection.trim()) && (
+                      <p
+                        style={{
+                          fontFamily: fonts.ui,
+                          fontSize: 11,
+                          margin: "5px 2px 0",
+                          color: errors.yearSection ? errorText : successText,
+                        }}
+                      >
+                        {errors.yearSection || "Looks good."}
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <FormField
+                  icon={<Book size={16} />}
+                  label="Department"
+                  placeholder="e.g. BSCS, BSIT, BSCS-SE"
+                  value={form.dept}
+                  onChange={set("dept")}
+                  error={errors.dept}
+                  success={
+                    !errors.dept && form.dept.trim() ? "Looks good." : ""
+                  }
+                  isDark={isDark}
+                />
+              )}
+
+              {role === "faculty" && (
+                <FormField
+                  icon={<Book size={16} />}
+                  label="Program Handled"
+                  placeholder="e.g. BSCS, BSIT"
+                  value={form.program}
+                  onChange={set("program")}
+                  error={errors.program}
+                  success={
+                    !errors.program && form.program.trim() ? "Looks good." : ""
+                  }
+                  isDark={isDark}
+                />
+              )}
+              <FormField
+                icon={<Lock size={16} />}
+                label="Password"
+                placeholder="Min. 8 characters"
+                type={showPass ? "text" : "password"}
+                value={form.password}
+                onChange={set("password")}
+                error={errors.password}
+                success={
+                  !errors.password && form.password
+                    ? "Password meets requirements."
+                    : ""
+                }
+                isDark={isDark}
+                rightEl={
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(!showPass)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: c.warmGray,
+                      padding: 0,
+                    }}
+                  >
+                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                }
+              />
+              {form.password.length > 0 && (
+                <div
+                  style={{
+                    background: c.white,
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                    border: `1px solid ${softLine}`,
+                    marginTop: -4,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: fonts.ui,
+                        fontSize: 11,
+                        color: c.warmGray,
+                      }}
+                    >
+                      Password Strength
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: fonts.ui,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: strengthMeta.color,
+                      }}
+                    >
+                      {strengthMeta.label}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <div
+                        key={s}
+                        style={{
+                          flex: 1,
+                          height: 6,
+                          borderRadius: 4,
+                          background:
+                            passwordStrengthScore >= s
+                              ? strengthMeta.color
+                              : softLine,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+              <FormField
+                icon={<Lock size={16} />}
+                label="Confirm Password"
+                placeholder="Re-enter password"
+                type="password"
+                value={form.confirm}
+                onChange={set("confirm")}
+                error={errors.confirm}
+                success={
+                  !errors.confirm && form.confirm ? "Passwords match." : ""
+                }
+                isDark={isDark}
+              />
+              {showMatchIndicator && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginTop: -6,
+                    color: isPasswordMatch ? successText : errorText,
+                  }}
+                >
+                  {isPasswordMatch ? (
+                    <CheckCircle2 size={14} />
+                  ) : (
+                    <XCircle size={14} />
+                  )}
+                  <span style={{ fontFamily: fonts.ui, fontSize: 11 }}>
+                    {isPasswordMatch
+                      ? "Confirm password matches."
+                      : "Confirm password does not match."}
+                  </span>
+                </div>
+              )}
+
+              {/* CTA */}
+              {role === "student" ? (
+                <button
+                  onClick={handleProceedToStep2}
+                  disabled={!isStep1Valid}
+                  style={{
+                    background: isStep1Valid ? g.button : `${c.warmGray}40`,
+                    border: "none",
+                    borderRadius: 12,
+                    height: 52,
+                    width: "100%",
+                    fontFamily: fonts.ui,
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: isStep1Valid ? c.cream : c.warmGray,
+                    cursor: isStep1Valid ? "pointer" : "not-allowed",
+                    boxShadow: isStep1Valid ? shadow.button : "none",
+                    marginTop: 8,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                >
+                  Continue to Upload Documents
+                  <ChevronRight size={18} />
+                </button>
+              ) : (
+                <button
+                  onClick={handleRegister}
+                  disabled={!isStep1Valid || isSubmitting}
+                  style={{
+                    background:
+                      isStep1Valid && !isSubmitting
+                        ? g.button
+                        : `${c.warmGray}40`,
+                    border: "none",
+                    borderRadius: 12,
+                    height: 52,
+                    width: "100%",
+                    fontFamily: fonts.ui,
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: isStep1Valid && !isSubmitting ? c.cream : c.warmGray,
+                    cursor:
+                      isStep1Valid && !isSubmitting ? "pointer" : "not-allowed",
+                    boxShadow:
+                      isStep1Valid && !isSubmitting ? shadow.button : "none",
+                    marginTop: 8,
+                  }}
+                >
+                  {isSubmitting ? "Creating Account..." : "Create Account"}
+                </button>
+              )}
+
+              {submitError && (
+                <p
+                  style={{
+                    margin: "2px 0 0",
+                    fontFamily: fonts.ui,
+                    fontSize: 12,
+                    color: errorText,
+                    textAlign: "center",
+                  }}
+                >
+                  {submitError}
+                </p>
+              )}
+
+              {submitMessage && (
+                <p
+                  style={{
+                    margin: "2px 0 0",
+                    fontFamily: fonts.ui,
+                    fontSize: 12,
+                    color: successText,
+                    textAlign: "center",
+                  }}
+                >
+                  {submitMessage}
+                </p>
+              )}
+
+              <div style={{ textAlign: "center" }}>
+                <span
+                  style={{
+                    fontFamily: fonts.ui,
+                    fontSize: 14,
+                    color: c.warmGray,
+                  }}
+                >
+                  Already have an account?{" "}
+                </span>
+                <button
+                  onClick={() => navigate("/login")}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontFamily: fonts.ui,
+                    fontSize: 14,
+                    color: c.baseRed,
+                    fontWeight: 600,
+                  }}
+                >
+                  Log In
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ═══ STEP 2 (students only) ═══ */}
+          {step === 2 && (
+            <motion.div
+              key="step2"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 24 }}
+              transition={{ duration: 0.25 }}
+              style={{ display: "flex", flexDirection: "column", gap: 16 }}
             >
-              {isSubmitting ? "Creating Account..." : "Create Account"}
-            </button>
-
-            {submitError && (
-              <p
+              {/* Info banner */}
+              <div
                 style={{
-                  margin: "2px 0 0",
-                  fontFamily: fonts.ui,
-                  fontSize: 12,
-                  color: "#B91C1C",
-                  textAlign: "center",
+                  background: c.white,
+                  borderRadius: 12,
+                  padding: "12px 14px",
+                  border: `1.5px solid ${infoBorder}`,
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 10,
                 }}
               >
-                {submitError}
-              </p>
-            )}
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    background: infoSurface,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <FileText size={16} color={infoAccent} />
+                </div>
+                <div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontFamily: fonts.ui,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: c.darkBrown,
+                    }}
+                  >
+                    Document Verification
+                  </p>
+                  <p
+                    style={{
+                      margin: "3px 0 0",
+                      fontFamily: fonts.ui,
+                      fontSize: 12,
+                      color: c.warmGray,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Upload your registration card/school ID and a 1x1 photo.
+                    These will be reviewed by an admin before your account is
+                    approved.
+                  </p>
+                </div>
+              </div>
 
-            {submitMessage && (
-              <p
+              <FileUploadField
+                label="Registration Card / School ID"
+                hint="JPG, PNG or PDF — max 5 MB"
+                icon={<FileText size={22} />}
+                accept="image/*,application/pdf"
+                file={regCardFile}
+                onFile={(f) => {
+                  setRegCardFile(f);
+                  setFileErrors((prev) => ({ ...prev, regCard: "" }));
+                }}
+                error={fileErrors.regCard}
+              />
+
+              <FileUploadField
+                label="1x1 Profile Picture"
+                hint="JPG or PNG — max 3 MB. This will be your profile photo."
+                icon={<ImageIcon size={22} />}
+                accept="image/jpeg,image/png,image/webp"
+                file={profilePicFile}
+                onFile={(f) => {
+                  setProfilePicFile(f);
+                  setFileErrors((prev) => ({ ...prev, profilePic: "" }));
+                }}
+                error={fileErrors.profilePic}
+              />
+
+              {/* Account summary */}
+              <div
                 style={{
-                  margin: "2px 0 0",
-                  fontFamily: fonts.ui,
-                  fontSize: 12,
-                  color: "#15803D",
-                  textAlign: "center",
+                  background: c.white,
+                  borderRadius: 12,
+                  padding: "12px 14px",
+                  border: `1px solid ${c.warmGray}1F`,
                 }}
               >
-                {submitMessage}
-              </p>
-            )}
+                <p
+                  style={{
+                    margin: "0 0 8px",
+                    fontFamily: fonts.ui,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: c.warmGray,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  Account Summary
+                </p>
+                {[
+                  ["Name", `${form.firstName} ${form.lastName}`],
+                  ["Student ID", form.id],
+                  ["Email", form.email],
+                  ["Department", form.dept],
+                  ["Year & Section", form.yearSection],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "4px 0",
+                      borderBottom: `1px solid ${c.warmGray}14`,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: fonts.ui,
+                        fontSize: 11,
+                        color: c.warmGray,
+                      }}
+                    >
+                      {label}
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: fonts.ui,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: c.darkBrown,
+                        maxWidth: 180,
+                        textAlign: "right",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {value || "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
 
-            <div style={{ textAlign: "center" }}>
-              <span
-                style={{
-                  fontFamily: fonts.ui,
-                  fontSize: 14,
-                  color: c.warmGray,
-                }}
-              >
-                Already have an account?{" "}
-              </span>
               <button
-                onClick={() => navigate("/login")}
+                onClick={handleRegister}
+                disabled={isSubmitting}
+                style={{
+                  background: isSubmitting ? `${c.warmGray}40` : g.button,
+                  border: "none",
+                  borderRadius: 12,
+                  height: 52,
+                  width: "100%",
+                  fontFamily: fonts.ui,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: isSubmitting ? c.warmGray : c.cream,
+                  cursor: isSubmitting ? "not-allowed" : "pointer",
+                  boxShadow: isSubmitting ? "none" : shadow.button,
+                }}
+              >
+                {isSubmitting ? "Creating Account…" : "Submit Registration"}
+              </button>
+
+              <button
+                onClick={() => setStep(1)}
+                disabled={isSubmitting}
                 style={{
                   background: "none",
-                  border: "none",
-                  cursor: "pointer",
+                  border: `1.5px solid ${c.warmGray}4D`,
+                  borderRadius: 12,
+                  height: 44,
+                  width: "100%",
                   fontFamily: fonts.ui,
                   fontSize: 14,
-                  color: c.baseRed,
                   fontWeight: 600,
+                  color: c.warmGray,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
                 }}
               >
-                Log In
+                <ArrowLeft size={16} />
+                Back to Account Info
               </button>
-            </div>
-          </motion.div>
+
+              {submitError && (
+                <p
+                  style={{
+                    margin: "2px 0 0",
+                    fontFamily: fonts.ui,
+                    fontSize: 12,
+                    color: errorText,
+                    textAlign: "center",
+                  }}
+                >
+                  {submitError}
+                </p>
+              )}
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
     </div>

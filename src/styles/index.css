@@ -9,11 +9,15 @@
   padding: 0;
 }
 
+:root {
+  --app-max-width: 430px;
+}
+
 html,
 body {
   width: 100%;
   height: 100%;
-  min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--app-shell-bg, #3e0703);
   overflow-x: hidden;
 }
@@ -22,16 +26,30 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  min-height: 100vh;
+  width: 100%;
+  min-height: 100dvh;
   background-color: var(--app-shell-bg, #3e0703);
 }
 
 .app-container {
-  width: 100%;
-  max-width: 480px;
-  min-height: 100vh;
+  width: min(100vw, var(--app-max-width));
+  max-width: var(--app-max-width);
+  min-height: 100dvh;
   position: relative;
   overflow-x: hidden;
   background-color: var(--app-container-bg, #fff0c4);
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.4);
+}
+
+.auth-input::placeholder {
+  color: var(--auth-placeholder-color, rgba(45, 27, 14, 0.55));
+  opacity: 1;
+}
+
+@media (max-width: 520px) {
+  .app-container {
+    width: 100vw;
+    max-width: 100vw;
+    box-shadow: none;
+  }
 }

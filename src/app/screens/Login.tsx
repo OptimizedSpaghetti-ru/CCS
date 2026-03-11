@@ -16,7 +16,7 @@ function SocialButton({ icon, label }: { icon: ReactNode; label: string }) {
         justifyContent: "center",
         gap: 8,
         background: c.white,
-        border: `1.5px solid rgba(139,115,85,0.25)`,
+        border: `1.5px solid ${c.warmGray}40`,
         borderRadius: 12,
         height: 46,
         cursor: "pointer",
@@ -39,6 +39,11 @@ function InputField({
   value,
   onChange,
   rightElement,
+  fieldSurface,
+  fieldBorder,
+  textColor,
+  iconColor,
+  placeholderColor,
 }: {
   icon: ReactNode;
   placeholder: string;
@@ -46,6 +51,11 @@ function InputField({
   value: string;
   onChange: (v: string) => void;
   rightElement?: ReactNode;
+  fieldSurface: string;
+  fieldBorder: string;
+  textColor: string;
+  iconColor: string;
+  placeholderColor: string;
 }) {
   return (
     <div
@@ -53,15 +63,16 @@ function InputField({
         display: "flex",
         alignItems: "center",
         gap: 12,
-        background: c.cream,
+        background: fieldSurface,
         borderRadius: 10,
         padding: "0 14px",
         height: 52,
-        border: `2px solid transparent`,
+        border: `1.5px solid ${fieldBorder}`,
       }}
     >
-      <div style={{ color: c.warmGray, flexShrink: 0 }}>{icon}</div>
+      <div style={{ color: iconColor, flexShrink: 0 }}>{icon}</div>
       <input
+        className="auth-input"
         type={type}
         placeholder={placeholder}
         value={value}
@@ -73,8 +84,11 @@ function InputField({
           outline: "none",
           fontFamily: fonts.ui,
           fontSize: 14,
-          color: c.darkBrown,
+          color: textColor,
+          caretColor: textColor,
           minWidth: 0,
+          // CSS variable used by .auth-input::placeholder in global styles.
+          ["--auth-placeholder-color" as string]: placeholderColor,
         }}
       />
       {rightElement}
@@ -84,12 +98,21 @@ function InputField({
 
 export function Login() {
   const navigate = useNavigate();
-  const { signIn } = useApp();
+  const { signIn, resolvedThemeMode } = useApp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const isDark = resolvedThemeMode === "dark";
+  const fieldSurface = isDark ? "#2A141A" : c.white;
+  const fieldBorder = isDark ? "rgba(255, 232, 217, 0.35)" : `${c.warmGray}40`;
+  const fieldText = c.darkBrown;
+  const labelColor = c.darkBrown;
+  const iconColor = c.warmGray;
+  const placeholderColor = isDark
+    ? "rgba(255, 232, 217, 0.7)"
+    : "rgba(45, 27, 14, 0.55)";
 
   const handleLogin = async () => {
     setErrorMessage("");
@@ -128,8 +151,8 @@ export function Login() {
           <button
             onClick={() => navigate("/")}
             style={{
-              background: "rgba(255,240,196,0.15)",
-              border: "1px solid rgba(255,240,196,0.2)",
+              background: `${c.cream}1F`,
+              border: `1px solid ${c.cream}33`,
               borderRadius: 8,
               width: 34,
               height: 34,
@@ -189,7 +212,7 @@ export function Login() {
                 fontFamily: fonts.ui,
                 fontSize: 12,
                 fontWeight: 600,
-                color: c.darkBrown,
+                color: labelColor,
                 display: "block",
                 marginBottom: 6,
                 textTransform: "uppercase",
@@ -203,6 +226,11 @@ export function Login() {
               placeholder="e.g. 01230001234 or email"
               value={email}
               onChange={setEmail}
+              fieldSurface={fieldSurface}
+              fieldBorder={fieldBorder}
+              textColor={fieldText}
+              iconColor={iconColor}
+              placeholderColor={placeholderColor}
             />
           </div>
 
@@ -213,7 +241,7 @@ export function Login() {
                 fontFamily: fonts.ui,
                 fontSize: 12,
                 fontWeight: 600,
-                color: c.darkBrown,
+                color: labelColor,
                 display: "block",
                 marginBottom: 6,
                 textTransform: "uppercase",
@@ -228,6 +256,11 @@ export function Login() {
               type={showPass ? "text" : "password"}
               value={password}
               onChange={setPassword}
+              fieldSurface={fieldSurface}
+              fieldBorder={fieldBorder}
+              textColor={fieldText}
+              iconColor={iconColor}
+              placeholderColor={placeholderColor}
               rightElement={
                 <button
                   onClick={() => setShowPass(!showPass)}
@@ -267,7 +300,7 @@ export function Login() {
             onClick={handleLogin}
             disabled={isSubmitting}
             style={{
-              background: isSubmitting ? "rgba(139,115,85,0.25)" : g.button,
+              background: isSubmitting ? `${c.warmGray}40` : g.button,
               border: "none",
               borderRadius: 12,
               height: 52,
@@ -290,7 +323,7 @@ export function Login() {
                 margin: "2px 0 0",
                 fontFamily: fonts.ui,
                 fontSize: 12,
-                color: "#B91C1C",
+                color: c.baseRed,
                 textAlign: "center",
               }}
             >
@@ -308,7 +341,7 @@ export function Login() {
             }}
           >
             <div
-              style={{ flex: 1, height: 1, background: "rgba(139,115,85,0.2)" }}
+              style={{ flex: 1, height: 1, background: `${c.warmGray}33` }}
             />
             <span
               style={{ fontFamily: fonts.ui, fontSize: 12, color: c.warmGray }}
@@ -316,7 +349,7 @@ export function Login() {
               or continue with
             </span>
             <div
-              style={{ flex: 1, height: 1, background: "rgba(139,115,85,0.2)" }}
+              style={{ flex: 1, height: 1, background: `${c.warmGray}33` }}
             />
           </div>
 

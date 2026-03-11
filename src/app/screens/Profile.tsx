@@ -249,18 +249,31 @@ export function Profile() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  overflow: "hidden",
                 }}
               >
-                <span
-                  style={{
-                    fontFamily: fonts.display,
-                    fontSize: 30,
-                    fontWeight: 900,
-                    color: c.cream,
-                  }}
-                >
-                  {currentUser.initials}
-                </span>
+                {currentUser.avatar ? (
+                  <img
+                    src={currentUser.avatar}
+                    alt="avatar"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <span
+                    style={{
+                      fontFamily: fonts.display,
+                      fontSize: 30,
+                      fontWeight: 900,
+                      color: c.cream,
+                    }}
+                  >
+                    {currentUser.initials}
+                  </span>
+                )}
               </div>
               <div
                 style={{

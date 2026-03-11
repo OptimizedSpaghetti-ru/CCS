@@ -16,6 +16,7 @@ interface ConversationRow {
   unread: number;
   online: boolean;
   initials: string;
+  avatarUrl?: string;
   color: string;
 }
 
@@ -51,11 +52,13 @@ function timeAgo(iso: string) {
 function Avatar({
   initials,
   color,
+  avatarUrl,
   size = 44,
   online,
 }: {
   initials: string;
   color: string;
+  avatarUrl?: string;
   size?: number;
   online?: boolean;
 }) {
@@ -71,18 +74,31 @@ function Avatar({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          overflow: "hidden",
         }}
       >
-        <span
-          style={{
-            fontFamily: fonts.display,
-            fontSize: size * 0.3,
-            fontWeight: 700,
-            color: c.cream,
-          }}
-        >
-          {initials}
-        </span>
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt="avatar"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+        ) : (
+          <span
+            style={{
+              fontFamily: fonts.display,
+              fontSize: size * 0.3,
+              fontWeight: 700,
+              color: c.cream,
+            }}
+          >
+            {initials}
+          </span>
+        )}
       </div>
       {online && (
         <div
@@ -161,7 +177,7 @@ export function Messages() {
         .from("conversations")
         .select(
           `id, title, is_group, updated_at,
-           conversation_members ( user_id, profiles:user_id ( id, full_name, role, show_online_status, is_online ) )`,
+           conversation_members ( user_id, profiles:user_id ( id, full_name, role, show_online_status, is_online, avatar_url ) )`,
         )
         .in("id", convIds)
         .order("updated_at", { ascending: false });
@@ -235,6 +251,7 @@ export function Messages() {
             otherMembers[0]?.is_online,
           ),
           initials: conv.is_group ? "GR" : getInitials(name),
+          avatarUrl: conv.is_group ? undefined : otherMembers[0]?.avatar_url,
           color,
         };
       });
@@ -434,6 +451,7 @@ export function Messages() {
               <Avatar
                 initials={conv.initials}
                 color={conv.color}
+                avatarUrl={conv.avatarUrl}
                 online={conv.online}
               />
               <div style={{ flex: 1, minWidth: 0 }}>

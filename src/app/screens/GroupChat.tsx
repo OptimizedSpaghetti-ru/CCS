@@ -22,6 +22,7 @@ interface GroupMsg {
   id: string;
   from: string;
   initials: string;
+  avatarUrl?: string;
   color: string;
   role: string;
   text: string;
@@ -86,18 +87,27 @@ function GroupMessage({ msg }: { msg: GroupMsg }) {
             justifyContent: "center",
             flexShrink: 0,
             marginTop: 4,
+            overflow: "hidden",
           }}
         >
-          <span
-            style={{
-              fontFamily: fonts.ui,
-              fontSize: 10,
-              fontWeight: 700,
-              color: c.cream,
-            }}
-          >
-            {msg.initials}
-          </span>
+          {msg.avatarUrl ? (
+            <img
+              src={msg.avatarUrl}
+              alt="avatar"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <span
+              style={{
+                fontFamily: fonts.ui,
+                fontSize: 10,
+                fontWeight: 700,
+                color: c.cream,
+              }}
+            >
+              {msg.initials}
+            </span>
+          )}
         </div>
       )}
       <div style={{ maxWidth: "75%" }}>
@@ -224,7 +234,7 @@ export function GroupChat() {
     const { data: conv } = await supabase
       .from("conversations")
       .select(
-        `id, title, conversation_members ( user_id, profiles:user_id ( id, full_name, role ) )`,
+        `id, title, conversation_members ( user_id, profiles:user_id ( id, full_name, role, avatar_url ) )`,
       )
       .eq("id", conversationId)
       .maybeSingle();
@@ -235,12 +245,16 @@ export function GroupChat() {
     }
 
     /* Build a name map from members */
-    const nameMap = new Map<string, { name: string; role: string }>();
+    const nameMap = new Map<
+      string,
+      { name: string; role: string; avatarUrl?: string }
+    >();
     for (const m of (conv?.conversation_members as any[]) ?? []) {
       const p = m.profiles;
       nameMap.set(m.user_id, {
         name: m.user_id === userId ? "Me" : p?.full_name || "User",
         role: p?.role || "student",
+        avatarUrl: p?.avatar_url ?? undefined,
       });
     }
 
@@ -262,6 +276,10 @@ export function GroupChat() {
           from: info.name,
           initials:
             info.name === "Me" ? currentUser.initials : getInitials(info.name),
+          avatarUrl:
+            info.name === "Me"
+              ? currentUser.avatar || undefined
+              : info.avatarUrl,
           color:
             info.name === "Me"
               ? c.darkRed

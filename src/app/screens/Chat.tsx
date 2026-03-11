@@ -23,6 +23,7 @@ interface ChatMeta {
   color: string;
   online: boolean;
   otherUserId?: string;
+  avatarUrl?: string;
 }
 
 interface MsgRow {
@@ -55,9 +56,11 @@ function fmtTime(iso: string) {
 function MessageBubble({
   msg,
   otherInitials,
+  otherAvatarUrl,
 }: {
   msg: MsgRow;
   otherInitials: string;
+  otherAvatarUrl?: string;
 }) {
   const isMe = msg.from === "me";
 
@@ -163,18 +166,27 @@ function MessageBubble({
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
+            overflow: "hidden",
           }}
         >
-          <span
-            style={{
-              fontFamily: fonts.ui,
-              fontSize: 10,
-              fontWeight: 700,
-              color: c.cream,
-            }}
-          >
-            {otherInitials}
-          </span>
+          {otherAvatarUrl ? (
+            <img
+              src={otherAvatarUrl}
+              alt="avatar"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <span
+              style={{
+                fontFamily: fonts.ui,
+                fontSize: 10,
+                fontWeight: 700,
+                color: c.cream,
+              }}
+            >
+              {otherInitials}
+            </span>
+          )}
         </div>
       )}
       <div style={{ maxWidth: "72%" }}>
@@ -245,7 +257,7 @@ export function Chat() {
         .from("conversations")
         .select(
           `id, title, is_group,
-           conversation_members ( user_id, profiles:user_id ( id, full_name, role, show_online_status, is_online ) )`,
+           conversation_members ( user_id, profiles:user_id ( id, full_name, role, show_online_status, is_online, avatar_url ) )`,
         )
         .eq("id", conversationId)
         .maybeSingle();
@@ -268,6 +280,7 @@ export function Chat() {
             other?.show_online_status !== false && other?.is_online,
           ),
           otherUserId: other?.id,
+          avatarUrl: other?.avatar_url ?? undefined,
         });
       }
 
@@ -561,6 +574,7 @@ export function Chat() {
               key={msg.id}
               msg={msg}
               otherInitials={chat.initials}
+              otherAvatarUrl={chat.avatarUrl}
             />
           ))
         )}

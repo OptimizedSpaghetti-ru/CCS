@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { ShieldCheck, LogOut, Mail, Clock } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
@@ -6,7 +7,7 @@ import { useApp } from "../context/AppContext";
 export function PendingApproval() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser, signOut, isAuthenticated } = useApp();
+  const { currentUser, signOut, isAuthenticated, refreshProfile } = useApp();
 
   // Support both authenticated users and post-registration redirect (via route state)
   const routeState = (location.state ?? {}) as {
@@ -15,6 +16,23 @@ export function PendingApproval() {
   };
   const displayName = currentUser?.name || routeState.name || "there";
   const displayEmail = currentUser?.email || routeState.email || "";
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    if (currentUser.status === "approved") {
+      navigate("/app/home", { replace: true });
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      refreshProfile();
+    }, 5000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [currentUser.status, isAuthenticated, navigate, refreshProfile]);
 
   const handleAction = async () => {
     if (isAuthenticated) {

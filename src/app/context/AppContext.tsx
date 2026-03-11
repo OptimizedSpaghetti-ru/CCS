@@ -49,6 +49,8 @@ interface AppContextType {
     program?: string;
     role: "student" | "faculty";
     password: string;
+    regCardFile?: File;
+    profilePicFile?: File;
   }) => Promise<{ error?: string; message?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -358,7 +360,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const profile = await fetchProfile(data.user.id);
+      let profile: Record<string, unknown> | null = null;
+      for (const delayMs of [0, 400, 1200]) {
+        if (delayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+        profile = await fetchProfile(data.user.id);
+        if (profile?.status === "approved") {
+          break;
+        }
+      }
+
       const status = normalizeStatus(
         profile?.status ?? data.user.user_metadata?.status,
       );
@@ -392,6 +404,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       program?: string;
       role: "student" | "faculty";
       password: string;
+      regCardFile?: File;
+      profilePicFile?: File;
     }) => {
       const email = payload.email.trim().toLowerCase();
 
@@ -424,6 +438,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user && data.session) {
+        let avatarUrl: string | null = null;
+        let regCardUrl: string | null = null;
+        let profilePicUrl: string | null = null;
+
+        /* ── Upload files for students ── */
+        if (payload.role === "student") {
+          const userId = data.user.id;
+
+          if (payload.regCardFile) {
+            const ext = payload.regCardFile.name.split(".").pop() ?? "jpg";
+            const regPath = `reg-cards/${userId}/reg-card.${ext}`;
+            await supabase.storage
+              .from("student-documents")
+              .upload(regPath, payload.regCardFile, { upsert: true });
+            regCardUrl = supabase.storage
+              .from("student-documents")
+              .getPublicUrl(regPath).data.publicUrl;
+          }
+
+          if (payload.profilePicFile) {
+            const ext = payload.profilePicFile.name.split(".").pop() ?? "jpg";
+            const picPath = `profile-pics/${userId}/profile-pic.${ext}`;
+            await supabase.storage
+              .from("student-documents")
+              .upload(picPath, payload.profilePicFile, { upsert: true });
+            avatarUrl = supabase.storage
+              .from("student-documents")
+              .getPublicUrl(picPath).data.publicUrl;
+            profilePicUrl = avatarUrl;
+          }
+        }
+
+        /* ── Upsert profile first (satisfies FK before student_documents insert) ── */
         await supabase.from("profiles").upsert({
           id: data.user.id,
           email,
@@ -435,7 +482,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
           program: payload.program ?? null,
           student_id: payload.role === "student" ? payload.identifier : null,
           employee_id: payload.role === "faculty" ? payload.identifier : null,
+          ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
         });
+
+        /* ── Insert student_documents after profile row exists ── */
+        if (payload.role === "student") {
+          await supabase.from("student_documents").insert({
+            user_id: data.user.id,
+            reg_card_url: regCardUrl,
+            profile_pic_url: profilePicUrl,
+          });
+        }
 
         await supabase.auth.signOut();
       }

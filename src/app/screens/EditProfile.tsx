@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import {
   Camera,
+  Loader2,
   User,
   Hash,
   Mail,
@@ -171,6 +172,12 @@ export function EditProfile() {
   const navigate = useNavigate();
   const { currentUser, refreshProfile, showToast } = useApp();
   const [saving, setSaving] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const avatarObjectUrlRef = useRef<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>(
+    currentUser.avatar,
+  );
   const [form, setForm] = useState({
     name: currentUser.name,
     id: currentUser.identifier,
@@ -181,6 +188,8 @@ export function EditProfile() {
     yearSection: currentUser.yearSection,
     bio: "",
   });
+  const maxAvatarSizeBytes = 5 * 1024 * 1024;
+  const isUploadingAvatar = saving && Boolean(avatarFile);
 
   /* load full profile from DB */
   useEffect(() => {
@@ -208,9 +217,42 @@ export function EditProfile() {
     })();
   }, [currentUser.id]);
 
+  useEffect(() => {
+    return () => {
+      if (avatarObjectUrlRef.current) {
+        URL.revokeObjectURL(avatarObjectUrlRef.current);
+      }
+    };
+  }, []);
+
   const handleSave = async () => {
     if (saving) return;
     setSaving(true);
+
+    /* Upload new avatar if chosen */
+    let newAvatarUrl: string | undefined;
+    if (avatarFile) {
+      const ext = avatarFile.name.split(".").pop() ?? "jpg";
+      const path = `${currentUser.id}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("avatar")
+        .upload(path, avatarFile, { upsert: true });
+      if (uploadError) {
+        setSaving(false);
+        showToast({
+          type: "message",
+          title: "Upload failed",
+          preview: uploadError.message,
+          time: "now",
+        });
+        return;
+      }
+      const { data: urlData } = supabase.storage
+        .from("avatar")
+        .getPublicUrl(path);
+      newAvatarUrl = urlData.publicUrl;
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update({
@@ -221,6 +263,7 @@ export function EditProfile() {
         program: form.program.trim(),
         phone: form.phone.trim() || null,
         bio: form.bio.trim() || null,
+        ...(newAvatarUrl ? { avatar_url: newAvatarUrl } : {}),
       })
       .eq("id", currentUser.id);
     setSaving(false);
@@ -297,6 +340,7 @@ export function EditProfile() {
         </h1>
         <button
           onClick={handleSave}
+          disabled={saving}
           style={{
             background: "rgba(255,240,196,0.2)",
             border: "1px solid rgba(255,240,196,0.3)",
@@ -310,7 +354,7 @@ export function EditProfile() {
             opacity: saving ? 0.5 : 1,
           }}
         >
-          Save
+          {isUploadingAvatar ? "Uploading..." : saving ? "Saving..." : "Save"}
         </button>
       </div>
 
@@ -334,20 +378,35 @@ export function EditProfile() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                overflow: "hidden",
               }}
             >
-              <span
-                style={{
-                  fontFamily: fonts.display,
-                  fontSize: 30,
-                  fontWeight: 900,
-                  color: c.cream,
-                }}
-              >
-                {currentUser.initials}
-              </span>
+              {avatarPreview ? (
+                <img
+                  src={avatarPreview}
+                  alt="avatar"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                <span
+                  style={{
+                    fontFamily: fonts.display,
+                    fontSize: 30,
+                    fontWeight: 900,
+                    color: c.cream,
+                  }}
+                >
+                  {currentUser.initials}
+                </span>
+              )}
             </div>
             <button
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={saving}
               style={{
                 position: "absolute",
                 bottom: 0,
@@ -360,11 +419,61 @@ export function EditProfile() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                cursor: "pointer",
+                cursor: saving ? "default" : "pointer",
+                opacity: saving ? 0.7 : 1,
               }}
             >
-              <Camera size={14} color={c.cream} />
+              {isUploadingAvatar ? (
+                <Loader2
+                  size={14}
+                  color={c.cream}
+                  style={{ animation: "spin 1s linear infinite" }}
+                />
+              ) : (
+                <Camera size={14} color={c.cream} />
+              )}
             </button>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  if (!f.type.startsWith("image/")) {
+                    showToast({
+                      type: "message",
+                      title: "Invalid file",
+                      preview: "Please select an image file.",
+                      time: "now",
+                    });
+                    e.target.value = "";
+                    return;
+                  }
+
+                  if (f.size > maxAvatarSizeBytes) {
+                    showToast({
+                      type: "message",
+                      title: "Image too large",
+                      preview: "Avatar image must be 5 MB or smaller.",
+                      time: "now",
+                    });
+                    e.target.value = "";
+                    return;
+                  }
+
+                  if (avatarObjectUrlRef.current) {
+                    URL.revokeObjectURL(avatarObjectUrlRef.current);
+                  }
+                  const objectUrl = URL.createObjectURL(f);
+                  avatarObjectUrlRef.current = objectUrl;
+                  setAvatarFile(f);
+                  setAvatarPreview(objectUrl);
+                }
+                e.target.value = "";
+              }}
+            />
           </div>
         </div>
 
@@ -489,7 +598,11 @@ export function EditProfile() {
             opacity: saving ? 0.6 : 1,
           }}
         >
-          {saving ? "Saving…" : "Save Changes"}
+          {isUploadingAvatar
+            ? "Uploading avatar..."
+            : saving
+              ? "Saving..."
+              : "Save Changes"}
         </button>
         <button
           onClick={() => navigate("/app/profile")}

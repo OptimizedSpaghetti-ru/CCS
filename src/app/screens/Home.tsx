@@ -217,18 +217,27 @@ export function Home() {
               justifyContent: "center",
               cursor: "pointer",
               padding: 0,
+              overflow: "hidden",
             }}
           >
-            <span
-              style={{
-                fontFamily: fonts.display,
-                fontSize: 16,
-                fontWeight: 700,
-                color: c.cream,
-              }}
-            >
-              {currentUser.initials}
-            </span>
+            {currentUser.avatar ? (
+              <img
+                src={currentUser.avatar}
+                alt="avatar"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
+              <span
+                style={{
+                  fontFamily: fonts.display,
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: c.cream,
+                }}
+              >
+                {currentUser.initials}
+              </span>
+            )}
           </button>
         </div>
       </div>

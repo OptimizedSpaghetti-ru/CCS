@@ -12,7 +12,7 @@ export function AppLayout() {
       style={{
         display: "flex",
         flexDirection: "column",
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: c.creamLight,
         position: "relative",
         overflow: "hidden",
@@ -27,8 +27,8 @@ export function AppLayout() {
           display: "flex",
           flexDirection: "column",
           position: "relative",
-          minHeight: "100vh",
-          paddingBottom: 70,
+          minHeight: "100dvh",
+          paddingBottom: "calc(74px + env(safe-area-inset-bottom, 0px))",
         }}
       >
         <AnimatePresence mode="wait" initial={false}>
