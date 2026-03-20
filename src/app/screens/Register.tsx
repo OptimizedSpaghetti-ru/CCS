@@ -9,8 +9,6 @@ import {
   Lock,
   Eye,
   EyeOff,
-  GraduationCap,
-  BookOpen,
   ChevronDown,
   CheckCircle2,
   XCircle,
@@ -371,7 +369,6 @@ export function Register() {
   const navigate = useNavigate();
   const { signUp, resolvedThemeMode } = useApp();
   const [step, setStep] = useState<1 | 2>(1);
-  const [role, setRole] = useState<"student" | "faculty">("student");
   const [showPass, setShowPass] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
@@ -406,7 +403,6 @@ export function Register() {
     email: "",
     dept: "",
     yearSection: "",
-    program: "",
     password: "",
     confirm: "",
   });
@@ -490,42 +486,25 @@ export function Register() {
         ? "Use letters only for last name."
         : "",
     id: !form.id.trim()
-      ? `${role === "student" ? "Student" : "Employee"} ID is required.`
-      : role === "student"
-        ? /^\d{11}$/.test(form.id.trim())
-          ? ""
-          : "Format must be 11 digits (e.g. 01230001234)."
-        : /^FAC-\d{4}-\d{3}$/i.test(form.id.trim())
-          ? ""
-          : "Format must be FAC-YYYY-000.",
+      ? "Student ID is required."
+      : /^\d{11}$/.test(form.id.trim())
+        ? ""
+        : "Format must be 11 digits (e.g. 01230001234).",
     email: !form.email.trim()
       ? "Email is required."
       : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())
         ? "Enter a valid email address."
-        : role === "student" &&
-            !form.email.trim().toLowerCase().endsWith("@student.fatima.edu.ph")
+        : !form.email.trim().toLowerCase().endsWith("@student.fatima.edu.ph")
           ? "Use your @student.fatima.edu.ph email."
-          : role === "faculty" &&
-              !form.email.trim().toLowerCase().endsWith("@fatima.edu.ph")
-            ? "Use your @fatima.edu.ph email."
-            : "",
+          : "",
     dept: !form.dept.trim()
       ? "Department is required."
       : form.dept.trim().length < 2
         ? "Department must be at least 2 characters."
         : "",
-    yearSection:
-      role === "student"
-        ? !form.yearSection.trim()
-          ? "Please select your year and section"
-          : ""
-        : "",
-    program:
-      role === "faculty"
-        ? !form.program.trim()
-          ? "Program handled is required."
-          : ""
-        : "",
+    yearSection: !form.yearSection.trim()
+      ? "Please select your year and section"
+      : "",
     password: !form.password
       ? "Password is required."
       : passwordStrengthScore < 3
@@ -557,14 +536,12 @@ export function Register() {
     setSubmitError("");
     setSubmitMessage("");
 
-    if (role === "student") {
-      const newFileErrors = {
-        regCard: !regCardFile ? "Registration card / ID is required." : "",
-        profilePic: !profilePicFile ? "1x1 profile picture is required." : "",
-      };
-      setFileErrors(newFileErrors);
-      if (newFileErrors.regCard || newFileErrors.profilePic) return;
-    }
+    const newFileErrors = {
+      regCard: !regCardFile ? "Registration card / ID is required." : "",
+      profilePic: !profilePicFile ? "1x1 profile picture is required." : "",
+    };
+    setFileErrors(newFileErrors);
+    if (newFileErrors.regCard || newFileErrors.profilePic) return;
 
     setIsSubmitting(true);
     const result = await signUp({
@@ -573,9 +550,9 @@ export function Register() {
       identifier: form.id.trim(),
       email: form.email.trim(),
       department: form.dept.trim(),
-      yearSection: role === "student" ? form.yearSection.trim() : "",
-      program: role === "faculty" ? form.program.trim() : "",
-      role,
+      yearSection: form.yearSection.trim(),
+      program: "",
+      role: "student",
       password: form.password,
       regCardFile: regCardFile ?? undefined,
       profilePicFile: profilePicFile ?? undefined,
@@ -659,53 +636,7 @@ export function Register() {
               : "Required for student verification"}
           </p>
 
-          {/* Step indicator — students only */}
-          {role === "student" && <StepIndicator step={step} />}
-
-          {/* Role Tab Switcher — only on step 1 */}
-          {step === 1 && (
-            <div
-              style={{
-                display: "flex",
-                background: `${c.cream}1A`,
-                borderRadius: 12,
-                padding: 4,
-                gap: 4,
-                marginTop: role === "student" ? 12 : 0,
-              }}
-            >
-              {(["student", "faculty"] as const).map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setRole(r)}
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 6,
-                    height: 36,
-                    borderRadius: 9,
-                    border: "none",
-                    cursor: "pointer",
-                    fontFamily: fonts.ui,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    background: role === r ? g.button : "transparent",
-                    color: role === r ? c.cream : `${c.cream}80`,
-                    transition: "all 0.2s",
-                  }}
-                >
-                  {r === "student" ? (
-                    <GraduationCap size={15} />
-                  ) : (
-                    <BookOpen size={15} />
-                  )}
-                  {r === "student" ? "Student" : "Faculty"}
-                </button>
-              ))}
-            </div>
-          )}
+          <StepIndicator step={step} />
         </div>
       </div>
 
@@ -715,64 +646,13 @@ export function Register() {
           {/* ═══ STEP 1 ═══ */}
           {step === 1 && (
             <motion.div
-              key={`step1-${role}`}
+              key="step1"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.25 }}
               style={{ display: "flex", flexDirection: "column", gap: 12 }}
             >
-              {/* Role Badge */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: c.white,
-                  borderRadius: 10,
-                  padding: "10px 14px",
-                  border: `1.5px solid ${c.baseRed}26`,
-                  marginBottom: 4,
-                }}
-              >
-                <div
-                  style={{
-                    background: role === "student" ? "#3B5280" : g.button,
-                    borderRadius: 20,
-                    padding: "3px 10px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 5,
-                  }}
-                >
-                  {role === "student" ? (
-                    <GraduationCap size={12} color={c.white} />
-                  ) : (
-                    <BookOpen size={12} color={c.white} />
-                  )}
-                  <span
-                    style={{
-                      fontFamily: fonts.ui,
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: c.cream,
-                    }}
-                  >
-                    {role === "student" ? "Student" : "Faculty"}
-                  </span>
-                </div>
-                <span
-                  style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 12,
-                    color: c.warmGray,
-                  }}
-                >
-                  Registering as{" "}
-                  {role === "student" ? "a student" : "faculty member"}
-                </span>
-              </div>
-
               <div style={{ display: "flex", gap: 10 }}>
                 <div style={{ flex: 1 }}>
                   <FormField
@@ -805,10 +685,8 @@ export function Register() {
               />
               <FormField
                 icon={<Hash size={16} />}
-                label={role === "student" ? "Student ID" : "Employee ID"}
-                placeholder={
-                  role === "student" ? "e.g. 01230001234" : "e.g. FAC-2018-045"
-                }
+                label="Student ID"
+                placeholder="e.g. 01230001234"
                 value={form.id}
                 onChange={set("id")}
                 error={errors.id}
@@ -818,11 +696,7 @@ export function Register() {
               <FormField
                 icon={<Mail size={16} />}
                 label="Email Address"
-                placeholder={
-                  role === "student"
-                    ? "yourname@student.fatima.edu.ph"
-                    : "yourname@fatima.edu.ph"
-                }
+                placeholder="yourname@student.fatima.edu.ph"
                 type="email"
                 value={form.email}
                 onChange={set("email")}
@@ -832,165 +706,128 @@ export function Register() {
                 }
                 isDark={isDark}
               />
-              {role === "student" ? (
-                <>
-                  <div>
-                    <label
-                      style={{
-                        fontFamily: fonts.ui,
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: c.darkBrown,
-                        display: "block",
-                        marginBottom: 5,
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      Department
-                    </label>
-                    <div style={{ position: "relative" }}>
-                      <select
-                        value={form.dept}
-                        onChange={(event) =>
-                          handleDepartmentChange(event.target.value)
-                        }
-                        style={selectStyles}
-                      >
-                        <option value="">Select department</option>
-                        {studentDepartments.map((department) => (
-                          <option
-                            key={department.code}
-                            value={department.label}
-                          >
-                            {department.label}
+              <div>
+                <label
+                  style={{
+                    fontFamily: fonts.ui,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: c.darkBrown,
+                    display: "block",
+                    marginBottom: 5,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  Department
+                </label>
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={form.dept}
+                    onChange={(event) =>
+                      handleDepartmentChange(event.target.value)
+                    }
+                    style={selectStyles}
+                  >
+                    <option value="">Select department</option>
+                    {studentDepartments.map((department) => (
+                      <option key={department.code} value={department.label}>
+                        {department.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={16}
+                    color={c.warmGray}
+                    style={{
+                      position: "absolute",
+                      right: 12,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </div>
+                {(errors.dept || form.dept.trim()) && (
+                  <p
+                    style={{
+                      fontFamily: fonts.ui,
+                      fontSize: 11,
+                      margin: "5px 2px 0",
+                      color: errors.dept ? errorText : successText,
+                    }}
+                  >
+                    {errors.dept || "Looks good."}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    fontFamily: fonts.ui,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: c.darkBrown,
+                    display: "block",
+                    marginBottom: 5,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  Year and Section
+                </label>
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={form.yearSection}
+                    onChange={(event) => set("yearSection")(event.target.value)}
+                    disabled={!form.dept}
+                    style={{
+                      ...selectStyles,
+                      opacity: !form.dept ? 0.5 : 1,
+                      cursor: !form.dept ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    <option value="">
+                      {!form.dept
+                        ? "Select department first"
+                        : "Select year and section"}
+                    </option>
+                    {yearSectionGroups.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.options.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
                           </option>
                         ))}
-                      </select>
-                      <ChevronDown
-                        size={16}
-                        color={c.warmGray}
-                        style={{
-                          position: "absolute",
-                          right: 12,
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          pointerEvents: "none",
-                        }}
-                      />
-                    </div>
-                    {(errors.dept || form.dept.trim()) && (
-                      <p
-                        style={{
-                          fontFamily: fonts.ui,
-                          fontSize: 11,
-                          margin: "5px 2px 0",
-                          color: errors.dept ? errorText : successText,
-                        }}
-                      >
-                        {errors.dept || "Looks good."}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label
-                      style={{
-                        fontFamily: fonts.ui,
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: c.darkBrown,
-                        display: "block",
-                        marginBottom: 5,
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      Year and Section
-                    </label>
-                    <div style={{ position: "relative" }}>
-                      <select
-                        value={form.yearSection}
-                        onChange={(event) =>
-                          set("yearSection")(event.target.value)
-                        }
-                        disabled={!form.dept}
-                        style={{
-                          ...selectStyles,
-                          opacity: !form.dept ? 0.5 : 1,
-                          cursor: !form.dept ? "not-allowed" : "pointer",
-                        }}
-                      >
-                        <option value="">
-                          {!form.dept
-                            ? "Select department first"
-                            : "Select year and section"}
-                        </option>
-                        {yearSectionGroups.map((group) => (
-                          <optgroup key={group.label} label={group.label}>
-                            {group.options.map((option) => (
-                              <option key={option} value={option}>
-                                {option}
-                              </option>
-                            ))}
-                          </optgroup>
-                        ))}
-                      </select>
-                      <ChevronDown
-                        size={16}
-                        color={c.warmGray}
-                        style={{
-                          position: "absolute",
-                          right: 12,
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          pointerEvents: "none",
-                        }}
-                      />
-                    </div>
-                    {(errors.yearSection || form.yearSection.trim()) && (
-                      <p
-                        style={{
-                          fontFamily: fonts.ui,
-                          fontSize: 11,
-                          margin: "5px 2px 0",
-                          color: errors.yearSection ? errorText : successText,
-                        }}
-                      >
-                        {errors.yearSection || "Looks good."}
-                      </p>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <FormField
-                  icon={<Book size={16} />}
-                  label="Department"
-                  placeholder="e.g. BSCS, BSIT, BSCS-SE"
-                  value={form.dept}
-                  onChange={set("dept")}
-                  error={errors.dept}
-                  success={
-                    !errors.dept && form.dept.trim() ? "Looks good." : ""
-                  }
-                  isDark={isDark}
-                />
-              )}
-
-              {role === "faculty" && (
-                <FormField
-                  icon={<Book size={16} />}
-                  label="Program Handled"
-                  placeholder="e.g. BSCS, BSIT"
-                  value={form.program}
-                  onChange={set("program")}
-                  error={errors.program}
-                  success={
-                    !errors.program && form.program.trim() ? "Looks good." : ""
-                  }
-                  isDark={isDark}
-                />
-              )}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={16}
+                    color={c.warmGray}
+                    style={{
+                      position: "absolute",
+                      right: 12,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </div>
+                {(errors.yearSection || form.yearSection.trim()) && (
+                  <p
+                    style={{
+                      fontFamily: fonts.ui,
+                      fontSize: 11,
+                      margin: "5px 2px 0",
+                      color: errors.yearSection ? errorText : successText,
+                    }}
+                  >
+                    {errors.yearSection || "Looks good."}
+                  </p>
+                )}
+              </div>
               <FormField
                 icon={<Lock size={16} />}
                 label="Password"
@@ -1114,59 +951,31 @@ export function Register() {
               )}
 
               {/* CTA */}
-              {role === "student" ? (
-                <button
-                  onClick={handleProceedToStep2}
-                  disabled={!isStep1Valid}
-                  style={{
-                    background: isStep1Valid ? g.button : `${c.warmGray}40`,
-                    border: "none",
-                    borderRadius: 12,
-                    height: 52,
-                    width: "100%",
-                    fontFamily: fonts.ui,
-                    fontSize: 16,
-                    fontWeight: 600,
-                    color: isStep1Valid ? c.cream : c.warmGray,
-                    cursor: isStep1Valid ? "pointer" : "not-allowed",
-                    boxShadow: isStep1Valid ? shadow.button : "none",
-                    marginTop: 8,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                  }}
-                >
-                  Continue to Upload Documents
-                  <ChevronRight size={18} />
-                </button>
-              ) : (
-                <button
-                  onClick={handleRegister}
-                  disabled={!isStep1Valid || isSubmitting}
-                  style={{
-                    background:
-                      isStep1Valid && !isSubmitting
-                        ? g.button
-                        : `${c.warmGray}40`,
-                    border: "none",
-                    borderRadius: 12,
-                    height: 52,
-                    width: "100%",
-                    fontFamily: fonts.ui,
-                    fontSize: 16,
-                    fontWeight: 600,
-                    color: isStep1Valid && !isSubmitting ? c.cream : c.warmGray,
-                    cursor:
-                      isStep1Valid && !isSubmitting ? "pointer" : "not-allowed",
-                    boxShadow:
-                      isStep1Valid && !isSubmitting ? shadow.button : "none",
-                    marginTop: 8,
-                  }}
-                >
-                  {isSubmitting ? "Creating Account..." : "Create Account"}
-                </button>
-              )}
+              <button
+                onClick={handleProceedToStep2}
+                disabled={!isStep1Valid}
+                style={{
+                  background: isStep1Valid ? g.button : `${c.warmGray}40`,
+                  border: "none",
+                  borderRadius: 12,
+                  height: 52,
+                  width: "100%",
+                  fontFamily: fonts.ui,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: isStep1Valid ? c.cream : c.warmGray,
+                  cursor: isStep1Valid ? "pointer" : "not-allowed",
+                  boxShadow: isStep1Valid ? shadow.button : "none",
+                  marginTop: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                Continue to Upload Documents
+                <ChevronRight size={18} />
+              </button>
 
               {submitError && (
                 <p
