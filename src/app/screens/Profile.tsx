@@ -456,7 +456,6 @@ export function Profile() {
             />
           </div>
         </div>
-        <div style={{ height: 8 }} />
       </div>
     </div>
   );

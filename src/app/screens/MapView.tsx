@@ -1,7 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
 import L from "leaflet";
+import "leaflet-rotate";
 import { AnimatePresence, motion } from "motion/react";
 import { Navigation, ChevronDown, Map as MapIcon, Radio } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
@@ -28,14 +36,15 @@ type BuildingFloor =
   | "5th-floor";
 /* ── OLFU CAMPUS ── */
 const OLFU_CENTER: [number, number] = [14.679975, 120.981499];
+const CAMPUS_BOUNDS: [[number, number], [number, number]] = [
+  [14.6784, 120.9799],
+  [14.6816, 120.9831],
+];
 
 const DEFAULT_ZOOM = 17;
-const MIN_ZOOM = 16;
+const MIN_ZOOM = DEFAULT_ZOOM;
 
-const MAX_BOUNDS: [[number, number], [number, number]] = [
-  [14.678975, 120.980499],
-  [14.680975, 120.982499],
-];
+const CAMPUS_BOUNDS_OBJ = L.latLngBounds(CAMPUS_BOUNDS);
 
 /* ── Custom map marker ── */
 function createMarkerIcon(color: string) {
@@ -89,6 +98,54 @@ function RecenterButton({ position }: { position: [number, number] | null }) {
   );
 }
 
+function BoundsEnforcer() {
+  const map = useMapEvents({
+    moveend() {
+      if (
+        map.getZoom() <= DEFAULT_ZOOM &&
+        !CAMPUS_BOUNDS_OBJ.contains(map.getCenter())
+      ) {
+        map.panInsideBounds(CAMPUS_BOUNDS_OBJ, { animate: false });
+      }
+    },
+    zoomend() {
+      (map.options as any).maxBoundsViscosity =
+        map.getZoom() > DEFAULT_ZOOM ? 0.2 : 1.0;
+
+      if (
+        map.getZoom() <= DEFAULT_ZOOM &&
+        !CAMPUS_BOUNDS_OBJ.contains(map.getCenter())
+      ) {
+        map.panInsideBounds(CAMPUS_BOUNDS_OBJ, { animate: false });
+      }
+    },
+  });
+
+  useEffect(() => {
+    const enforceBounds = () => {
+      if (
+        map.getZoom() <= DEFAULT_ZOOM &&
+        !CAMPUS_BOUNDS_OBJ.contains(map.getCenter())
+      ) {
+        map.panInsideBounds(CAMPUS_BOUNDS_OBJ, { animate: false });
+      }
+    };
+
+    map.on("rotate" as any, enforceBounds);
+    map.setMaxBounds(CAMPUS_BOUNDS_OBJ);
+    (map.options as any).maxBoundsViscosity =
+      map.getZoom() > DEFAULT_ZOOM ? 0.2 : 1.0;
+
+    enforceBounds();
+
+    return () => {
+      map.off("rotate" as any, enforceBounds);
+    };
+  }, [map]);
+
+  return null;
+}
+
 const buildingFloors: Array<{ value: BuildingFloor; label: string }> = [
   { value: "1st-floor", label: "1st Floor" },
   { value: "2nd-floor", label: "2nd Floor" },
@@ -104,10 +161,19 @@ export function MapView() {
   const [locations, setLocations] = useState<MapLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [userPos, setUserPos] = useState<[number, number] | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const hasAutoCenteredToUser = useRef(false);
   const [selectedFloor, setSelectedFloor] =
     useState<BuildingFloor>("1st-floor");
   const [isFloorImageMissing, setIsFloorImageMissing] = useState(false);
   const [isFloorImageLoading, setIsFloorImageLoading] = useState(true);
+
+  const rotateOptions = {
+    rotate: true,
+    touchRotate: true,
+    shiftKeyRotate: true,
+    rotateControl: { position: "topright" },
+  };
 
   /* Load locations from Supabase */
   useEffect(() => {
@@ -140,7 +206,18 @@ export function MapView() {
   useEffect(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-      (pos) => setUserPos([pos.coords.latitude, pos.coords.longitude]),
+      (pos) => {
+        const coords: [number, number] = [
+          pos.coords.latitude,
+          pos.coords.longitude,
+        ];
+        setUserPos(coords);
+
+        if (mapRef.current && !hasAutoCenteredToUser.current) {
+          mapRef.current.flyTo(coords, DEFAULT_ZOOM, { duration: 0.8 });
+          hasAutoCenteredToUser.current = true;
+        }
+      },
       () => {},
       { enableHighAccuracy: true, timeout: 10000 },
     );
@@ -228,19 +305,23 @@ export function MapView() {
           {/* Leaflet map — full screen behind overlays */}
           <div style={{ position: "absolute", inset: 0, zIndex: 1 }}>
             <MapContainer
-              center={userPos ?? OLFU_CENTER}
+              ref={mapRef}
+              center={OLFU_CENTER}
               zoom={DEFAULT_ZOOM}
               minZoom={MIN_ZOOM}
-              maxBounds={MAX_BOUNDS}
+              maxBounds={CAMPUS_BOUNDS}
               maxBoundsViscosity={1.0}
               style={{ width: "100%", height: "100%" }}
               zoomControl={false}
               attributionControl={false}
+              {...(rotateOptions as any)}
             >
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               />
+
+              <BoundsEnforcer />
 
               {/* Location markers */}
               {geoLocations.map((loc) => (

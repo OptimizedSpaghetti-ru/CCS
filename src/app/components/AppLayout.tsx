@@ -2,7 +2,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { Outlet, useLocation } from "react-router";
 import { BottomNav } from "./BottomNav";
 import { ToastOverlay } from "./ToastOverlay";
-import { c } from "../theme";
 
 export function AppLayout() {
   const location = useLocation();
@@ -13,7 +12,7 @@ export function AppLayout() {
         display: "flex",
         flexDirection: "column",
         minHeight: "100dvh",
-        background: c.creamLight,
+        background: "var(--app-container-bg, #FFFBEF)",
         position: "relative",
         overflow: "hidden",
         width: "100%",

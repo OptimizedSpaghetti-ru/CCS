@@ -302,7 +302,7 @@ export function Settings() {
         </h1>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "4px 16px 24px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "4px 16px 0" }}>
         {/* Account */}
         <SectionLabel text="Account" />
         <SectionCard>
