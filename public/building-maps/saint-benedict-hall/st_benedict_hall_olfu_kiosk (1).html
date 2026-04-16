@@ -1,0 +1,302 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+#kiosk{border:1.5px solid #1a3a6e;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;background:var(--color-background-primary)}
+#hdr{background:#1a3a6e;color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+#hdr-left{display:flex;flex-direction:column}
+#hdr-left span{font-size:9px;letter-spacing:1.5px;opacity:.65;text-transform:uppercase}
+#hdr-left strong{font-size:14px;font-weight:500}
+#hdr-right{font-size:12px;opacity:.7}
+#ftabs{background:#12295a;display:flex;padding:0 12px;gap:2px;overflow-x:auto}
+.ftab{padding:7px 12px;font-size:11px;color:rgba(255,255,255,.55);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+.ftab.on{color:#fff;border-bottom-color:#f5a623}
+#body{display:flex;flex:1;min-height:0}
+#mapwrap{flex:1;overflow:auto;background:var(--color-background-secondary);position:relative}
+#mapsvg{display:block}
+#sidebar{width:210px;flex-shrink:0;display:flex;flex-direction:column;border-left:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);overflow:hidden}
+#srchwrap{padding:10px}
+#srch{width:100%;padding:6px 10px;font-size:12px;border:0.5px solid var(--color-border-secondary);border-radius:8px;background:var(--color-background-secondary);color:var(--color-text-primary);outline:none}
+#srch:focus{border-color:#5ba3f5}
+#cats{display:flex;flex-wrap:wrap;gap:4px;padding:0 10px 8px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.cat{padding:3px 7px;font-size:10px;border-radius:99px;border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-secondary);cursor:pointer;transition:all .12s}
+.cat.on{background:#1a3a6e;color:#fff;border-color:#1a3a6e}
+#rlist{flex:1;overflow-y:auto}
+.ri{padding:8px 10px;border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer;transition:background .1s}
+.ri:hover{background:var(--color-background-secondary)}
+.ri.on{background:#e8f0fc}
+.rn{font-size:12px;font-weight:500;color:var(--color-text-primary)}
+.rm{font-size:10px;color:var(--color-text-secondary);margin-top:2px}
+.rb{display:inline-block;padding:1px 5px;border-radius:99px;font-size:9px;margin-top:3px}
+#det{border-top:0.5px solid var(--color-border-tertiary);padding:10px;flex-shrink:0;background:var(--color-background-secondary);min-height:100px}
+#det h3{font-size:12px;font-weight:500;color:var(--color-text-primary)}
+#det p{font-size:11px;color:var(--color-text-secondary);margin-top:3px;line-height:1.5}
+.dr{font-size:10px;color:var(--color-text-secondary);margin-top:5px}
+.yah{position:absolute;width:12px;height:12px;border-radius:50%;background:#ef4444;border:2px solid white;animation:yp 1.5s infinite;pointer-events:none}
+@keyframes yp{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}50%{box-shadow:0 0 0 6px rgba(239,68,68,0)}}
+.leg{position:absolute;bottom:8px;left:8px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:8px;padding:7px 9px;display:flex;flex-direction:column;gap:3px}
+.li{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--color-text-secondary)}
+.lc{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+</style>
+
+<div id="kiosk">
+  <div id="hdr">
+    <div id="hdr-left">
+      <span>Our Lady of Fatima University — Valenzuela</span>
+      <strong>St. Benedict Hall — Interactive Map</strong>
+    </div>
+    <div id="hdr-right" id="clk"></div>
+  </div>
+  <div id="ftabs">
+    <div class="ftab on" data-f="1">1st Floor</div>
+    <div class="ftab" data-f="2">2nd Floor</div>
+    <div class="ftab" data-f="3">3rd Floor</div>
+    <div class="ftab" data-f="4">4th Floor</div>
+    <div class="ftab" data-f="5">5th Floor</div>
+  </div>
+  <div id="body">
+    <div id="mapwrap">
+      <svg id="mapsvg" viewBox="0 0 700 370" width="700" height="370" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="yah" id="yah" style="left:340px;top:200px"></div>
+      <div class="leg">
+        <div class="li"><div class="lc" style="background:#bfdbfe"></div>Lab / Computer</div>
+        <div class="li"><div class="lc" style="background:#bbf7d0"></div>Classroom</div>
+        <div class="li"><div class="lc" style="background:#fde68a"></div>Office / Admin</div>
+        <div class="li"><div class="lc" style="background:#fecaca"></div>Facility</div>
+        <div class="li"><div class="lc" style="background:#e9d5ff"></div>Faculty / Special</div>
+        <div class="li"><div class="lc" style="background:#ef4444;border-radius:50%"></div>You are here</div>
+      </div>
+    </div>
+    <div id="sidebar">
+      <div id="srchwrap"><input id="srch" type="text" placeholder="Search rooms..."/></div>
+      <div id="cats">
+        <button class="cat on" data-c="all">All</button>
+        <button class="cat" data-c="lab">Lab</button>
+        <button class="cat" data-c="classroom">Room</button>
+        <button class="cat" data-c="office">Office</button>
+        <button class="cat" data-c="facility">Facility</button>
+        <button class="cat" data-c="faculty">Faculty</button>
+      </div>
+      <div id="rlist"></div>
+      <div id="det"><p style="color:var(--color-text-secondary);font-size:11px">Tap a room to see details</p></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const C={lab:{f:'#bfdbfe',s:'#3b82f6',tb:'#1d4ed8',bb:'#dbeafe'},classroom:{f:'#bbf7d0',s:'#22c55e',tb:'#166534',bb:'#dcfce7'},office:{f:'#fde68a',s:'#f59e0b',tb:'#92400e',bb:'#fef3c7'},facility:{f:'#fecaca',s:'#ef4444',tb:'#991b1b',bb:'#fee2e2'},faculty:{f:'#e9d5ff',s:'#a855f7',tb:'#581c87',bb:'#f3e8ff'}};
+
+const floors={
+1:{yah:[340,210],rooms:[
+  {id:'ptlr',name:'PT Lecture Room',type:'faculty',x:30,y:20,w:130,h:90,desc:'Physical Therapy lecture hall',hrs:'Mon–Sat 7am–9pm'},
+  {id:'ptlab1',name:'PT Laboratory 1',type:'lab',x:168,y:20,w:100,h:90,desc:'Physical Therapy hands-on lab',hrs:'Mon–Fri 8am–5pm'},
+  {id:'maclab',name:'Mac Laboratory',type:'lab',x:276,y:20,w:100,h:90,desc:'Apple Mac workstations',hrs:'Mon–Fri 7am–6pm'},
+  {id:'cl2',name:'Computer Lab 2',type:'lab',x:384,y:20,w:100,h:90,desc:'Windows computer lab, 40 units',hrs:'Mon–Sat 7am–6pm'},
+  {id:'cl1',name:'Computer Lab 1',type:'lab',x:492,y:20,w:100,h:90,desc:'Windows computer lab, 40 units',hrs:'Mon–Sat 7am–6pm'},
+  {id:'entr',name:'Entrance',type:'facility',x:610,y:20,w:70,h:90,desc:'Main building entrance',hrs:'Always open'},
+  {id:'cl3',name:'Computer Lab 3',type:'lab',x:30,y:240,w:110,h:90,desc:'Windows computer lab, 30 units',hrs:'Mon–Fri 7am–6pm'},
+  {id:'restr1',name:'Restroom',type:'facility',x:148,y:240,w:80,h:90,desc:'Male & Female restrooms, Ground floor',hrs:'Always open'},
+  {id:'pwd',name:'PWD / All-Gender CR',type:'facility',x:236,y:240,w:100,h:90,desc:'Accessible comfort room for PWD & all genders',hrs:'Always open'},
+  {id:'stock',name:'Stockroom',type:'office',x:344,y:240,w:70,h:90,desc:'Campus supply stockroom',hrs:'Mon–Fri 8am–5pm'},
+  {id:'soci',name:'SoCi & Co-Curricular Office',type:'office',x:422,y:240,w:110,h:90,desc:'Student organizations & co-curricular activities',hrs:'Mon–Fri 8am–5pm'},
+  {id:'caf',name:'Cafeteria',type:'facility',x:540,y:240,w:80,h:90,desc:'Student canteen & dining area',hrs:'Mon–Sat 6am–7pm'},
+  {id:'elev1',name:'Elevator',type:'facility',x:628,y:240,w:52,h:90,desc:'Accessible elevator to all floors',hrs:'Always open'},
+]},
+2:{yah:[340,210],rooms:[
+  {id:'ccso',name:'CCS Office',type:'office',x:30,y:20,w:155,h:90,desc:'College of Computer Studies Dean\'s Office',hrs:'Mon–Fri 8am–5pm'},
+  {id:'itojt',name:'IT / OJT Room',type:'office',x:193,y:20,w:100,h:90,desc:'IT office & On-the-Job Training coordination',hrs:'Mon–Fri 8am–5pm'},
+  {id:'clinic',name:'Clinic',type:'facility',x:301,y:20,w:100,h:90,desc:'University health clinic & first aid',hrs:'Mon–Fri 7am–5pm'},
+  {id:'lib',name:'Tamaraw Library',type:'faculty',x:409,y:20,w:145,h:90,desc:'Main campus library — books, journals & e-resources',hrs:'Mon–Sat 8am–7pm'},
+  {id:'genoff',name:'General Office',type:'office',x:562,y:20,w:118,h:90,desc:'Administrative & general services office',hrs:'Mon–Fri 8am–5pm'},
+  {id:'cl4',name:'Computer Lab 4',type:'lab',x:30,y:240,w:110,h:90,desc:'Windows computer lab, 35 units',hrs:'Mon–Fri 7am–6pm'},
+  {id:'restr2',name:'Restroom',type:'facility',x:148,y:240,w:80,h:90,desc:'Male & Female restrooms, 2nd floor',hrs:'Always open'},
+  {id:'elev2',name:'Elevator',type:'facility',x:628,y:240,w:52,h:90,desc:'Accessible elevator to all floors',hrs:'Always open'},
+]},
+3:{yah:[340,210],rooms:[
+  {id:'fr3a',name:'Faculty Room',type:'faculty',x:30,y:20,w:70,h:90,desc:'Faculty lounge & workroom',hrs:'Mon–Fri 7am–6pm'},
+  {id:'r306',name:'Room 306',type:'classroom',x:108,y:20,w:75,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r305b',name:'Room 305-B',type:'classroom',x:191,y:20,w:75,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r305a',name:'Room 305-A',type:'classroom',x:274,y:20,w:75,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r304b',name:'Room 304-B',type:'classroom',x:357,y:20,w:75,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r304a',name:'Room 304-A',type:'classroom',x:440,y:20,w:75,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'fr3b',name:'Faculty Room',type:'faculty',x:523,y:20,w:90,h:90,desc:'Faculty lounge & reference area',hrs:'Mon–Fri 7am–6pm'},
+  {id:'r302',name:'Room 302',type:'classroom',x:621,y:20,w:40,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r301',name:'Room 301',type:'classroom',x:667,y:20,w:23,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r307',name:'Room 307',type:'classroom',x:30,y:240,w:110,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'restr3',name:'Restroom',type:'facility',x:148,y:240,w:80,h:90,desc:'Male & Female restrooms, 3rd floor',hrs:'Always open'},
+  {id:'elev3',name:'Elevator',type:'facility',x:628,y:240,w:52,h:90,desc:'Accessible elevator to all floors',hrs:'Always open'},
+]},
+4:{yah:[340,210],rooms:[
+  {id:'r407b',name:'Room 407-B',type:'classroom',x:30,y:20,w:75,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r407a',name:'Room 407-A',type:'classroom',x:113,y:20,w:75,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r406b',name:'Room 406-B',type:'classroom',x:196,y:20,w:75,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r406a',name:'Room 406-A',type:'classroom',x:279,y:20,w:75,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r405',name:'Room 405',type:'classroom',x:362,y:20,w:75,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'psychlab',name:'Psychology Lab',type:'lab',x:445,y:20,w:110,h:90,desc:'Psychology laboratory — brain & behavior studies',hrs:'Mon–Fri 8am–5pm'},
+  {id:'r403',name:'Room 403',type:'classroom',x:563,y:20,w:55,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r402',name:'Room 402',type:'classroom',x:626,y:20,w:42,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r401',name:'Room 401',type:'classroom',x:674,y:20,w:16,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r408',name:'Room 408',type:'classroom',x:30,y:240,w:110,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'restr4',name:'Restroom',type:'facility',x:148,y:240,w:80,h:90,desc:'Male & Female restrooms, 4th floor',hrs:'Always open'},
+  {id:'elev4',name:'Elevator',type:'facility',x:628,y:240,w:52,h:90,desc:'Accessible elevator to all floors',hrs:'Always open'},
+]},
+5:{yah:[340,210],rooms:[
+  {id:'chemlab',name:'Chemistry Lab',type:'lab',x:30,y:20,w:110,h:90,desc:'General chemistry laboratory',hrs:'Mon–Fri 8am–5pm'},
+  {id:'r507',name:'Room 507',type:'classroom',x:148,y:20,w:70,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r506b',name:'Room 506-B',type:'classroom',x:226,y:20,w:70,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r506a',name:'Room 506-A',type:'classroom',x:304,y:20,w:70,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r505',name:'Room 505',type:'classroom',x:382,y:20,w:70,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r504',name:'Room 504',type:'classroom',x:460,y:20,w:70,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r503',name:'Room 503',type:'classroom',x:538,y:20,w:60,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r502',name:'Room 502',type:'classroom',x:606,y:20,w:55,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'r501',name:'Room 501',type:'classroom',x:667,y:20,w:23,h:90,desc:'Lecture classroom',hrs:'Mon–Sat 7am–9pm'},
+  {id:'cl5',name:'Computer Lab 5',type:'lab',x:30,y:240,w:110,h:90,desc:'Windows computer lab, 35 units',hrs:'Mon–Fri 7am–6pm'},
+  {id:'restr5',name:'Restroom',type:'facility',x:148,y:240,w:80,h:90,desc:'Male & Female restrooms, 5th floor',hrs:'Always open'},
+  {id:'elev5',name:'Elevator',type:'facility',x:628,y:240,w:52,h:90,desc:'Accessible elevator to all floors',hrs:'Always open'},
+]}
+};
+
+let curF=1, sel=null, q='', cat='all';
+
+function abbr(name){
+  if(name.length<=10)return name;
+  return name.replace('Laboratory','Lab').replace('Computer','Comp').replace('Physical Therapy','PT').replace('Co-Curricular','Co-Curr').replace('Tamaraw ','');
+}
+
+function wrap(text,maxW,fontSize){
+  const approxCW=fontSize*0.55;
+  const charsPerLine=Math.floor(maxW/approxCW);
+  const words=text.split(' ');
+  const lines=[];let cur='';
+  words.forEach(w=>{
+    if((cur+' '+w).trim().length<=charsPerLine) cur=(cur+' '+w).trim();
+    else{if(cur)lines.push(cur);cur=w;}
+  });
+  if(cur)lines.push(cur);
+  return lines.slice(0,3);
+}
+
+function visible(r){
+  const mc=cat==='all'||r.type===cat;
+  const mq=!q||r.name.toLowerCase().includes(q.toLowerCase())||r.desc.toLowerCase().includes(q.toLowerCase());
+  return mc&&mq;
+}
+
+function renderMap(){
+  const svg=document.getElementById('mapsvg');
+  const ns='http://www.w3.org/2000/svg';
+  svg.innerHTML='';
+  const fd=floors[curF];
+
+  const corr1=document.createElementNS(ns,'rect');
+  corr1.setAttribute('x',20);corr1.setAttribute('y',118);corr1.setAttribute('width',660);corr1.setAttribute('height',16);
+  corr1.setAttribute('fill','#cbd5e1');corr1.setAttribute('rx','2');
+  svg.appendChild(corr1);
+  const corr2=document.createElementNS(ns,'rect');
+  corr2.setAttribute('x',20);corr2.setAttribute('y',226);corr2.setAttribute('width',660);corr2.setAttribute('height',12);
+  corr2.setAttribute('fill','#cbd5e1');corr2.setAttribute('rx','2');
+  svg.appendChild(corr2);
+
+  const lbg=document.createElementNS(ns,'rect');
+  lbg.setAttribute('x',20);lbg.setAttribute('y',148);lbg.setAttribute('width',660);lbg.setAttribute('height',72);
+  lbg.setAttribute('fill','#f8fafc');lbg.setAttribute('rx','2');
+  svg.appendChild(lbg);
+  const lt=document.createElementNS(ns,'text');
+  lt.setAttribute('x',350);lt.setAttribute('y',192);lt.setAttribute('text-anchor','middle');
+  lt.setAttribute('font-size','22');lt.setAttribute('font-weight','700');lt.setAttribute('fill','#1e3a5f');
+  lt.setAttribute('font-family','sans-serif');lt.setAttribute('opacity','0.12');
+  lt.textContent='ST. BENEDICT HALL – '+(curF===1?'1ST':curF===2?'2ND':curF===3?'3RD':curF===4?'4TH':'5TH')+' FLOOR';
+  svg.appendChild(lt);
+
+  const stl=document.createElementNS(ns,'text');
+  stl.setAttribute('x',105);stl.setAttribute('y',127);stl.setAttribute('font-size','8');stl.setAttribute('fill','#94a3b8');stl.setAttribute('font-family','sans-serif');
+  stl.textContent='CORRIDOR';svg.appendChild(stl);
+
+  fd.rooms.forEach(r=>{
+    const vis=visible(r);
+    const isSel=sel&&sel.id===r.id;
+    const c=C[r.type];
+    const g=document.createElementNS(ns,'g');
+    g.style.cursor='pointer';g.style.opacity=vis?'1':'0.2';
+
+    const rect=document.createElementNS(ns,'rect');
+    rect.setAttribute('x',r.x);rect.setAttribute('y',r.y);rect.setAttribute('width',r.w);rect.setAttribute('height',r.h);
+    rect.setAttribute('fill',c.f);rect.setAttribute('stroke',isSel?'#f5a623':c.s);
+    rect.setAttribute('stroke-width',isSel?'2.5':'1');rect.setAttribute('rx','4');
+    g.appendChild(rect);
+
+    const fontSize=r.w<60?8:r.w<80?9:10;
+    const label=abbr(r.name);
+    const lines=wrap(label,r.w-8,fontSize);
+    const totalH=lines.length*(fontSize+3);
+    const startY=r.y+r.h/2-totalH/2+fontSize;
+
+    lines.forEach((line,i)=>{
+      const t=document.createElementNS(ns,'text');
+      t.setAttribute('x',r.x+r.w/2);t.setAttribute('y',startY+i*(fontSize+3));
+      t.setAttribute('text-anchor','middle');t.setAttribute('font-size',fontSize);
+      t.setAttribute('font-weight','500');t.setAttribute('fill',c.s);t.setAttribute('font-family','sans-serif');
+      t.textContent=line;g.appendChild(t);
+    });
+
+    g.addEventListener('click',()=>{if(vis)selectRoom(r);});
+    svg.appendChild(g);
+  });
+
+  const yah=document.getElementById('yah');
+  yah.style.left=(fd.yah[0]-6)+'px';yah.style.top=(fd.yah[1]-6)+'px';
+}
+
+function renderList(){
+  const list=document.getElementById('rlist');
+  list.innerHTML='';
+  const rooms=floors[curF].rooms.filter(visible);
+  rooms.forEach(r=>{
+    const c=C[r.type];
+    const d=document.createElement('div');
+    d.className='ri'+(sel&&sel.id===r.id?' on':'');
+    d.innerHTML=`<div class="rn">${r.name}</div><div class="rm">${r.desc}</div><span class="rb" style="background:${c.bb};color:${c.tb}">${r.type}</span>`;
+    d.addEventListener('click',()=>selectRoom(r));
+    list.appendChild(d);
+  });
+  if(!rooms.length) list.innerHTML='<div style="padding:14px;text-align:center;font-size:11px;color:var(--color-text-secondary)">No results</div>';
+}
+
+function selectRoom(r){
+  sel=r;renderMap();renderList();
+  const c=C[r.type];
+  document.getElementById('det').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+      <h3>${r.name}</h3>
+      <span class="rb" style="background:${c.bb};color:${c.tb};flex-shrink:0">${r.type}</span>
+    </div>
+    <p style="margin-top:5px">${r.desc}</p>
+    <div class="dr" style="margin-top:5px"><span style="background:#f1f5f9;padding:2px 5px;border-radius:4px;color:#475569;font-size:9px">${r.hrs}</span></div>
+    <div class="dr" style="margin-top:8px"><span style="color:#3b82f6;cursor:pointer;font-size:10px" onclick="sendPrompt('Give me directions to ${r.name} in St. Benedict Hall OLFU Valenzuela, floor ${curF}')">Get directions ↗</span></div>
+  `;
+}
+
+document.querySelectorAll('.ftab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.ftab').forEach(x=>x.classList.remove('on'));
+    t.classList.add('on');
+    curF=parseInt(t.dataset.f);sel=null;
+    document.getElementById('det').innerHTML='<p style="color:var(--color-text-secondary);font-size:11px">Tap a room to see details</p>';
+    renderMap();renderList();
+  });
+});
+
+document.getElementById('srch').addEventListener('input',e=>{q=e.target.value;renderMap();renderList();});
+
+document.querySelectorAll('.cat').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.cat').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');cat=b.dataset.c;renderMap();renderList();
+  });
+});
+
+function tick(){
+  document.getElementById('hdr-right').textContent=new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
+}
+tick();setInterval(tick,1000);
+renderMap();renderList();
+</script>
