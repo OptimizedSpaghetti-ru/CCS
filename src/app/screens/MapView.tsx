@@ -20,6 +20,7 @@ import {
   Radio,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+import { useApp } from "../context/AppContext";
 import { supabase } from "../../lib/supabase";
 import buildingMapData from "../../data/buildingMapData";
 
@@ -266,6 +267,7 @@ const buildingOptions: Array<{ value: BuildingId; label: string }> = [
 
 /* ── Component ── */
 export function MapView() {
+  const { themePreference } = useApp();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<MapTab>("realtime");
   const [locations, setLocations] = useState<MapLocation[]>([]);
@@ -283,9 +285,11 @@ export function MapView() {
   const [activeCategory, setActiveCategory] =
     useState<RoomCategoryFilter>("all");
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
   const [isDetailThumbnailMissing, setIsDetailThumbnailMissing] =
     useState(false);
   const detailsRef = useRef<HTMLDivElement | null>(null);
+  const isDarkMode = themePreference === "dark";
 
   const rotateOptions = {
     rotate: true,
@@ -391,6 +395,53 @@ export function MapView() {
       buildingFloors.find((floor) => floor.value === selectedFloor)?.label ??
       "Floor",
     [selectedFloor],
+  );
+
+  const buildingUi = useMemo(
+    () =>
+      isDarkMode
+        ? {
+            pageBg: "#0e131a",
+            panelBg: "#161c26",
+            panelBgSoft: "#1c2532",
+            inputBg: "#111823",
+            border: "rgba(148,163,184,0.28)",
+            borderSoft: "rgba(148,163,184,0.18)",
+            text: "#e5e7eb",
+            textMuted: "#9ca3af",
+            hoverBg: "rgba(96,165,250,0.14)",
+            shadow: "0 10px 28px rgba(0,0,0,0.35)",
+          }
+        : {
+            pageBg: c.creamLight,
+            panelBg: c.white,
+            panelBgSoft: c.cream,
+            inputBg: c.white,
+            border: "rgba(139,115,85,0.24)",
+            borderSoft: "rgba(139,115,85,0.16)",
+            text: c.darkBrown,
+            textMuted: c.warmGray,
+            hoverBg: "rgba(245,166,35,0.12)",
+            shadow: "0 8px 24px rgba(0,0,0,0.14)",
+          },
+    [isDarkMode],
+  );
+
+  const buildingVars = useMemo(
+    () =>
+      ({
+        "--bm-page-bg": buildingUi.pageBg,
+        "--bm-panel-bg": buildingUi.panelBg,
+        "--bm-panel-bg-soft": buildingUi.panelBgSoft,
+        "--bm-input-bg": buildingUi.inputBg,
+        "--bm-border": buildingUi.border,
+        "--bm-border-soft": buildingUi.borderSoft,
+        "--bm-text": buildingUi.text,
+        "--bm-text-muted": buildingUi.textMuted,
+        "--bm-hover-bg": buildingUi.hoverBg,
+        "--bm-shadow": buildingUi.shadow,
+      }) as React.CSSProperties,
+    [buildingUi],
   );
 
   const switchBuilding = (direction: -1 | 1) => {
@@ -581,6 +632,10 @@ export function MapView() {
       {activeTab === "building" && (
         <>
           <style>{`
+            .mapview-building-root {
+              color: var(--bm-text);
+            }
+
             .mapview-building-filters {
               display: flex;
               flex-wrap: wrap;
@@ -588,21 +643,22 @@ export function MapView() {
             }
 
             .mapview-filter-btn {
-              border: 1px solid rgba(139,115,85,0.24);
+              border: 1px solid var(--bm-border);
               border-radius: 999px;
-              background: ${c.white};
-              color: ${c.warmGray};
+              background: var(--bm-panel-bg);
+              color: var(--bm-text-muted);
               font-family: ${fonts.ui};
               font-size: 11px;
               font-weight: 600;
               padding: 5px 10px;
               cursor: pointer;
-              transition: all 0.2s ease;
+              transition: all 0.22s ease;
             }
 
             .mapview-filter-btn:hover {
-              border-color: rgba(139,115,85,0.42);
-              color: ${c.darkBrown};
+              border-color: var(--bm-text-muted);
+              color: var(--bm-text);
+              transform: translateY(-1px);
             }
 
             .mapview-filter-btn.is-active {
@@ -621,14 +677,20 @@ export function MapView() {
             .mapview-building-switch-btn {
               width: 28px;
               height: 28px;
-              border: 1px solid rgba(139,115,85,0.24);
+              border: 1px solid var(--bm-border);
               border-radius: 999px;
-              background: ${c.cream};
+              background: var(--bm-panel-bg-soft);
               display: inline-flex;
               align-items: center;
               justify-content: center;
               cursor: pointer;
               flex-shrink: 0;
+              transition: transform 0.2s ease, background 0.2s ease;
+            }
+
+            .mapview-building-switch-btn:hover {
+              transform: translateY(-1px) scale(1.03);
+              background: var(--bm-hover-bg);
             }
 
             .mapview-map-mode-switch {
@@ -636,8 +698,8 @@ export function MapView() {
               align-items: center;
               gap: 6px;
               width: 100%;
-              background: ${c.cream};
-              border: 1px solid rgba(139,115,85,0.18);
+              background: var(--bm-panel-bg-soft);
+              border: 1px solid var(--bm-border-soft);
               border-radius: 12px;
               padding: 4px;
             }
@@ -647,19 +709,24 @@ export function MapView() {
               border: none;
               border-radius: 9px;
               background: transparent;
-              color: ${c.warmGray};
+              color: var(--bm-text-muted);
               font-family: ${fonts.ui};
               font-size: 12px;
               font-weight: 700;
               padding: 8px;
               cursor: pointer;
-              transition: all 0.2s ease;
+              transition: all 0.22s ease;
+            }
+
+            .mapview-map-mode-btn:hover {
+              color: var(--bm-text);
+              background: rgba(255,255,255,0.08);
             }
 
             .mapview-map-mode-btn.is-active {
-              background: ${c.white};
-              color: ${c.darkBrown};
-              box-shadow: inset 0 0 0 1px rgba(139,115,85,0.2);
+              background: var(--bm-panel-bg);
+              color: var(--bm-text);
+              box-shadow: inset 0 0 0 1px var(--bm-border);
             }
 
             .mapview-building-main {
@@ -670,15 +737,21 @@ export function MapView() {
             }
 
             .mapview-map-shell {
-              background: ${c.creamLight};
+              background: var(--bm-panel-bg-soft);
               border-radius: 12px;
               overflow: hidden;
-              border: 1px solid rgba(139,115,85,0.16);
+              border: 1px solid var(--bm-border-soft);
               width: 100%;
               min-height: clamp(240px, 38vh, 320px);
               display: flex;
               align-items: center;
               justify-content: center;
+              transition: transform 0.25s ease, box-shadow 0.25s ease;
+            }
+
+            .mapview-map-shell:hover {
+              transform: translateY(-1px);
+              box-shadow: var(--bm-shadow);
             }
 
             .mapview-map-shell svg {
@@ -687,24 +760,41 @@ export function MapView() {
               height: auto;
             }
 
-            .mapview-building-room-list {
-              width: 100%;
-              max-height: min(220px, 30vh);
-              overflow-y: auto;
-            }
-
             .mapview-detail-sheet {
-              background: ${c.cream};
+              background: var(--bm-panel-bg-soft);
               border-radius: 14px;
-              border: 1px solid rgba(139,115,85,0.16);
+              border: 1px solid var(--bm-border-soft);
               overflow: hidden;
               transition: max-height 0.28s ease, min-height 0.28s ease;
               box-shadow: 0 -3px 16px rgba(0,0,0,0.06);
               width: 100%;
             }
+
+            .mapview-panel-card {
+              background: var(--bm-panel-bg);
+              border: 1px solid var(--bm-border-soft);
+              box-shadow: var(--bm-shadow);
+              transition: transform 0.24s ease, box-shadow 0.24s ease;
+            }
+
+            .mapview-panel-card:hover {
+              transform: translateY(-1px);
+            }
+
+            @media (hover: hover) {
+              .mapview-interactive-room:hover {
+                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.18));
+              }
+            }
           `}</style>
           <div
-            style={{ position: "absolute", inset: 0, background: c.creamLight }}
+            className="mapview-building-root"
+            style={{
+              ...buildingVars,
+              position: "absolute",
+              inset: 0,
+              background: "var(--bm-page-bg)",
+            }}
           >
             <motion.div
               style={{
@@ -722,11 +812,10 @@ export function MapView() {
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
               <div
+                className="mapview-panel-card"
                 style={{
-                  background: c.white,
                   borderRadius: 14,
                   padding: "12px 14px",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
                   display: "flex",
                   flexDirection: "column",
                   gap: 10,
@@ -738,7 +827,7 @@ export function MapView() {
                     fontFamily: fonts.ui,
                     fontSize: 14,
                     fontWeight: 700,
-                    color: c.darkBrown,
+                    color: "var(--bm-text)",
                   }}
                 >
                   <div className="mapview-building-header-row">
@@ -747,7 +836,7 @@ export function MapView() {
                       onClick={() => switchBuilding(-1)}
                       aria-label="Previous building"
                     >
-                      <ChevronLeft size={14} color={c.darkBrown} />
+                      <ChevronLeft size={14} color={buildingUi.text} />
                     </button>
                     <span>{activeBuildingConfig.label}</span>
                     <button
@@ -755,7 +844,7 @@ export function MapView() {
                       onClick={() => switchBuilding(1)}
                       aria-label="Next building"
                     >
-                      <ChevronRight size={14} color={c.darkBrown} />
+                      <ChevronRight size={14} color={buildingUi.text} />
                     </button>
                   </div>
                 </div>
@@ -769,15 +858,16 @@ export function MapView() {
                       width: "100%",
                       height: 42,
                       borderRadius: 10,
-                      border: "1px solid rgba(139,115,85,0.24)",
-                      background: c.cream,
+                      border: "1px solid var(--bm-border)",
+                      background: "var(--bm-input-bg)",
                       padding: "0 36px 0 12px",
                       fontFamily: fonts.ui,
                       fontSize: 13,
                       fontWeight: 600,
-                      color: c.darkBrown,
+                      color: "var(--bm-text)",
                       appearance: "none",
                       cursor: "pointer",
+                      transition: "all 0.22s ease",
                     }}
                   >
                     {buildingFloors.map((floor) => (
@@ -788,7 +878,7 @@ export function MapView() {
                   </select>
                   <ChevronDown
                     size={16}
-                    color={c.warmGray}
+                    color={buildingUi.textMuted}
                     style={{
                       position: "absolute",
                       right: 12,
@@ -806,13 +896,14 @@ export function MapView() {
                     width: "100%",
                     height: 38,
                     borderRadius: 10,
-                    border: "1px solid rgba(139,115,85,0.24)",
-                    background: c.white,
+                    border: "1px solid var(--bm-border)",
+                    background: "var(--bm-input-bg)",
                     padding: "0 12px",
                     fontFamily: fonts.ui,
                     fontSize: 12,
-                    color: c.darkBrown,
+                    color: "var(--bm-text)",
                     outline: "none",
+                    transition: "all 0.22s ease",
                   }}
                 />
                 <div className="mapview-building-filters">
@@ -829,10 +920,9 @@ export function MapView() {
               </div>
 
               <motion.div
+                className="mapview-panel-card"
                 style={{
-                  background: c.white,
                   borderRadius: 16,
-                  boxShadow: shadow.card,
                   overflow: "visible",
                   display: "flex",
                   flexDirection: "column",
@@ -851,7 +941,7 @@ export function MapView() {
                           viewBox="0 0 700 370"
                           preserveAspectRatio="xMidYMid meet"
                           style={{
-                            background: c.creamLight,
+                            background: buildingUi.panelBgSoft,
                           }}
                         >
                           <rect
@@ -910,10 +1000,14 @@ export function MapView() {
                             return (
                               <g
                                 key={room.id}
+                                className={`mapview-interactive-room ${hoveredRoomId === room.id ? "is-hovered" : ""}`}
                                 style={{
                                   cursor: "pointer",
                                   opacity: isVisible ? 1 : 0.2,
+                                  transition: "all 0.2s ease",
                                 }}
+                                onMouseEnter={() => setHoveredRoomId(room.id)}
+                                onMouseLeave={() => setHoveredRoomId(null)}
                                 onClick={() => setSelectedRoomId(room.id)}
                               >
                                 <rect
@@ -923,7 +1017,13 @@ export function MapView() {
                                   height={room.height}
                                   fill={meta.fill}
                                   stroke={isSelected ? "#f59e0b" : meta.stroke}
-                                  strokeWidth={isSelected ? 3 : 1.2}
+                                  strokeWidth={
+                                    isSelected
+                                      ? 3
+                                      : hoveredRoomId === room.id
+                                        ? 2.2
+                                        : 1.2
+                                  }
                                   rx={4}
                                 />
                                 {lines.map((line, index) => (
@@ -950,7 +1050,7 @@ export function MapView() {
                             padding: 16,
                             textAlign: "center",
                             fontFamily: fonts.ui,
-                            color: c.warmGray,
+                            color: buildingUi.textMuted,
                           }}
                         >
                           {activeBuildingConfig.label} interactive map is not
@@ -978,7 +1078,7 @@ export function MapView() {
                             textAlign: "center",
                             fontFamily: fonts.ui,
                             fontSize: 12,
-                            color: c.warmGray,
+                            color: buildingUi.textMuted,
                           }}
                         >
                           Image map is not available for this floor.
@@ -990,7 +1090,7 @@ export function MapView() {
                           padding: 16,
                           textAlign: "center",
                           fontFamily: fonts.ui,
-                          color: c.warmGray,
+                          color: buildingUi.textMuted,
                         }}
                       >
                         {activeBuildingConfig.label} image map is not yet
@@ -1049,7 +1149,7 @@ export function MapView() {
                                 fontFamily: fonts.ui,
                                 fontSize: 14,
                                 fontWeight: 700,
-                                color: c.darkBrown,
+                                color: "var(--bm-text)",
                               }}
                             >
                               {selectedRoom.name}
@@ -1059,7 +1159,7 @@ export function MapView() {
                                 margin: "3px 0 0",
                                 fontFamily: fonts.ui,
                                 fontSize: 12,
-                                color: c.warmGray,
+                                color: "var(--bm-text-muted)",
                               }}
                             >
                               {selectedRoom.description}
@@ -1089,7 +1189,7 @@ export function MapView() {
                             margin: 0,
                             fontFamily: fonts.ui,
                             fontSize: 11,
-                            color: c.warmGray,
+                            color: "var(--bm-text-muted)",
                           }}
                         >
                           Hours: {selectedRoom.hours}
@@ -1102,7 +1202,7 @@ export function MapView() {
                           padding: "10px 12px",
                           fontFamily: fonts.ui,
                           fontSize: 12,
-                          color: c.warmGray,
+                          color: "var(--bm-text-muted)",
                           lineHeight: 1.5,
                         }}
                       >
@@ -1113,114 +1213,6 @@ export function MapView() {
                             : "Room details will be available after this building map is integrated."}
                       </p>
                     )}
-                  </div>
-
-                  <div
-                    className="mapview-building-room-list"
-                    style={{
-                      background: c.cream,
-                      borderRadius: 12,
-                      border: "1px solid rgba(139,115,85,0.16)",
-                      overflow: "hidden",
-                      display: "flex",
-                      flexDirection: "column",
-                      minHeight: 180,
-                    }}
-                  >
-                    <div
-                      style={{
-                        padding: "9px 12px",
-                        borderBottom: "1px solid rgba(139,115,85,0.12)",
-                        fontFamily: fonts.ui,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: c.darkBrown,
-                      }}
-                    >
-                      Rooms ({filteredRooms.length})
-                    </div>
-                    <div style={{ overflowY: "auto" }}>
-                      {filteredRooms.length === 0 ? (
-                        <p
-                          style={{
-                            margin: 0,
-                            padding: "14px 12px",
-                            fontFamily: fonts.ui,
-                            fontSize: 12,
-                            color: c.warmGray,
-                          }}
-                        >
-                          No matching rooms.
-                        </p>
-                      ) : (
-                        filteredRooms.map((room) => {
-                          const meta = categoryMeta[room.category];
-                          const isSelected = selectedRoomId === room.id;
-                          return (
-                            <button
-                              key={room.id}
-                              disabled={!roomInteractionsEnabled}
-                              onClick={() => {
-                                if (!roomInteractionsEnabled) return;
-                                setSelectedRoomId(room.id);
-                              }}
-                              style={{
-                                width: "100%",
-                                border: "none",
-                                borderBottom: "1px solid rgba(139,115,85,0.1)",
-                                background: isSelected
-                                  ? "rgba(245,166,35,0.12)"
-                                  : "transparent",
-                                cursor: roomInteractionsEnabled
-                                  ? "pointer"
-                                  : "default",
-                                opacity: roomInteractionsEnabled ? 1 : 0.7,
-                                textAlign: "left",
-                                padding: "9px 12px",
-                              }}
-                            >
-                              <p
-                                style={{
-                                  margin: 0,
-                                  fontFamily: fonts.ui,
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  color: c.darkBrown,
-                                }}
-                              >
-                                {room.name}
-                              </p>
-                              <p
-                                style={{
-                                  margin: "2px 0 0",
-                                  fontFamily: fonts.ui,
-                                  fontSize: 11,
-                                  color: c.warmGray,
-                                  lineHeight: 1.4,
-                                }}
-                              >
-                                {room.description}
-                              </p>
-                              <span
-                                style={{
-                                  display: "inline-block",
-                                  marginTop: 5,
-                                  fontFamily: fonts.ui,
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  color: meta.badgeText,
-                                  background: meta.badgeBg,
-                                  borderRadius: 999,
-                                  padding: "2px 8px",
-                                }}
-                              >
-                                {meta.label}
-                              </span>
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
                   </div>
                 </div>
               </motion.div>
