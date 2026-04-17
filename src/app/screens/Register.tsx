@@ -28,14 +28,9 @@ const successText = successColor;
 const warningColor = "#D97706";
 const errorColor = "#DC2626";
 const errorText = errorColor;
-const softLine = `${c.warmGray}33`;
-const softBorder = `${c.warmGray}40`;
-const headerGhostBg = `${c.cream}1F`;
-const headerGhostBorder = `${c.cream}33`;
 const infoAccent = "#3B5280";
 const infoSurface = `${infoAccent}1F`;
 const infoBorder = `${infoAccent}33`;
-const fieldSurface = c.white;
 
 function FormField({
   icon,
@@ -60,13 +55,17 @@ function FormField({
   success?: string;
   isDark: boolean;
 }) {
+  const labelColor = isDark ? "rgba(255, 232, 217, 0.92)" : c.darkBrown;
+  const fieldSurface = isDark ? "#2A141A" : c.white;
+  const iconColor = isDark ? "rgba(255, 232, 217, 0.74)" : c.warmGray;
+  const inputColor = isDark ? "#FFEFE6" : c.darkBrown;
   const borderColor = error
     ? errorColor
     : success
       ? successColor
       : isDark
         ? "rgba(255, 232, 217, 0.35)"
-        : softBorder;
+        : `${c.warmGray}40`;
 
   return (
     <div>
@@ -75,7 +74,7 @@ function FormField({
           fontFamily: fonts.ui,
           fontSize: 11,
           fontWeight: 600,
-          color: c.darkBrown,
+          color: labelColor,
           display: "block",
           marginBottom: 5,
           textTransform: "uppercase",
@@ -96,7 +95,7 @@ function FormField({
           border: `2px solid ${borderColor}`,
         }}
       >
-        <span style={{ color: c.warmGray, flexShrink: 0 }}>{icon}</span>
+        <span style={{ color: iconColor, flexShrink: 0 }}>{icon}</span>
         <input
           className="auth-input"
           type={type}
@@ -110,8 +109,8 @@ function FormField({
             outline: "none",
             fontFamily: fonts.ui,
             fontSize: 14,
-            color: c.darkBrown,
-            caretColor: c.darkBrown,
+            color: inputColor,
+            caretColor: inputColor,
             minWidth: 0,
             // CSS variable used by .auth-input::placeholder in global styles.
             ["--auth-placeholder-color" as string]: isDark
@@ -161,11 +160,13 @@ function FileUploadField({
   const previewUrl = file ? URL.createObjectURL(file) : null;
   const isImage = file?.type.startsWith("image/");
   const idleSurface = isDark ? "#2A141A" : c.cream;
-  const idleBorder = isDark ? "rgba(255, 232, 217, 0.35)" : softBorder;
+  const idleBorder = isDark ? "rgba(255, 232, 217, 0.35)" : `${c.warmGray}40`;
   const idleIconSurface = isDark
     ? "rgba(255, 232, 217, 0.1)"
     : `${c.warmGray}1A`;
   const idleHint = isDark ? "rgba(255, 232, 217, 0.72)" : c.warmGray;
+  const labelColor = isDark ? "rgba(255, 232, 217, 0.92)" : c.darkBrown;
+  const titleColor = isDark ? "#FFEFE6" : c.darkBrown;
 
   return (
     <div>
@@ -174,7 +175,7 @@ function FileUploadField({
           fontFamily: fonts.ui,
           fontSize: 11,
           fontWeight: 600,
-          color: c.darkBrown,
+          color: labelColor,
           display: "block",
           marginBottom: 5,
           textTransform: "uppercase",
@@ -235,7 +236,7 @@ function FileUploadField({
               fontFamily: fonts.ui,
               fontSize: 13,
               fontWeight: 600,
-              color: file ? successText : c.darkBrown,
+              color: file ? successText : titleColor,
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -374,6 +375,12 @@ export function Register() {
   const [submitMessage, setSubmitMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
   const isDark = resolvedThemeMode === "dark";
+  const softLine = isDark ? "rgba(255, 232, 217, 0.2)" : `${c.warmGray}33`;
+  const softBorder = isDark ? "rgba(255, 232, 217, 0.35)" : `${c.warmGray}40`;
+  const headerGhostBg = `${c.cream}1F`;
+  const headerGhostBorder = `${c.cream}33`;
+  const fieldLabelColor = isDark ? "rgba(255, 232, 217, 0.92)" : c.darkBrown;
+  const helperTextColor = isDark ? "rgba(255, 232, 217, 0.72)" : c.warmGray;
 
   /* ── Step-2 file state ── */
   const [regCardFile, setRegCardFile] = useState<File | null>(null);
@@ -459,15 +466,13 @@ export function Register() {
         }));
 
   const selectStyles: CSSProperties = {
-    background: isDark ? "#2A141A" : fieldSurface,
-    border: isDark
-      ? "1.5px solid rgba(255, 232, 217, 0.35)"
-      : `1px solid ${c.warmGray}`,
+    background: isDark ? "#2A141A" : c.white,
+    border: `1.5px solid ${softBorder}`,
     borderRadius: 10,
     padding: "14px 12px",
     width: "100%",
-    color: c.darkBrown,
-    caretColor: c.darkBrown,
+    color: isDark ? "#FFEFE6" : c.darkBrown,
+    caretColor: isDark ? "#FFEFE6" : c.darkBrown,
     fontSize: 14,
     appearance: "none",
     fontFamily: fonts.ui,
@@ -712,7 +717,7 @@ export function Register() {
                     fontFamily: fonts.ui,
                     fontSize: 11,
                     fontWeight: 600,
-                    color: c.darkBrown,
+                    color: fieldLabelColor,
                     display: "block",
                     marginBottom: 5,
                     textTransform: "uppercase",
@@ -738,7 +743,7 @@ export function Register() {
                   </select>
                   <ChevronDown
                     size={16}
-                    color={c.warmGray}
+                    color={helperTextColor}
                     style={{
                       position: "absolute",
                       right: 12,
@@ -768,7 +773,7 @@ export function Register() {
                     fontFamily: fonts.ui,
                     fontSize: 11,
                     fontWeight: 600,
-                    color: c.darkBrown,
+                    color: fieldLabelColor,
                     display: "block",
                     marginBottom: 5,
                     textTransform: "uppercase",
@@ -805,7 +810,7 @@ export function Register() {
                   </select>
                   <ChevronDown
                     size={16}
-                    color={c.warmGray}
+                    color={helperTextColor}
                     style={{
                       position: "absolute",
                       right: 12,
@@ -850,7 +855,7 @@ export function Register() {
                       background: "none",
                       border: "none",
                       cursor: "pointer",
-                      color: c.warmGray,
+                      color: helperTextColor,
                       padding: 0,
                     }}
                   >
@@ -880,7 +885,7 @@ export function Register() {
                       style={{
                         fontFamily: fonts.ui,
                         fontSize: 11,
-                        color: c.warmGray,
+                        color: helperTextColor,
                       }}
                     >
                       Password Strength

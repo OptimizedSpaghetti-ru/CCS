@@ -13,19 +13,22 @@ import { TopBar } from "../components/TopBar";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
 
-const tabs = ["All", "Messages", "Announcements", "Events"];
+const tabs = ["All", "Messages", "Announcements"];
 
 interface Notif {
   id: string;
   type: "message" | "announcement" | "event";
+  source: "notification" | "message";
   title: string;
   body: string;
   imageUrl?: string;
   createdBy?: string | null;
+  createdAt: string;
   time: string;
   unread: boolean;
   day: string;
   path?: string;
+  conversationId?: string;
 }
 
 const typeConfig = {
@@ -195,41 +198,147 @@ export function Notifications() {
   }
 
   const loadNotifs = useCallback(async () => {
+    setLoading(true);
+
     const { data, error } = await supabase
       .from("notifications")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(50);
 
+    let notificationNotifs: Notif[] = [];
+
     if (!error && data) {
-      // Fetch read/dismissed status for current user
-      const ids = data.map((n: any) => n.id);
-      const { data: statuses } = await supabase
-        .from("notification_status")
-        .select("notification_id, read_at, dismissed_at")
-        .eq("user_id", currentUser.id)
-        .in("notification_id", ids);
-      const statusMap = new Map(
-        (statuses ?? []).map((s: any) => [s.notification_id, s]),
-      );
-      setNotifs(
-        data
-          .filter((n: any) => !statusMap.get(n.id)?.dismissed_at)
-          .map((n: any) => ({
-            id: n.id,
-            type: (["message", "announcement", "event"].includes(n.type)
-              ? n.type
-              : "announcement") as Notif["type"],
-            title: n.title,
-            body: n.body,
-            imageUrl: n.image_url ?? undefined,
-            createdBy: n.created_by ?? null,
-            time: fmtTime(n.created_at),
-            unread: !statusMap.get(n.id)?.read_at,
-            day: dayLabel(n.created_at),
-          })),
-      );
+      const rows = (data as any[]).filter((n) => n.type !== "message");
+      const ids = rows.map((n: any) => n.id);
+      let statusMap = new Map<
+        string,
+        { read_at: string | null; dismissed_at: string | null }
+      >();
+
+      if (ids.length > 0) {
+        const { data: statuses } = await supabase
+          .from("notification_status")
+          .select("notification_id, read_at, dismissed_at")
+          .eq("user_id", currentUser.id)
+          .in("notification_id", ids);
+
+        statusMap = new Map(
+          (statuses ?? []).map((s: any) => [s.notification_id, s]),
+        );
+      }
+
+      notificationNotifs = rows
+        .filter((n: any) => !statusMap.get(n.id)?.dismissed_at)
+        .map((n: any) => ({
+          id: n.id,
+          type: (["announcement", "event"].includes(n.type)
+            ? n.type
+            : "announcement") as Notif["type"],
+          source: "notification",
+          title: n.title?.trim() || "Notification",
+          body: n.body?.trim() || "Tap to view details.",
+          imageUrl: n.image_url ?? undefined,
+          createdBy: n.created_by ?? null,
+          createdAt: n.created_at,
+          time: fmtTime(n.created_at),
+          unread: !statusMap.get(n.id)?.read_at,
+          day: dayLabel(n.created_at),
+        }));
     }
+
+    let messageNotifs: Notif[] = [];
+    const { data: memberships } = await supabase
+      .from("conversation_members")
+      .select("conversation_id")
+      .eq("user_id", currentUser.id);
+
+    const conversationIds = [
+      ...new Set((memberships ?? []).map((m: any) => m.conversation_id)),
+    ];
+
+    if (conversationIds.length > 0) {
+      const { data: unreadMessages } = await supabase
+        .from("messages")
+        .select("id, conversation_id, body, sender_id, created_at")
+        .in("conversation_id", conversationIds)
+        .neq("sender_id", currentUser.id)
+        .is("read_at", null)
+        .order("created_at", { ascending: false })
+        .limit(120);
+
+      if (unreadMessages && unreadMessages.length > 0) {
+        const unreadConversationIds = [
+          ...new Set(unreadMessages.map((msg: any) => msg.conversation_id)),
+        ];
+
+        const { data: convos } = await supabase
+          .from("conversations")
+          .select(
+            `id, title, is_group,
+             conversation_members ( user_id, profiles:user_id ( id, full_name ) )`,
+          )
+          .in("id", unreadConversationIds);
+
+        const conversationMap = new Map(
+          (convos ?? []).map((conv: any) => [conv.id, conv]),
+        );
+
+        const groupedUnread = unreadMessages.reduce(
+          (acc, msg: any) => {
+            if (!acc[msg.conversation_id]) acc[msg.conversation_id] = [];
+            acc[msg.conversation_id].push(msg);
+            return acc;
+          },
+          {} as Record<string, any[]>,
+        );
+
+        messageNotifs = Object.entries(groupedUnread).map(
+          ([conversationId, msgs]) => {
+            const latest = msgs[0];
+            const conv = conversationMap.get(conversationId) as any;
+            const members = conv?.conversation_members ?? [];
+            const otherMember = members.find(
+              (m: any) => m.user_id !== currentUser.id,
+            )?.profiles;
+
+            const conversationName = conv?.is_group
+              ? conv.title || "Group Chat"
+              : otherMember?.full_name || "Conversation";
+
+            const unreadCount = msgs.length;
+            const preview =
+              latest.body?.trim() ||
+              `${unreadCount} new message${unreadCount > 1 ? "s" : ""}`;
+
+            return {
+              id: `msg-${conversationId}`,
+              conversationId,
+              type: "message" as Notif["type"],
+              source: "message" as const,
+              title: conversationName,
+              body: preview,
+              createdBy: latest.sender_id ?? null,
+              createdAt: latest.created_at,
+              time: fmtTime(latest.created_at),
+              unread: true,
+              day: dayLabel(latest.created_at),
+              path: conv?.is_group
+                ? `/app/messages/group/${conversationId}`
+                : `/app/messages/${conversationId}`,
+            };
+          },
+        );
+      }
+    }
+
+    setNotifs(
+      [...messageNotifs, ...notificationNotifs].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    );
+
     setLoading(false);
   }, [currentUser.id]);
 
@@ -240,7 +349,21 @@ export function Notifications() {
       .channel("notifs-realtime")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications" },
+        { event: "*", schema: "public", table: "notifications" },
+        () => {
+          loadNotifs();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notification_status" },
+        () => {
+          loadNotifs();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages" },
         () => {
           loadNotifs();
         },
@@ -257,9 +380,7 @@ export function Notifications() {
       ? true
       : activeTab === "Messages"
         ? n.type === "message"
-        : activeTab === "Announcements"
-          ? n.type === "announcement"
-          : n.type === "event",
+        : n.type === "announcement",
   );
 
   const grouped = filtered.reduce(
@@ -274,6 +395,20 @@ export function Notifications() {
   const dismiss = async (notif: Notif) => {
     const previous = [...notifs];
     setNotifs((prev) => prev.filter((n) => n.id !== notif.id));
+
+    if (notif.source === "message" && notif.conversationId) {
+      const { error } = await supabase
+        .from("messages")
+        .update({ read_at: new Date().toISOString() })
+        .eq("conversation_id", notif.conversationId)
+        .neq("sender_id", currentUser.id)
+        .is("read_at", null);
+
+      if (error) {
+        setNotifs(previous);
+      }
+      return;
+    }
 
     const isAdmin = currentUser.role === "admin";
 
@@ -303,10 +438,21 @@ export function Notifications() {
   };
 
   const markAllRead = async () => {
-    const unreadIds = notifs.filter((n) => n.unread).map((n) => n.id);
+    const unreadNotifIds = notifs
+      .filter((n) => n.unread && n.source === "notification")
+      .map((n) => n.id);
+    const unreadMessageConversationIds = [
+      ...new Set(
+        notifs
+          .filter((n) => n.unread && n.source === "message" && n.conversationId)
+          .map((n) => n.conversationId as string),
+      ),
+    ];
+
     setNotifs((prev) => prev.map((n) => ({ ...n, unread: false })));
-    if (unreadIds.length > 0) {
-      const rows = unreadIds.map((nid) => ({
+
+    if (unreadNotifIds.length > 0) {
+      const rows = unreadNotifIds.map((nid) => ({
         notification_id: nid,
         user_id: currentUser.id,
         read_at: new Date().toISOString(),
@@ -314,6 +460,15 @@ export function Notifications() {
       await supabase
         .from("notification_status")
         .upsert(rows, { onConflict: "notification_id,user_id" });
+    }
+
+    if (unreadMessageConversationIds.length > 0) {
+      await supabase
+        .from("messages")
+        .update({ read_at: new Date().toISOString() })
+        .in("conversation_id", unreadMessageConversationIds)
+        .neq("sender_id", currentUser.id)
+        .is("read_at", null);
     }
   };
 
