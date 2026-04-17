@@ -393,6 +393,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return {};
   }, []);
 
+  /* ── File validation constants (HIGH-4 security fix) ── */
+  const ALLOWED_IMAGE_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+  ];
+  const MAX_UPLOAD_SIZE = 5 * 1024 * 1024; // 5 MB
+
+  const validateUploadFile = (
+    file: File | undefined,
+    label: string,
+  ): string | null => {
+    if (!file) return null;
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      return `${label} must be an image file (JPEG, PNG, WebP, or GIF).`;
+    }
+    if (file.size > MAX_UPLOAD_SIZE) {
+      return `${label} must be 5 MB or smaller.`;
+    }
+    return null;
+  };
+
   const signUp = useCallback(
     async (payload: {
       firstName: string;
@@ -407,6 +430,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       regCardFile?: File;
       profilePicFile?: File;
     }) => {
+      /* ── Validate uploaded files before proceeding ── */
+      const regCardError = validateUploadFile(
+        payload.regCardFile,
+        "Registration card",
+      );
+      if (regCardError) return { error: regCardError };
+
+      const profilePicError = validateUploadFile(
+        payload.profilePicFile,
+        "Profile picture",
+      );
+      if (profilePicError) return { error: profilePicError };
+
       const email = payload.email.trim().toLowerCase();
 
       const { data, error } = await supabase.auth.signUp({

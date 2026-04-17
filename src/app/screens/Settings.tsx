@@ -327,7 +327,7 @@ export function Settings() {
           <SettingRow
             icon={<BadgeCheck size={18} />}
             label="Student ID"
-            sublabel={currentUser.id || "Not set"}
+            sublabel={currentUser.identifier || "Not set"}
             iconColor={isDark ? c.cream : c.baseRed}
             rightEl={<ChevronRight size={16} color={c.warmGray} />}
           />

@@ -388,10 +388,13 @@ export function AdminDashboard() {
 
     /* Sign out the newly-created session so we stay as admin */
     await supabase.auth.signOut();
-    /* Re-login as admin – the admin's session was replaced by signUp */
-    /* We need the admin to re-auth. Instead, use a workaround: */
-    /* Actually, signUp with auto-confirm may not replace current session
-       on newer Supabase versions. We just reload admin data. */
+
+    /* HIGH-3 fix: Verify the admin's session survived the signUp call.
+       On Supabase versions where signUp replaces the current session,
+       the signOut above logs out the admin. Detect and handle gracefully. */
+    const {
+      data: { session: adminSession },
+    } = await supabase.auth.getSession();
 
     setCreateForm({
       firstName: "",
@@ -405,6 +408,17 @@ export function AdminDashboard() {
       program: "",
     });
     setShowCreateModal(false);
+
+    if (!adminSession) {
+      /* Admin session was lost — redirect to re-login */
+      setFeedback(
+        "Account created and approved. Your session expired — please log in again.",
+      );
+      setIsSaving(false);
+      navigate("/login");
+      return;
+    }
+
     setFeedback("Account created and approved successfully.");
     await loadAdminData();
     setIsSaving(false);
@@ -589,6 +603,25 @@ export function AdminDashboard() {
       type === "announcement" ? announcementImageFile : broadcastImageFile;
 
     if (uploadFile) {
+      /* ── Validate image file (HIGH-4 security fix) ── */
+      const allowedImageTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+      ];
+      const maxUploadSize = 5 * 1024 * 1024; // 5 MB
+      if (!allowedImageTypes.includes(uploadFile.type)) {
+        setError("Image must be a JPEG, PNG, WebP, or GIF file.");
+        setIsSaving(false);
+        return;
+      }
+      if (uploadFile.size > maxUploadSize) {
+        setError("Image must be 5 MB or smaller.");
+        setIsSaving(false);
+        return;
+      }
+
       const ext = uploadFile.name.split(".").pop() ?? "jpg";
       const safeExt = ext.toLowerCase();
       const filePath = `notifications/${type}/${Date.now()}-${Math.random()
