@@ -185,15 +185,6 @@ export function AdminDashboard() {
     title: string;
   } | null>(null);
 
-  const [locationForm, setLocationForm] = useState({
-    name: "",
-    category: "",
-    floor: "",
-    building: "",
-    latitude: "",
-    longitude: "",
-  });
-
   const [activeTab, setActiveTab] = useState<
     "announcements" | "users" | "broadcast" | "locations"
   >("announcements");
@@ -687,53 +678,6 @@ export function AdminDashboard() {
     setNotificationDeleteTarget({ id: notificationId, kind, title });
   };
 
-  const addLocation = async () => {
-    if (!locationForm.name.trim() || !locationForm.category.trim()) {
-      setError("Location name and category are required.");
-      return;
-    }
-
-    setIsSaving(true);
-    setError("");
-    setFeedback("");
-
-    const latitude = locationForm.latitude
-      ? Number(locationForm.latitude)
-      : null;
-    const longitude = locationForm.longitude
-      ? Number(locationForm.longitude)
-      : null;
-
-    const { error: insertError } = await supabase
-      .from("campus_locations")
-      .insert({
-        name: locationForm.name.trim(),
-        category: locationForm.category.trim(),
-        floor: locationForm.floor.trim() || null,
-        building: locationForm.building.trim() || null,
-        latitude: Number.isNaN(latitude) ? null : latitude,
-        longitude: Number.isNaN(longitude) ? null : longitude,
-      });
-
-    if (insertError) {
-      setError(insertError.message);
-      setIsSaving(false);
-      return;
-    }
-
-    setLocationForm({
-      name: "",
-      category: "",
-      floor: "",
-      building: "",
-      latitude: "",
-      longitude: "",
-    });
-    setFeedback("Campus location added.");
-    await loadAdminData();
-    setIsSaving(false);
-  };
-
   /* ---------- Tab config ---------- */
   const tabs = [
     { key: "announcements" as const, label: "Announce" },
@@ -742,7 +686,6 @@ export function AdminDashboard() {
       label: `Users${pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ""}`,
     },
     { key: "broadcast" as const, label: "Broadcast" },
-    { key: "locations" as const, label: "Map" },
   ];
 
   const announcementItems = announcements.filter(
@@ -3243,7 +3186,7 @@ export function AdminDashboard() {
                 margin: "0 0 8px 2px",
               }}
             >
-              Add Campus Location
+              Campus Locations
             </p>
             <div
               style={{
@@ -3253,82 +3196,17 @@ export function AdminDashboard() {
                 boxShadow: "0 4px 24px rgba(94,16,16,0.10)",
               }}
             >
-              <div
+              <p
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
+                  margin: 0,
+                  fontFamily: fonts.ui,
+                  fontSize: 12,
+                  color: c.warmGray,
+                  lineHeight: 1.5,
                 }}
               >
-                <input
-                  value={locationForm.name}
-                  onChange={(e) =>
-                    setLocationForm((p) => ({ ...p, name: e.target.value }))
-                  }
-                  placeholder="Location name"
-                  style={inputStyle}
-                />
-                <input
-                  value={locationForm.category}
-                  onChange={(e) =>
-                    setLocationForm((p) => ({
-                      ...p,
-                      category: e.target.value,
-                    }))
-                  }
-                  placeholder="Category (Office, Building, Lab…)"
-                  style={inputStyle}
-                />
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    value={locationForm.latitude}
-                    onChange={(e) =>
-                      setLocationForm((p) => ({
-                        ...p,
-                        latitude: e.target.value,
-                      }))
-                    }
-                    placeholder="Latitude"
-                    style={{ ...inputStyle, flex: 1 }}
-                  />
-                  <input
-                    value={locationForm.longitude}
-                    onChange={(e) =>
-                      setLocationForm((p) => ({
-                        ...p,
-                        longitude: e.target.value,
-                      }))
-                    }
-                    placeholder="Longitude"
-                    style={{ ...inputStyle, flex: 1 }}
-                  />
-                </div>
-                <button
-                  onClick={addLocation}
-                  disabled={isSaving}
-                  style={{
-                    width: "100%",
-                    height: 48,
-                    border: "none",
-                    borderRadius: 12,
-                    background: g.button,
-                    color: c.cream,
-                    fontFamily: fonts.ui,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: isSaving ? "default" : "pointer",
-                    boxShadow: shadow.button,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    opacity: isSaving ? 0.6 : 1,
-                  }}
-                >
-                  <MapPinned size={16} />
-                  {isSaving ? "Adding…" : "Add Location"}
-                </button>
-              </div>
+                Location creation from the admin panel is disabled.
+              </p>
             </div>
 
             {/* Existing locations */}
