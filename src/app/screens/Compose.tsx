@@ -371,11 +371,14 @@ export function Compose() {
               borderRadius: "0 0 14px 14px",
               zIndex: 50,
               overflow: "hidden",
+              transformOrigin: "top center",
+              animation: "dropdown-pop-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)",
               border: `1px solid ${isDark ? "rgba(255,232,217,0.16)" : "transparent"}`,
             }}
           >
             {filteredSuggestions.map((s) => (
               <button
+                className="hover-row"
                 key={s.id}
                 onClick={() => addRecipient(s)}
                 style={{
@@ -389,6 +392,8 @@ export function Compose() {
                   borderBottom: `1px solid ${isDark ? "rgba(255,232,217,0.1)" : "rgba(139,115,85,0.08)"}`,
                   cursor: "pointer",
                   textAlign: "left",
+                  transition:
+                    "background-color 0.18s ease, transform 0.16s ease, filter 0.2s ease",
                 }}
               >
                 <div

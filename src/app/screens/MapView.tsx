@@ -252,6 +252,70 @@ function BoundsEnforcer() {
   return null;
 }
 
+function RightClickRotateControl() {
+  const map = useMap();
+
+  useEffect(() => {
+    const container = map.getContainer();
+    let isRotating = false;
+    let lastX = 0;
+
+    const preventContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+    };
+
+    const startRotate = (event: MouseEvent) => {
+      if (event.button !== 2) return;
+      event.preventDefault();
+      isRotating = true;
+      lastX = event.clientX;
+      container.style.cursor = "ew-resize";
+      map.dragging.disable();
+    };
+
+    const updateRotate = (event: MouseEvent) => {
+      if (!isRotating) return;
+
+      const deltaX = event.clientX - lastX;
+      if (deltaX === 0) return;
+
+      lastX = event.clientX;
+
+      const rotateMap = map as any;
+      if (
+        typeof rotateMap.getBearing === "function" &&
+        typeof rotateMap.setBearing === "function"
+      ) {
+        rotateMap.setBearing(rotateMap.getBearing() + deltaX * 0.35);
+      }
+    };
+
+    const stopRotate = () => {
+      if (!isRotating) return;
+      isRotating = false;
+      container.style.cursor = "";
+      map.dragging.enable();
+    };
+
+    container.addEventListener("contextmenu", preventContextMenu);
+    container.addEventListener("mousedown", startRotate);
+    window.addEventListener("mousemove", updateRotate);
+    window.addEventListener("mouseup", stopRotate);
+    window.addEventListener("blur", stopRotate);
+
+    return () => {
+      stopRotate();
+      container.removeEventListener("contextmenu", preventContextMenu);
+      container.removeEventListener("mousedown", startRotate);
+      window.removeEventListener("mousemove", updateRotate);
+      window.removeEventListener("mouseup", stopRotate);
+      window.removeEventListener("blur", stopRotate);
+    };
+  }, [map]);
+
+  return null;
+}
+
 const buildingFloors: Array<{ value: BuildingFloor; label: string }> = [
   { value: "1st-floor", label: "1st Floor" },
   { value: "2nd-floor", label: "2nd Floor" },
@@ -288,6 +352,7 @@ export function MapView() {
   const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
   const [isDetailThumbnailMissing, setIsDetailThumbnailMissing] =
     useState(false);
+  const [roomPhotoVariantIndex, setRoomPhotoVariantIndex] = useState(0);
   const detailsRef = useRef<HTMLDivElement | null>(null);
   const isDarkMode = themePreference === "dark";
 
@@ -390,6 +455,15 @@ export function MapView() {
     [floorRooms, selectedRoomId],
   );
 
+  const roomPhotoCandidates = useMemo(() => {
+    if (!selectedRoom) return [];
+
+    const base = `/building-maps/${activeBuilding}/rooms/${selectedRoom.id}`;
+    return [`${base}.jpg`, `${base}.jpeg`, `${base}.png`, `${base}.webp`];
+  }, [activeBuilding, selectedRoom]);
+
+  const selectedRoomPhoto = roomPhotoCandidates[roomPhotoVariantIndex] ?? null;
+
   const selectedFloorLabel = useMemo(
     () =>
       buildingFloors.find((floor) => floor.value === selectedFloor)?.label ??
@@ -461,6 +535,10 @@ export function MapView() {
   useEffect(() => {
     setIsDetailThumbnailMissing(false);
   }, [selectedFloor, activeBuilding, mapMode]);
+
+  useEffect(() => {
+    setRoomPhotoVariantIndex(0);
+  }, [selectedRoomId, activeBuilding]);
 
   useEffect(() => {
     if (!selectedRoomId || !detailsRef.current) return;
@@ -555,6 +633,7 @@ export function MapView() {
               />
 
               <BoundsEnforcer />
+              <RightClickRotateControl />
 
               {/* Location markers */}
               {geoLocations.map((loc) => (
@@ -1118,8 +1197,8 @@ export function MapView() {
                     ref={detailsRef}
                     className="mapview-detail-sheet"
                     style={{
-                      minHeight: selectedRoom ? 170 : 120,
-                      maxHeight: selectedRoom ? 300 : 150,
+                      minHeight: selectedRoom ? 220 : 120,
+                      maxHeight: selectedRoom ? 380 : 150,
                     }}
                   >
                     {roomInteractionsEnabled && selectedRoom ? (
@@ -1194,6 +1273,35 @@ export function MapView() {
                         >
                           Hours: {selectedRoom.hours}
                         </p>
+
+                        {selectedRoomPhoto ? (
+                          <img
+                            src={selectedRoomPhoto}
+                            alt={`${selectedRoom.name} photo`}
+                            onError={() =>
+                              setRoomPhotoVariantIndex((prev) => prev + 1)
+                            }
+                            style={{
+                              width: "100%",
+                              height: 150,
+                              borderRadius: 10,
+                              objectFit: "cover",
+                              border: "1px solid var(--bm-border-soft)",
+                              background: "var(--bm-panel-bg)",
+                            }}
+                          />
+                        ) : (
+                          <p
+                            style={{
+                              margin: 0,
+                              fontFamily: fonts.ui,
+                              fontSize: 11,
+                              color: "var(--bm-text-muted)",
+                            }}
+                          >
+                            Room photo not available yet.
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <p
