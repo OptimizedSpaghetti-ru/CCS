@@ -13,6 +13,7 @@ import {
   XCircle,
   ChevronDown,
   Search,
+  Eye,
   Plus,
   Pencil,
   Trash2,
@@ -86,6 +87,28 @@ function timeAgo(iso: string) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function extractStorageObjectPath(url: string, bucket: string) {
+  const publicMarker = `/storage/v1/object/public/${bucket}/`;
+  const signMarker = `/storage/v1/object/sign/${bucket}/`;
+
+  try {
+    const parsed = new URL(url);
+    const { pathname } = parsed;
+    const marker = pathname.includes(publicMarker)
+      ? publicMarker
+      : pathname.includes(signMarker)
+        ? signMarker
+        : null;
+    if (!marker) return null;
+
+    const [, suffix = ""] = pathname.split(marker);
+    const normalized = suffix.startsWith("/") ? suffix.slice(1) : suffix;
+    return decodeURIComponent(normalized);
+  } catch {
+    return null;
+  }
 }
 
 /* ── Shared input style ─────────────────────────────── */
@@ -184,6 +207,13 @@ export function AdminDashboard() {
     kind: "announcement" | "broadcast";
     title: string;
   } | null>(null);
+  const [pendingDocsViewer, setPendingDocsViewer] = useState<{
+    userName: string;
+    email: string;
+    profilePicUrl: string | null;
+    regCardUrl: string | null;
+  } | null>(null);
+  const [isPreparingPendingDocs, setIsPreparingPendingDocs] = useState(false);
 
   const [activeTab, setActiveTab] = useState<
     "announcements" | "users" | "broadcast" | "locations"
@@ -709,6 +739,55 @@ export function AdminDashboard() {
     title: string,
   ) => {
     setNotificationDeleteTarget({ id: notificationId, kind, title });
+  };
+
+  const resolveStudentDocumentUrl = async (rawUrl: string | null) => {
+    if (!rawUrl) return null;
+
+    const objectPath = extractStorageObjectPath(rawUrl, "student-documents");
+    if (!objectPath) return rawUrl;
+
+    const { data, error: signError } = await supabase.storage
+      .from("student-documents")
+      .createSignedUrl(objectPath, 60 * 30);
+
+    if (signError || !data?.signedUrl) {
+      return rawUrl;
+    }
+
+    return data.signedUrl;
+  };
+
+  const openPendingDocsViewer = async (user: PendingProfile) => {
+    const docs = user.student_documents?.[0];
+    if (!docs?.profile_pic_url && !docs?.reg_card_url) {
+      setError("No uploaded documents were found for this pending account.");
+      return;
+    }
+
+    setError("");
+    setIsPreparingPendingDocs(true);
+    try {
+      const [profilePicUrl, regCardUrl] = await Promise.all([
+        resolveStudentDocumentUrl(docs?.profile_pic_url ?? null),
+        resolveStudentDocumentUrl(docs?.reg_card_url ?? null),
+      ]);
+
+      setPendingDocsViewer({
+        userName: user.full_name || "Unnamed User",
+        email: user.email || "No email",
+        profilePicUrl,
+        regCardUrl,
+      });
+    } catch (viewError) {
+      setError(
+        viewError instanceof Error
+          ? viewError.message
+          : "Unable to open uploaded documents right now.",
+      );
+    } finally {
+      setIsPreparingPendingDocs(false);
+    }
   };
 
   /* ---------- Tab config ---------- */
@@ -1471,6 +1550,31 @@ export function AdminDashboard() {
                                       📄
                                     </a>
                                   )}
+                                  <button
+                                    onClick={() => openPendingDocsViewer(user)}
+                                    disabled={isPreparingPendingDocs}
+                                    style={{
+                                      border: `1px solid ${c.baseRed}33`,
+                                      borderRadius: 8,
+                                      background: `${c.baseRed}12`,
+                                      color: c.baseRed,
+                                      fontFamily: fonts.ui,
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      padding: "0 10px",
+                                      height: 36,
+                                      cursor: isPreparingPendingDocs
+                                        ? "default"
+                                        : "pointer",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      opacity: isPreparingPendingDocs ? 0.6 : 1,
+                                    }}
+                                  >
+                                    <Eye size={12} />
+                                    View Docs
+                                  </button>
                                 </div>
                               )}
                           </div>
@@ -3488,6 +3592,228 @@ export function AdminDashboard() {
                     <Trash2 size={13} />
                     {isSaving ? "Deleting..." : "Delete"}
                   </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {pendingDocsViewer && (
+          <motion.div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15, 10, 10, 0.48)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 16,
+              zIndex: 1150,
+            }}
+            onClick={() => setPendingDocsViewer(null)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
+            <motion.div
+              style={{
+                width: "100%",
+                maxWidth: 460,
+                background: c.white,
+                borderRadius: 16,
+                boxShadow: "0 10px 40px rgba(0,0,0,0.28)",
+                overflow: "hidden",
+              }}
+              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.92, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+            >
+              <div
+                style={{
+                  background: g.header,
+                  padding: "12px 16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontFamily: fonts.ui,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: c.cream,
+                    }}
+                  >
+                    Pending Documents
+                  </p>
+                  <p
+                    style={{
+                      margin: "2px 0 0",
+                      fontFamily: fonts.ui,
+                      fontSize: 10,
+                      color: c.warmGrayLight,
+                    }}
+                  >
+                    {pendingDocsViewer.userName} · {pendingDocsViewer.email}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPendingDocsViewer(null)}
+                  style={{
+                    border: "none",
+                    background: "rgba(255,255,255,0.15)",
+                    color: c.cream,
+                    borderRadius: 8,
+                    width: 28,
+                    height: 28,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                  }}
+                  aria-label="Close pending documents"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div style={{ padding: 16, display: "grid", gap: 12 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "112px 1fr",
+                    gap: 10,
+                    alignItems: "center",
+                  }}
+                >
+                  <p
+                    style={{
+                      margin: 0,
+                      fontFamily: fonts.ui,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: c.warmGray,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    1x1 Photo
+                  </p>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                    }}
+                  >
+                    {pendingDocsViewer.profilePicUrl ? (
+                      <img
+                        src={pendingDocsViewer.profilePicUrl}
+                        alt="Pending user profile"
+                        style={{
+                          width: 58,
+                          height: 58,
+                          borderRadius: 8,
+                          objectFit: "cover",
+                          border: "1.5px solid rgba(139,115,85,0.25)",
+                        }}
+                      />
+                    ) : (
+                      <span
+                        style={{
+                          fontFamily: fonts.ui,
+                          fontSize: 12,
+                          color: c.warmGray,
+                        }}
+                      >
+                        Not uploaded
+                      </span>
+                    )}
+
+                    {pendingDocsViewer.profilePicUrl && (
+                      <a
+                        href={pendingDocsViewer.profilePicUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          border: `1px solid ${c.baseRed}33`,
+                          borderRadius: 8,
+                          background: `${c.baseRed}10`,
+                          color: c.baseRed,
+                          fontFamily: fonts.ui,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          textDecoration: "none",
+                          padding: "7px 10px",
+                        }}
+                      >
+                        Open Image
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "112px 1fr",
+                    gap: 10,
+                    alignItems: "center",
+                  }}
+                >
+                  <p
+                    style={{
+                      margin: 0,
+                      fontFamily: fonts.ui,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: c.warmGray,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    Reg Card / ID
+                  </p>
+                  <div>
+                    {pendingDocsViewer.regCardUrl ? (
+                      <a
+                        href={pendingDocsViewer.regCardUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          border: `1px solid ${c.baseRed}33`,
+                          borderRadius: 8,
+                          background: `${c.baseRed}10`,
+                          color: c.baseRed,
+                          fontFamily: fonts.ui,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          textDecoration: "none",
+                          padding: "7px 10px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <Eye size={12} />
+                        Open Document
+                      </a>
+                    ) : (
+                      <span
+                        style={{
+                          fontFamily: fonts.ui,
+                          fontSize: 12,
+                          color: c.warmGray,
+                        }}
+                      >
+                        Not uploaded
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>

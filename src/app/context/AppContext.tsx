@@ -103,6 +103,23 @@ function normalizeStatus(value: unknown): "pending" | "approved" | "rejected" {
   return "pending";
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string"
+  ) {
+    return (error as { message: string }).message;
+  }
+
+  return fallback;
+}
+
 async function fetchProfile(userId: string) {
   const { data, error } = await supabase
     .from("profiles")
@@ -270,8 +287,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const profile = await fetchProfile(nextSession.user.id);
       setCurrentUser(mapUserFromSession(nextSession, profile));
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to load profile.";
+      const message = getErrorMessage(error, "Failed to load profile.");
       setAuthError(message);
       setCurrentUser(mapUserFromSession(nextSession, null));
     }
@@ -383,10 +399,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     } catch (profileError) {
       return {
-        error:
-          profileError instanceof Error
-            ? profileError.message
-            : "Unable to verify account status.",
+        error: getErrorMessage(
+          profileError,
+          "Unable to verify account status.",
+        ),
       };
     }
 
@@ -394,21 +410,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /* ── File validation constants (HIGH-4 security fix) ── */
-  const ALLOWED_IMAGE_TYPES = [
+  const ALLOWED_PROFILE_IMAGE_TYPES = [
     "image/jpeg",
     "image/png",
     "image/webp",
     "image/gif",
+  ];
+  const ALLOWED_REG_CARD_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "application/pdf",
   ];
   const MAX_UPLOAD_SIZE = 5 * 1024 * 1024; // 5 MB
 
   const validateUploadFile = (
     file: File | undefined,
     label: string,
+    allowedTypes: string[],
   ): string | null => {
     if (!file) return null;
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      return `${label} must be an image file (JPEG, PNG, WebP, or GIF).`;
+    if (!allowedTypes.includes(file.type)) {
+      return `${label} file type is not allowed.`;
     }
     if (file.size > MAX_UPLOAD_SIZE) {
       return `${label} must be 5 MB or smaller.`;
@@ -430,112 +454,142 @@ export function AppProvider({ children }: { children: ReactNode }) {
       regCardFile?: File;
       profilePicFile?: File;
     }) => {
-      /* ── Validate uploaded files before proceeding ── */
-      const regCardError = validateUploadFile(
-        payload.regCardFile,
-        "Registration card",
-      );
-      if (regCardError) return { error: regCardError };
+      try {
+        /* ── Validate uploaded files before proceeding ── */
+        const regCardError = validateUploadFile(
+          payload.regCardFile,
+          "Registration card",
+          ALLOWED_REG_CARD_TYPES,
+        );
+        if (regCardError) return { error: regCardError };
 
-      const profilePicError = validateUploadFile(
-        payload.profilePicFile,
-        "Profile picture",
-      );
-      if (profilePicError) return { error: profilePicError };
+        const profilePicError = validateUploadFile(
+          payload.profilePicFile,
+          "Profile picture",
+          ALLOWED_PROFILE_IMAGE_TYPES,
+        );
+        if (profilePicError) return { error: profilePicError };
 
-      const email = payload.email.trim().toLowerCase();
+        const email = payload.email.trim().toLowerCase();
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password: payload.password,
-        options: {
-          data: {
-            first_name: payload.firstName,
-            last_name: payload.lastName,
-            full_name: `${payload.firstName} ${payload.lastName}`.trim(),
-            role: payload.role,
-            status: "pending",
-            id_number: payload.identifier,
-            department: payload.department,
-            year_section: payload.yearSection ?? "",
-            program: payload.program ?? "",
-          },
-        },
-      });
-
-      if (error) {
-        if (error.message.toLowerCase().includes("rate limit")) {
-          return {
-            error:
-              "Too many sign-up attempts. Please wait a few minutes before trying again.",
-          };
-        }
-        return { error: error.message };
-      }
-
-      if (data.user && data.session) {
-        let avatarUrl: string | null = null;
-        let regCardUrl: string | null = null;
-        let profilePicUrl: string | null = null;
-
-        /* ── Upload files for students ── */
-        if (payload.role === "student") {
-          const userId = data.user.id;
-
-          if (payload.regCardFile) {
-            const ext = payload.regCardFile.name.split(".").pop() ?? "jpg";
-            const regPath = `reg-cards/${userId}/reg-card.${ext}`;
-            await supabase.storage
-              .from("student-documents")
-              .upload(regPath, payload.regCardFile, { upsert: true });
-            regCardUrl = supabase.storage
-              .from("student-documents")
-              .getPublicUrl(regPath).data.publicUrl;
-          }
-
-          if (payload.profilePicFile) {
-            const ext = payload.profilePicFile.name.split(".").pop() ?? "jpg";
-            const picPath = `profile-pics/${userId}/profile-pic.${ext}`;
-            await supabase.storage
-              .from("student-documents")
-              .upload(picPath, payload.profilePicFile, { upsert: true });
-            avatarUrl = supabase.storage
-              .from("student-documents")
-              .getPublicUrl(picPath).data.publicUrl;
-            profilePicUrl = avatarUrl;
-          }
-        }
-
-        /* ── Upsert profile first (satisfies FK before student_documents insert) ── */
-        await supabase.from("profiles").upsert({
-          id: data.user.id,
+        const { data, error } = await supabase.auth.signUp({
           email,
-          full_name: `${payload.firstName} ${payload.lastName}`.trim(),
-          role: payload.role,
-          status: "pending",
-          department: payload.department,
-          year_section: payload.yearSection ?? null,
-          program: payload.program ?? null,
-          student_id: payload.role === "student" ? payload.identifier : null,
-          employee_id: payload.role === "faculty" ? payload.identifier : null,
-          ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
+          password: payload.password,
+          options: {
+            data: {
+              first_name: payload.firstName,
+              last_name: payload.lastName,
+              full_name: `${payload.firstName} ${payload.lastName}`.trim(),
+              role: payload.role,
+              status: "pending",
+              id_number: payload.identifier,
+              department: payload.department,
+              year_section: payload.yearSection ?? "",
+              program: payload.program ?? "",
+            },
+          },
         });
 
-        /* ── Insert student_documents after profile row exists ── */
-        if (payload.role === "student") {
-          await supabase.from("student_documents").insert({
-            user_id: data.user.id,
-            reg_card_url: regCardUrl,
-            profile_pic_url: profilePicUrl,
-          });
+        if (error) {
+          if (error.message.toLowerCase().includes("rate limit")) {
+            return {
+              error:
+                "Too many sign-up attempts. Please wait a few minutes before trying again.",
+            };
+          }
+          return { error: error.message };
         }
 
-        await supabase.auth.signOut();
-      }
+        if (data.user && data.session) {
+          let avatarUrl: string | null = null;
+          let regCardUrl: string | null = null;
+          let profilePicUrl: string | null = null;
 
-      return {
-        message: "Account created. Wait for admin approval before logging in.",
-      };
+          /* ── Upload files for students ── */
+          if (payload.role === "student") {
+            const userId = data.user.id;
+
+            if (payload.regCardFile) {
+              const ext = payload.regCardFile.name.split(".").pop() ?? "jpg";
+              const regPath = `reg-cards/${userId}/reg-card.${ext}`;
+              const { error: regUploadError } = await supabase.storage
+                .from("student-documents")
+                .upload(regPath, payload.regCardFile, { upsert: true });
+              if (regUploadError) {
+                return { error: regUploadError.message };
+              }
+              regCardUrl = supabase.storage
+                .from("student-documents")
+                .getPublicUrl(regPath).data.publicUrl;
+            }
+
+            if (payload.profilePicFile) {
+              const ext = payload.profilePicFile.name.split(".").pop() ?? "jpg";
+              const picPath = `profile-pics/${userId}/profile-pic.${ext}`;
+              const { error: picUploadError } = await supabase.storage
+                .from("student-documents")
+                .upload(picPath, payload.profilePicFile, { upsert: true });
+              if (picUploadError) {
+                return { error: picUploadError.message };
+              }
+              avatarUrl = supabase.storage
+                .from("student-documents")
+                .getPublicUrl(picPath).data.publicUrl;
+              profilePicUrl = avatarUrl;
+            }
+          }
+
+          /* ── Upsert profile first (satisfies FK before student_documents insert) ── */
+          const { error: profileUpsertError } = await supabase
+            .from("profiles")
+            .upsert({
+              id: data.user.id,
+              email,
+              full_name: `${payload.firstName} ${payload.lastName}`.trim(),
+              role: payload.role,
+              status: "pending",
+              department: payload.department,
+              year_section: payload.yearSection ?? null,
+              program: payload.program ?? null,
+              student_id:
+                payload.role === "student" ? payload.identifier : null,
+              employee_id:
+                payload.role === "faculty" ? payload.identifier : null,
+              ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
+            });
+          if (profileUpsertError) {
+            return { error: profileUpsertError.message };
+          }
+
+          /* ── Insert student_documents after profile row exists ── */
+          if (payload.role === "student") {
+            const { error: docsInsertError } = await supabase
+              .from("student_documents")
+              .insert({
+                user_id: data.user.id,
+                reg_card_url: regCardUrl,
+                profile_pic_url: profilePicUrl,
+              });
+            if (docsInsertError) {
+              return { error: docsInsertError.message };
+            }
+          }
+
+          await supabase.auth.signOut();
+        }
+
+        return {
+          message:
+            "Account created. Wait for admin approval before logging in.",
+        };
+      } catch (signUpError) {
+        return {
+          error: getErrorMessage(
+            signUpError,
+            "Unable to create account right now. Please try again.",
+          ),
+        };
+      }
     },
     [],
   );

@@ -549,33 +549,42 @@ export function Register() {
     if (newFileErrors.regCard || newFileErrors.profilePic) return;
 
     setIsSubmitting(true);
-    const result = await signUp({
-      firstName: form.firstName.trim(),
-      lastName: form.lastName.trim(),
-      identifier: form.id.trim(),
-      email: form.email.trim(),
-      department: form.dept.trim(),
-      yearSection: form.yearSection.trim(),
-      program: "",
-      role: "student",
-      password: form.password,
-      regCardFile: regCardFile ?? undefined,
-      profilePicFile: profilePicFile ?? undefined,
-    });
-    setIsSubmitting(false);
-
-    if (result.error) {
-      setSubmitError(result.error);
-      return;
-    }
-
-    navigate("/pending-approval", {
-      replace: true,
-      state: {
+    try {
+      const result = await signUp({
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        identifier: form.id.trim(),
         email: form.email.trim(),
-        name: `${form.firstName} ${form.lastName}`.trim(),
-      },
-    });
+        department: form.dept.trim(),
+        yearSection: form.yearSection.trim(),
+        program: "",
+        role: "student",
+        password: form.password,
+        regCardFile: regCardFile ?? undefined,
+        profilePicFile: profilePicFile ?? undefined,
+      });
+
+      if (result.error) {
+        setSubmitError(result.error);
+        return;
+      }
+
+      navigate("/pending-approval", {
+        replace: true,
+        state: {
+          email: form.email.trim(),
+          name: `${form.firstName} ${form.lastName}`.trim(),
+        },
+      });
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Unable to create your account right now. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

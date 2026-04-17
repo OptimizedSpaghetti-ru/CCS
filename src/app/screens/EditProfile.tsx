@@ -244,52 +244,96 @@ export function EditProfile() {
     if (saving) return;
     setSaving(true);
 
-    /* Upload new avatar if chosen */
-    let newAvatarUrl: string | undefined;
-    if (avatarFile) {
-      const ext = avatarFile.name.split(".").pop() ?? "jpg";
-      const path = `${currentUser.id}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("avatar")
-        .upload(path, avatarFile, { upsert: true });
-      if (uploadError) {
-        setSaving(false);
+    try {
+      if (!currentUser.id) {
         showToast({
           type: "message",
-          title: "Upload failed",
-          preview: uploadError.message,
+          title: "Save failed",
+          preview: "Unable to resolve your account ID. Please sign in again.",
           time: "now",
         });
         return;
       }
-      const { data: urlData } = supabase.storage
-        .from("avatar")
-        .getPublicUrl(path);
-      newAvatarUrl = urlData.publicUrl;
-    }
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        full_name: form.name.trim(),
-        email: form.email.trim(),
-        department: form.dept.trim(),
-        year_section: form.yearSection.trim(),
-        program: form.program.trim(),
-        phone: form.phone.trim() || null,
-        bio: form.bio.trim() || null,
-        ...(newAvatarUrl ? { avatar_url: newAvatarUrl } : {}),
-      })
-      .eq("id", currentUser.id);
-    setSaving(false);
-    if (error) {
-      showToast({
-        type: "message",
-        title: "Save failed",
-        preview: error.message,
-        time: "now",
-      });
-    } else {
+      /* Upload new avatar if chosen */
+      let newAvatarUrl: string | undefined;
+      if (avatarFile) {
+        const ext = avatarFile.name.split(".").pop() ?? "jpg";
+        const path = `${currentUser.id}.${ext.toLowerCase()}`;
+
+        // First try INSERT mode for first-time avatars. If file exists, fall back to UPSERT.
+        const initialUpload = await supabase.storage
+          .from("avatar")
+          .upload(path, avatarFile, { upsert: false });
+
+        if (initialUpload.error) {
+          const message = initialUpload.error.message.toLowerCase();
+          const alreadyExists =
+            message.includes("already exists") ||
+            message.includes("duplicate") ||
+            message.includes("409");
+
+          if (!alreadyExists) {
+            showToast({
+              type: "message",
+              title: "Upload failed",
+              preview: initialUpload.error.message,
+              time: "now",
+            });
+            return;
+          }
+
+          const upsertUpload = await supabase.storage
+            .from("avatar")
+            .upload(path, avatarFile, { upsert: true });
+
+          if (upsertUpload.error) {
+            showToast({
+              type: "message",
+              title: "Upload failed",
+              preview: upsertUpload.error.message,
+              time: "now",
+            });
+            return;
+          }
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("avatar")
+          .getPublicUrl(path);
+
+        // Add version param so the latest image appears immediately after replace.
+        newAvatarUrl = `${urlData.publicUrl}?v=${Date.now()}`;
+      }
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: form.name.trim(),
+          email: form.email.trim(),
+          department: form.dept.trim(),
+          year_section: form.yearSection.trim(),
+          program: form.program.trim(),
+          phone: form.phone.trim() || null,
+          bio: form.bio.trim() || null,
+          ...(newAvatarUrl ? { avatar_url: newAvatarUrl } : {}),
+        })
+        .eq("id", currentUser.id);
+
+      if (error) {
+        showToast({
+          type: "message",
+          title: "Save failed",
+          preview: error.message,
+          time: "now",
+        });
+        return;
+      }
+
+      if (newAvatarUrl) {
+        setAvatarPreview(newAvatarUrl);
+      }
+
       await refreshProfile();
       showToast({
         type: "message",
@@ -298,6 +342,8 @@ export function EditProfile() {
         time: "now",
       });
       navigate("/app/profile");
+    } finally {
+      setSaving(false);
     }
   };
 
