@@ -30,14 +30,38 @@ const webStorage: SupportedStorage = {
 
 const nativeStorage: SupportedStorage = {
   getItem: async (key) => {
-    const { value } = await Preferences.get({ key });
-    return value;
+    try {
+      const { value } = await Preferences.get({ key });
+      if (value !== null && value !== undefined) {
+        return value;
+      }
+    } catch {
+      // Fallback to localStorage when native preferences access fails.
+    }
+
+    if (typeof window !== "undefined") {
+      return window.localStorage.getItem(key);
+    }
+
+    return null;
   },
   setItem: async (key, value) => {
-    await Preferences.set({ key, value });
+    try {
+      await Preferences.set({ key, value });
+    } finally {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(key, value);
+      }
+    }
   },
   removeItem: async (key) => {
-    await Preferences.remove({ key });
+    try {
+      await Preferences.remove({ key });
+    } finally {
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(key);
+      }
+    }
   },
 };
 

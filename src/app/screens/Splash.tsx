@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { c, g, fonts } from "../theme";
+import { useApp } from "../context/AppContext";
 
 const SCHOOL_LOGO_SRC = "/branding/school-logo.png";
 
@@ -79,6 +80,63 @@ function CenterLogo() {
 
 export function Splash() {
   const navigate = useNavigate();
+  const { isLoadingAuth, isAuthenticated, isApproved } = useApp();
+  const showLoadingScreen = isLoadingAuth || isAuthenticated;
+
+  useEffect(() => {
+    if (isLoadingAuth) return;
+
+    if (isAuthenticated && isApproved) {
+      navigate("/app/home", { replace: true });
+      return;
+    }
+
+    if (isAuthenticated && !isApproved) {
+      navigate("/pending-approval", { replace: true });
+    }
+  }, [isLoadingAuth, isAuthenticated, isApproved, navigate]);
+
+  if (showLoadingScreen) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          width: "100%",
+          flex: 1,
+          background: g.splash,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 18,
+          padding: "24px",
+        }}
+      >
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, ease: "linear", repeat: Infinity }}
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: "50%",
+            border: "3px solid rgba(255,240,196,0.28)",
+            borderTopColor: c.cream,
+          }}
+        />
+        <p
+          style={{
+            margin: 0,
+            fontFamily: fonts.ui,
+            fontSize: 14,
+            color: c.warmGrayLight,
+            letterSpacing: 0.35,
+          }}
+        >
+          Loading your session...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div
