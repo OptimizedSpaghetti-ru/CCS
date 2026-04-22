@@ -11,7 +11,7 @@ import {
   Loader,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
-import { supabase } from "../../lib/supabase";
+import { campusLocationById } from "../../data/campusLocations";
 
 interface LocData {
   name: string;
@@ -134,29 +134,25 @@ export function LocationDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("campus_locations")
-        .select(
-          "name, category, description, floor, building, icon_key, color, latitude, longitude",
-        )
-        .eq("id", Number(id) || 0)
-        .single();
-      if (data) {
-        setLoc({
-          name: data.name ?? "",
-          category: data.category ?? "",
-          iconKey: data.icon_key ?? "office",
-          color: data.color ?? c.baseRed,
-          floor: data.floor ?? "",
-          building: data.building ?? "",
-          description: data.description ?? "",
-          latitude: data.latitude,
-          longitude: data.longitude,
-        });
-      }
-      setLoading(false);
-    })();
+    const location = id ? campusLocationById.get(id) : undefined;
+
+    if (location) {
+      setLoc({
+        name: location.name,
+        category: location.category,
+        iconKey: location.icon_key,
+        color: location.color,
+        floor: location.floor,
+        building: location.building,
+        description: location.description,
+        latitude: location.latitude,
+        longitude: location.longitude,
+      });
+    } else {
+      setLoc(null);
+    }
+
+    setLoading(false);
   }, [id]);
 
   const locationIcon = (size: number) => {

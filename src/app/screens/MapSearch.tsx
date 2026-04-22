@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -18,19 +18,10 @@ import {
   Map,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
-import { supabase } from "../../lib/supabase";
-
-type LocationIconKey =
-  | "library"
-  | "lab"
-  | "office"
-  | "classroom"
-  | "canteen"
-  | "computer"
-  | "facility"
-  | "guidance"
-  | "media"
-  | "conference";
+import {
+  campusLocations,
+  type LocationIconKey,
+} from "../../data/campusLocations";
 
 interface MapLoc {
   id: string;
@@ -45,34 +36,27 @@ interface MapLoc {
 export function MapSearch() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [allLocations, setAllLocations] = useState<MapLoc[]>([]);
-  const [catCounts, setCatCounts] = useState<Record<string, number>>({});
+  const allLocations = useMemo<MapLoc[]>(
+    () =>
+      campusLocations.map((location) => ({
+        id: location.id,
+        name: location.name,
+        category: location.category,
+        floor: location.floor,
+        building: location.building,
+        iconKey: location.icon_key,
+        color: location.color,
+      })),
+    [],
+  );
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("campus_locations")
-        .select("id, name, category, floor, building, icon_key, color")
-        .order("name");
-      if (data) {
-        const mapped = data.map((r: any) => ({
-          id: String(r.id),
-          name: r.name ?? "",
-          category: r.category ?? "",
-          floor: r.floor ?? "",
-          building: r.building ?? "",
-          iconKey: (r.icon_key ?? "office") as LocationIconKey,
-          color: r.color ?? c.baseRed,
-        }));
-        setAllLocations(mapped);
-        const counts: Record<string, number> = {};
-        mapped.forEach((l) => {
-          counts[l.category] = (counts[l.category] || 0) + 1;
-        });
-        setCatCounts(counts);
-      }
-    })();
-  }, []);
+  const catCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allLocations.forEach((location) => {
+      counts[location.category] = (counts[location.category] || 0) + 1;
+    });
+    return counts;
+  }, [allLocations]);
 
   const getIcon = (
     iconKey: LocationIconKey,
@@ -256,38 +240,44 @@ export function MapSearch() {
               {[
                 {
                   label: "Classrooms",
+                  query: "classroom",
                   iconKey: "classroom" as LocationIconKey,
                   color: "#D97706",
                 },
                 {
                   label: "Labs",
+                  query: "lab",
                   iconKey: "lab" as LocationIconKey,
                   color: "#059669",
                 },
                 {
                   label: "Offices",
+                  query: "office",
                   iconKey: "office" as LocationIconKey,
                   color: c.baseRed,
                 },
                 {
                   label: "Canteen",
+                  query: "canteen",
                   iconKey: "canteen" as LocationIconKey,
                   color: "#EA4335",
                 },
                 {
                   label: "Library",
+                  query: "library",
                   iconKey: "library" as LocationIconKey,
                   color: "#7C3AED",
                 },
                 {
                   label: "Facilities",
+                  query: "facility",
                   iconKey: "facility" as LocationIconKey,
                   color: "#374151",
                 },
               ].map((cat) => (
                 <button
                   key={cat.label}
-                  onClick={() => setQuery(cat.label)}
+                  onClick={() => setQuery(cat.query)}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -334,7 +324,7 @@ export function MapSearch() {
                         margin: 0,
                       }}
                     >
-                      {catCounts[cat.label] ?? 0} locations
+                      {catCounts[cat.query] ?? 0} locations
                     </p>
                   </div>
                 </button>

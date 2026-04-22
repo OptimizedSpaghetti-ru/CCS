@@ -25,6 +25,10 @@ import {
 import { c, g, fonts, shadow } from "../theme";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
+import {
+  campusLocations,
+  type CampusLocation,
+} from "../../data/campusLocations";
 
 /* ── Types ──────────────────────────────────────────── */
 
@@ -65,18 +69,6 @@ type AnnouncementRow = {
   author_name?: string;
 };
 
-type CampusLocation = {
-  id: number;
-  name: string;
-  category: string;
-  floor: string | null;
-  building: string | null;
-  icon_key: string | null;
-  color: string | null;
-  latitude: number | null;
-  longitude: number | null;
-};
-
 /* ── Helpers ────────────────────────────────────────── */
 
 function timeAgo(iso: string) {
@@ -99,8 +91,8 @@ function extractStorageObjectPath(url: string, bucket: string) {
     const marker = pathname.includes(publicMarker)
       ? publicMarker
       : pathname.includes(signMarker)
-        ? signMarker
-        : null;
+      ? signMarker
+      : null;
     if (!marker) return null;
 
     const [, suffix = ""] = pathname.split(marker);
@@ -224,41 +216,34 @@ export function AdminDashboard() {
     setIsLoading(true);
     setError("");
 
-    const [pendingResult, allUsersResult, locationResult, notifResult] =
-      await Promise.all([
-        supabase
-          .from("profiles")
-          .select(
-            "id, full_name, email, role, status, student_documents(reg_card_url, profile_pic_url)",
-          )
-          .eq("status", "pending")
-          .order("created_at", { ascending: true }),
-        supabase
-          .from("profiles")
-          .select(
-            "id, full_name, email, role, status, student_id, employee_id, department, program, created_at",
-          )
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("campus_locations")
-          .select(
-            "id, name, category, floor, building, icon_key, color, latitude, longitude",
-          )
-          .order("name", { ascending: true }),
-        supabase
-          .from("notifications")
-          .select(
-            "id, title, body, type, image_url, target_role, created_at, created_by",
-          )
-          .order("created_at", { ascending: false })
-          .limit(20),
-      ]);
+    const [pendingResult, allUsersResult, notifResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select(
+          "id, full_name, email, role, status, student_documents(reg_card_url, profile_pic_url)",
+        )
+        .eq("status", "pending")
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("profiles")
+        .select(
+          "id, full_name, email, role, status, student_id, employee_id, department, program, created_at",
+        )
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("notifications")
+        .select(
+          "id, title, body, type, image_url, target_role, created_at, created_by",
+        )
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
 
-    if (pendingResult.error || allUsersResult.error || locationResult.error) {
+    if (pendingResult.error || allUsersResult.error || notifResult.error) {
       setError(
         pendingResult.error?.message ??
           allUsersResult.error?.message ??
-          locationResult.error?.message ??
+          notifResult.error?.message ??
           "Failed to load admin data.",
       );
       setIsLoading(false);
@@ -267,7 +252,7 @@ export function AdminDashboard() {
 
     setPendingUsers((pendingResult.data ?? []) as PendingProfile[]);
     setAllUsers((allUsersResult.data ?? []) as UserProfile[]);
-    setLocations((locationResult.data ?? []) as CampusLocation[]);
+    setLocations(campusLocations);
 
     /* Resolve author names for announcements */
     const rawNotifs = (notifResult.data ?? []) as AnnouncementRow[];
@@ -290,7 +275,7 @@ export function AdminDashboard() {
       rawNotifs.map((n) => ({
         ...n,
         author_name: n.created_by
-          ? (authorsMap[n.created_by] ?? "Admin")
+          ? authorsMap[n.created_by] ?? "Admin"
           : "System",
       })),
     );
@@ -726,7 +711,9 @@ export function AdminDashboard() {
     }
 
     setFeedback(
-      `${kind === "announcement" ? "Announcement" : "Broadcast"} deleted successfully.`,
+      `${
+        kind === "announcement" ? "Announcement" : "Broadcast"
+      } deleted successfully.`,
     );
     setNotificationDeleteTarget(null);
     await loadAdminData();
@@ -795,7 +782,9 @@ export function AdminDashboard() {
     { key: "announcements" as const, label: "Announce" },
     {
       key: "users" as const,
-      label: `Users${pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ""}`,
+      label: `Users${
+        pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ""
+      }`,
     },
     { key: "broadcast" as const, label: "Broadcast" },
   ];
@@ -1394,14 +1383,14 @@ export function AdminDashboard() {
               s === "approved"
                 ? "#15803D"
                 : s === "rejected"
-                  ? "#B91C1C"
-                  : "#B45309";
+                ? "#B91C1C"
+                : "#B45309";
             const statusBg = (s: string) =>
               s === "approved"
                 ? "#F0FDF4"
                 : s === "rejected"
-                  ? "#FEF2F2"
-                  : "#FFFBEB";
+                ? "#FEF2F2"
+                : "#FFFBEB";
 
             return (
               <>
@@ -1955,14 +1944,14 @@ export function AdminDashboard() {
                                       user.role === "admin"
                                         ? `${c.baseRed}15`
                                         : user.role === "faculty"
-                                          ? "#3B528015"
-                                          : "#0369a115",
+                                        ? "#3B528015"
+                                        : "#0369a115",
                                     color:
                                       user.role === "admin"
                                         ? c.baseRed
                                         : user.role === "faculty"
-                                          ? "#3B5280"
-                                          : "#0369a1",
+                                        ? "#3B5280"
+                                        : "#0369a1",
                                     borderRadius: 20,
                                     padding: "2px 8px",
                                   }}
@@ -2146,8 +2135,8 @@ export function AdminDashboard() {
                             {detailMode === "view"
                               ? "Account Details"
                               : detailMode === "edit"
-                                ? "Edit Account"
-                                : "Change Password"}
+                              ? "Edit Account"
+                              : "Change Password"}
                           </p>
                           <button
                             onClick={() => closeDetailModal()}

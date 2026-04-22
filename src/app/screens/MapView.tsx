@@ -21,8 +21,8 @@ import {
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { useApp } from "../context/AppContext";
-import { supabase } from "../../lib/supabase";
 import buildingMapData from "../../data/buildingMapData";
+import { campusLocations } from "../../data/campusLocations";
 
 /* ── Types ── */
 interface MapLocation {
@@ -334,8 +334,20 @@ export function MapView() {
   const { themePreference } = useApp();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<MapTab>("realtime");
-  const [locations, setLocations] = useState<MapLocation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const locations = useMemo<MapLocation[]>(
+    () =>
+      campusLocations.map((location) => ({
+        id: location.id,
+        name: location.name,
+        category: location.category,
+        floor: location.floor,
+        building: location.building,
+        color: location.color,
+        latitude: location.latitude,
+        longitude: location.longitude,
+      })),
+    [],
+  );
   const [userPos, setUserPos] = useState<[number, number] | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const hasAutoCenteredToUser = useRef(false);
@@ -362,33 +374,6 @@ export function MapView() {
     shiftKeyRotate: true,
     rotateControl: { position: "topright" },
   };
-
-  /* Load locations from Supabase */
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("campus_locations")
-        .select(
-          "id, name, category, floor, building, color, latitude, longitude",
-        )
-        .order("name");
-      if (data) {
-        setLocations(
-          data.map((r: any) => ({
-            id: String(r.id),
-            name: r.name ?? "",
-            category: r.category ?? "",
-            floor: r.floor ?? "",
-            building: r.building ?? "",
-            color: r.color ?? c.baseRed,
-            latitude: r.latitude ?? null,
-            longitude: r.longitude ?? null,
-          })),
-        );
-      }
-      setLoading(false);
-    })();
-  }, []);
 
   /* Get user geolocation */
   useEffect(() => {
@@ -426,7 +411,7 @@ export function MapView() {
   const roomInteractionsEnabled = isInteractiveMode && hasSaintBenedictMap;
 
   const floorRooms = useMemo(
-    () => (hasSaintBenedictMap ? (floorRoomMap[selectedFloor] ?? []) : []),
+    () => (hasSaintBenedictMap ? floorRoomMap[selectedFloor] ?? [] : []),
     [selectedFloor, hasSaintBenedictMap],
   );
 
@@ -514,7 +499,7 @@ export function MapView() {
         "--bm-text-muted": buildingUi.textMuted,
         "--bm-hover-bg": buildingUi.hoverBg,
         "--bm-shadow": buildingUi.shadow,
-      }) as React.CSSProperties,
+      } as React.CSSProperties),
     [buildingUi],
   );
 
@@ -990,7 +975,9 @@ export function MapView() {
                     <button
                       key={filter.value}
                       onClick={() => setActiveCategory(filter.value)}
-                      className={`mapview-filter-btn ${activeCategory === filter.value ? "is-active" : ""}`}
+                      className={`mapview-filter-btn ${
+                        activeCategory === filter.value ? "is-active" : ""
+                      }`}
                     >
                       {filter.label}
                     </button>
@@ -1079,7 +1066,9 @@ export function MapView() {
                             return (
                               <g
                                 key={room.id}
-                                className={`mapview-interactive-room ${hoveredRoomId === room.id ? "is-hovered" : ""}`}
+                                className={`mapview-interactive-room ${
+                                  hoveredRoomId === room.id ? "is-hovered" : ""
+                                }`}
                                 style={{
                                   cursor: "pointer",
                                   opacity: isVisible ? 1 : 0.2,
@@ -1100,8 +1089,8 @@ export function MapView() {
                                     isSelected
                                       ? 3
                                       : hoveredRoomId === room.id
-                                        ? 2.2
-                                        : 1.2
+                                      ? 2.2
+                                      : 1.2
                                   }
                                   rx={4}
                                 />
@@ -1180,13 +1169,17 @@ export function MapView() {
 
                   <div className="mapview-map-mode-switch">
                     <button
-                      className={`mapview-map-mode-btn ${mapMode === "interactive" ? "is-active" : ""}`}
+                      className={`mapview-map-mode-btn ${
+                        mapMode === "interactive" ? "is-active" : ""
+                      }`}
                       onClick={() => setMapMode("interactive")}
                     >
                       Interactive Map
                     </button>
                     <button
-                      className={`mapview-map-mode-btn ${mapMode === "image" ? "is-active" : ""}`}
+                      className={`mapview-map-mode-btn ${
+                        mapMode === "image" ? "is-active" : ""
+                      }`}
                       onClick={() => setMapMode("image")}
                     >
                       Image Map
@@ -1317,8 +1310,8 @@ export function MapView() {
                         {mapMode === "image"
                           ? "Image map mode active. Switch to Interactive Map to select rooms."
                           : hasSaintBenedictMap
-                            ? "Select a room from the map or list to view details."
-                            : "Room details will be available after this building map is integrated."}
+                          ? "Select a room from the map or list to view details."
+                          : "Room details will be available after this building map is integrated."}
                       </p>
                     )}
                   </div>
