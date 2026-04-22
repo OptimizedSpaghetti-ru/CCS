@@ -5,9 +5,28 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "cap:add:android": "npx cap add android",
+    "cap:add:ios": "npx cap add ios",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:sync:android": "npm run build && npx cap sync android",
+    "cap:sync:ios": "npm run build && npx cap sync ios",
+    "cap:open:android": "npx cap open android",
+    "cap:open:ios": "npx cap open ios",
+    "android:sync": "npm run cap:sync:android",
+    "android:open": "npm run cap:open:android",
+    "android:prepare-sdk": "node scripts/prepare-android-sdk.mjs",
+    "android:run": "npm run cap:sync:android && npx cap run android",
+    "android:build:debug": "npm run cap:sync:android && npm run android:prepare-sdk && node scripts/run-gradle.mjs assembleDebug",
+    "android:build:release": "npm run cap:sync:android && npm run android:prepare-sdk && node scripts/run-gradle.mjs bundleRelease",
+    "icon:prepare": "node scripts/prepare-app-icon.mjs",
+    "icon:generate": "npm run icon:prepare && npx @capacitor/assets generate --assetPath assets --android --ios --iconBackgroundColor \"#FFF0C4\" --iconBackgroundColorDark \"#3E0703\" --splashBackgroundColor \"#FFFBEF\" --splashBackgroundColorDark \"#3E0703\"",
+    "icon:generate:android": "npm run icon:prepare && npx @capacitor/assets generate --assetPath assets --android --iconBackgroundColor \"#FFF0C4\" --iconBackgroundColorDark \"#3E0703\" --splashBackgroundColor \"#FFFBEF\" --splashBackgroundColorDark \"#3E0703\""
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
+    "@capacitor/ios": "^8.3.1",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
     "@mui/icons-material": "7.3.5",
@@ -69,9 +88,12 @@
     "vaul": "1.1.2"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.3.1",
     "@tailwindcss/vite": "4.1.12",
     "@vitejs/plugin-react": "4.7.0",
     "tailwindcss": "4.1.12",
+    "typescript": "^6.0.3",
     "vite": "^6.4.2"
   },
   "peerDependencies": {

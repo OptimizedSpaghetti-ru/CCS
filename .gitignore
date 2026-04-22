@@ -30,3 +30,10 @@ supabase/.temp/
 # TypeScript cache
 *.tsbuildinfo
 NUL
+
+# Native mobile artifacts
+android/.gradle/
+android/local.properties
+android/app/build/
+ios/Pods/
+ios/build/
