@@ -5,6 +5,7 @@ import {
   Mail,
   Phone,
   ChevronRight,
+  X,
   Settings,
   Lock,
   HelpCircle,
@@ -172,13 +173,14 @@ export function Profile() {
   const { currentUser, signOut } = useApp();
 
   const [phone, setPhone] = useState("");
+  const [isAvatarViewerOpen, setIsAvatarViewerOpen] = useState(false);
 
   const roleLabel =
     currentUser.role === "admin"
       ? "Admin"
       : currentUser.role === "faculty"
-        ? "Faculty"
-        : "Student";
+      ? "Faculty"
+      : "Student";
 
   const handleSignOut = async () => {
     await signOut();
@@ -239,6 +241,11 @@ export function Profile() {
             {/* Avatar */}
             <div style={{ position: "relative" }}>
               <div
+                onClick={() => {
+                  if (currentUser.avatar) {
+                    setIsAvatarViewerOpen(true);
+                  }
+                }}
                 style={{
                   width: 88,
                   height: 88,
@@ -250,6 +257,7 @@ export function Profile() {
                   alignItems: "center",
                   justifyContent: "center",
                   overflow: "hidden",
+                  cursor: currentUser.avatar ? "zoom-in" : "default",
                 }}
               >
                 {currentUser.avatar ? (
@@ -326,8 +334,8 @@ export function Profile() {
                 {currentUser.role === "student"
                   ? currentUser.yearSection
                   : currentUser.role === "faculty"
-                    ? "Faculty"
-                    : "Administrator"}
+                  ? "Faculty"
+                  : "Administrator"}
               </p>
               <p
                 style={{
@@ -457,6 +465,59 @@ export function Profile() {
           </div>
         </div>
       </div>
+
+      {isAvatarViewerOpen && currentUser.avatar && (
+        <div
+          onClick={() => setIsAvatarViewerOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 60,
+            background: "rgba(20, 12, 6, 0.9)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <button
+            onClick={() => setIsAvatarViewerOpen(false)}
+            aria-label="Close image viewer"
+            style={{
+              position: "absolute",
+              top: 16,
+              right: 16,
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              border: "none",
+              background: "rgba(255,255,255,0.2)",
+              color: c.cream,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            <X size={18} />
+          </button>
+
+          <img
+            src={currentUser.avatar}
+            alt={`${currentUser.name} profile picture`}
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 520,
+              maxHeight: "80vh",
+              objectFit: "contain",
+              borderRadius: 16,
+              boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
+              border: "2px solid rgba(255,240,196,0.45)",
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

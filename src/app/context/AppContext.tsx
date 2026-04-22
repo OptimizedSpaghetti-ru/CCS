@@ -29,6 +29,7 @@ interface AppContextType {
   isLoadingAuth: boolean;
   isAuthenticated: boolean;
   isApproved: boolean;
+  isNewSignUp: boolean;
   authError: string | null;
   unreadMessages: number;
   unreadNotifications: number;
@@ -201,6 +202,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] =
     useState<AppContextType["currentUser"]>(FALLBACK_USER);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isNewSignUp, setIsNewSignUp] = useState(false);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -361,6 +363,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [session?.user?.id, refreshUnreadCounts]);
 
   const signIn = useCallback(async (identifier: string, password: string) => {
+    setIsNewSignUp(false);
     const normalized = identifier.trim().toLowerCase();
     if (!normalized.includes("@")) {
       return { error: "Please use your email address to sign in." };
@@ -578,6 +581,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           await supabase.auth.signOut();
         }
 
+        setIsNewSignUp(true);
         return {
           message:
             "Account created. Wait for admin approval before logging in.",
@@ -611,6 +615,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         isLoadingAuth,
         isAuthenticated: Boolean(session?.user),
         isApproved: currentUser.status === "approved",
+        isNewSignUp,
         authError,
         unreadMessages,
         unreadNotifications,
