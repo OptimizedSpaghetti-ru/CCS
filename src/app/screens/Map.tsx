@@ -5,7 +5,10 @@ import {
   LocateFixed,
   Minus,
   Navigation,
+  PauseCircle,
+  PlayCircle,
   Plus,
+  Volume2,
   Search,
   X,
   Undo2,
@@ -62,6 +65,23 @@ type RoomRef = {
   floorLabel: string;
   room: Room;
   category: RoomCategory;
+};
+
+type RouteInstruction = {
+  id: string;
+  floorId: FloorId;
+  title: string;
+  detail: string;
+  voicePrompt: string;
+};
+
+type VoiceNavigationArchitecture = {
+  routeGeneration: string[];
+  instructionParser: string[];
+  voiceQueue: string[];
+  triggerPoints: string[];
+  mobileRuntime: string[];
+  futureExpansion: string[];
 };
 
 const firstFloorRooms: Room[] = [
@@ -242,6 +262,32 @@ const allRoomRefs: RoomRef[] = floorOptions.flatMap((floor) =>
   })),
 );
 
+const voiceNavigationArchitecture: VoiceNavigationArchitecture = {
+  routeGeneration: [
+    "Reuse the current floor graph, transition nodes, and destination node to build route segments.",
+    "Store every generated step with floorId, route point, instruction text, and voicePrompt.",
+  ],
+  instructionParser: [
+    "Convert route segments into human instructions such as continue forward, turn left, use elevator, and destination side.",
+    "Generate separate floor-transition instructions for staircase/elevator movement.",
+  ],
+  voiceQueue: [
+    "Use a single speech queue so prompts never overlap.",
+    "Cancel and rebuild the queue whenever the destination or route changes.",
+  ],
+  triggerPoints: [
+    "Speak on route start, near turns, before floor transitions, after floor switch, and near destination.",
+    "Future live positioning can trigger prompts by distance to each route point.",
+  ],
+  mobileRuntime: [
+    "Use Web Speech API SpeechSynthesis in the current web/Capacitor build.",
+    "Swap to a native TTS plugin later if Android background or richer voice controls are required.",
+  ],
+  futureExpansion: [
+    "Attach indoor positioning, beacon data, live rerouting, and off-route detection to the same instruction model.",
+  ],
+};
+
 function getTransitionRoom(rooms: Room[]) {
   return (
     rooms.find((room) => room.type === "elevator") ??
@@ -249,6 +295,166 @@ function getTransitionRoom(rooms: Room[]) {
     rooms.find((room) => room.type === "stairs") ??
     rooms[0]
   );
+}
+
+function getFloorNumber(floorId: FloorId) {
+  return Number.parseInt(floorId, 10);
+}
+
+function getDestinationSide(fromX: number, toX: number) {
+  const delta = toX - fromX;
+  if (Math.abs(delta) < 90) return "ahead";
+  return delta < 0 ? "right" : "left";
+}
+
+function getHallwaySide(y: number) {
+  return y < 310 ? "upper" : "lower";
+}
+
+function getMovementInstruction(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  destinationName: string,
+) {
+  const deltaX = to.x - from.x;
+  const sameSide = getHallwaySide(from.y) === getHallwaySide(to.y);
+  const horizontal =
+    Math.abs(deltaX) < 90
+      ? "continue forward"
+      : deltaX < 0
+        ? "turn right"
+        : "turn left";
+
+  if (!sameSide && Math.abs(deltaX) < 120) {
+    return {
+      title: "Cross the hallway",
+      detail: `Cross to the opposite side of the hallway toward ${destinationName}.`,
+      voicePrompt: `Cross the hallway toward ${destinationName}.`,
+    };
+  }
+
+  if (!sameSide) {
+    return {
+      title: `Cross hallway, then ${horizontal}`,
+      detail: `Cross to the opposite side of the hallway, then ${horizontal} toward ${destinationName}.`,
+      voicePrompt: `Cross the hallway, then ${horizontal} toward ${destinationName}.`,
+    };
+  }
+
+  return {
+    title: horizontal.replace(/^\w/, (char) => char.toUpperCase()),
+    detail: `${horizontal.replace(/^\w/, (char) => char.toUpperCase())} along the hallway toward ${destinationName}.`,
+    voicePrompt: `${horizontal} toward ${destinationName}.`,
+  };
+}
+
+function buildRouteInstructions({
+  currentFloorId,
+  currentPoint,
+  targetFloorId,
+  targetRoom,
+}: {
+  currentFloorId: FloorId;
+  currentPoint: { x: number; y: number };
+  targetFloorId: FloorId;
+  targetRoom: Room;
+}) {
+  const instructions: RouteInstruction[] = [];
+  const targetCenter = getRoomCenter(targetRoom);
+
+  if (targetFloorId === currentFloorId) {
+    const move = getMovementInstruction(
+      currentPoint,
+      targetCenter,
+      targetRoom.name,
+    );
+    const side = getDestinationSide(currentPoint.x, targetCenter.x);
+    instructions.push(
+      {
+        id: "start-same-floor",
+        floorId: currentFloorId,
+        title: "Start route",
+        detail: "Enter the main hallway from your current position.",
+        voicePrompt: "Start route. Enter the main hallway.",
+      },
+      {
+        id: "move-same-floor",
+        floorId: currentFloorId,
+        title: move.title,
+        detail: move.detail,
+        voicePrompt: move.voicePrompt,
+      },
+      {
+        id: "arrive-same-floor",
+        floorId: currentFloorId,
+        title: "Arrive at destination",
+        detail: `${targetRoom.name} is on your ${side}.`,
+        voicePrompt: `Your destination, ${targetRoom.name}, is on your ${side}.`,
+      },
+    );
+    return instructions;
+  }
+
+  const currentTransition = getTransitionRoom(floorConfigs[currentFloorId].rooms);
+  const targetTransition = getTransitionRoom(floorConfigs[targetFloorId].rooms);
+  const currentTransitionCenter = getRoomCenter(currentTransition);
+  const targetTransitionCenter = getRoomCenter(targetTransition);
+  const firstMove = getMovementInstruction(
+    currentPoint,
+    currentTransitionCenter,
+    currentTransition.name,
+  );
+  const exitMove = getMovementInstruction(
+    targetTransitionCenter,
+    targetCenter,
+    targetRoom.name,
+  );
+  const side = getDestinationSide(targetTransitionCenter.x, targetCenter.x);
+  const movement =
+    getFloorNumber(targetFloorId) > getFloorNumber(currentFloorId)
+      ? "Go up"
+      : "Go down";
+  const targetFloorLabel = floorConfigs[targetFloorId].label;
+
+  instructions.push(
+    {
+      id: "start-cross-floor",
+      floorId: currentFloorId,
+      title: "Start route",
+      detail: "Enter the main hallway from your current position.",
+      voicePrompt: "Start route. Enter the main hallway.",
+    },
+    {
+      id: "transition-approach",
+      floorId: currentFloorId,
+      title: `Proceed to ${currentTransition.name}`,
+      detail: firstMove.detail,
+      voicePrompt: firstMove.voicePrompt,
+    },
+    {
+      id: "floor-change",
+      floorId: currentFloorId,
+      title: `${movement} to ${targetFloorLabel}`,
+      detail: `Use ${currentTransition.name}, then continue on ${targetFloorLabel}.`,
+      voicePrompt: `Use ${currentTransition.name}. ${movement} to ${targetFloorLabel}.`,
+    },
+    {
+      id: "exit-transition",
+      floorId: targetFloorId,
+      title: `Exit ${targetTransition.name}`,
+      detail: `Exit ${targetTransition.name}. ${exitMove.detail}`,
+      voicePrompt: `Exit ${targetTransition.name}. ${exitMove.voicePrompt}`,
+    },
+    {
+      id: "arrive-cross-floor",
+      floorId: targetFloorId,
+      title: "Arrive at destination",
+      detail: `${targetRoom.name} is on your ${side}.`,
+      voicePrompt: `Your destination, ${targetRoom.name}, is on your ${side}.`,
+    },
+  );
+
+  return instructions;
 }
 
 const fills: Record<RoomType, string> = {
@@ -785,6 +991,27 @@ export function Map() {
         (room) => room.id === navigationTarget.roomId,
       ) ?? null
     : null;
+  const routeInstructions = useMemo(() => {
+    if (!navigationTarget || !navigationTargetRoom) return [];
+
+    return buildRouteInstructions({
+      currentFloorId: currentLocation.floorId,
+      currentPoint: { x: currentLocation.x, y: currentLocation.y },
+      targetFloorId: navigationTarget.floorId,
+      targetRoom: navigationTargetRoom,
+    });
+  }, [
+    currentLocation.floorId,
+    currentLocation.x,
+    navigationTarget,
+    navigationTargetRoom,
+  ]);
+  const activeInstructionIndex = Math.max(
+    0,
+    routeInstructions.findIndex(
+      (instruction) => instruction.floorId === selectedFloor,
+    ),
+  );
   const routePoints = useMemo(() => {
     if (!navigationTarget || !navigationTargetRoom) return [];
 
@@ -855,6 +1082,41 @@ export function Map() {
 
   const clearNavigation = () => {
     setNavigationTarget(null);
+    stopVoiceGuidance();
+  };
+
+  const speakInstruction = (text: string, onEnd?: () => void) => {
+    if (!("speechSynthesis" in window)) return;
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.94;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    if (onEnd) utterance.onend = onEnd;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const playCurrentVoiceInstruction = () => {
+    const instruction = routeInstructions[activeInstructionIndex];
+    if (!instruction) return;
+    speakInstruction(instruction.voicePrompt);
+  };
+
+  const playAllVoiceInstructions = (startIndex = 0) => {
+    const instruction = routeInstructions[startIndex];
+    if (!instruction) return;
+
+    speakInstruction(instruction.voicePrompt, () => {
+      if (startIndex + 1 < routeInstructions.length) {
+        playAllVoiceInstructions(startIndex + 1);
+      }
+    });
+  };
+
+  const stopVoiceGuidance = () => {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
   };
 
   const resetView = () => {
@@ -1667,26 +1929,204 @@ export function Map() {
             )}
           </div>
 
-          {navigationTarget && navigationTargetRoom && (
-            <p
+          {navigationTarget && navigationTargetRoom && routeInstructions.length > 0 && (
+            <div
               style={{
-                margin: 0,
                 borderRadius: 12,
                 background: "rgba(255, 240, 196, 0.8)",
-                color: "#660B05",
-                padding: "8px 10px",
-                fontSize: 12,
-                fontWeight: 750,
-                lineHeight: 1.35,
+                border: "1px solid rgba(140, 16, 7, 0.14)",
+                padding: 10,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
               }}
             >
-              Route to {navigationTargetRoom.name}
-              {navigationTarget.floorId !== currentLocation.floorId
-                ? ` via ${getTransitionRoom(rooms).name}. Switch to ${
-                    floorConfigs[navigationTarget.floorId].label
-                  } to continue the destination segment.`
-                : "."}
-            </p>
+              <div>
+                <p
+                  style={{
+                    margin: 0,
+                    color: "#8C1007",
+                    fontSize: 10,
+                    fontWeight: 900,
+                    letterSpacing: 0.8,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Route Guidance
+                </p>
+                <p
+                  style={{
+                    margin: "3px 0 0",
+                    color: "#3E0703",
+                    fontSize: 13,
+                    fontWeight: 850,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  Route to {navigationTargetRoom.name}
+                  {navigationTarget.floorId !== currentLocation.floorId
+                    ? ` via ${getTransitionRoom(rooms).name}`
+                    : ""}
+                </p>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 7,
+                }}
+              >
+                {routeInstructions.map((instruction, index) => {
+                  const active = index === activeInstructionIndex;
+
+                  return (
+                    <div
+                      key={instruction.id}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "26px 1fr",
+                        gap: 8,
+                        alignItems: "flex-start",
+                        borderRadius: 11,
+                        background: active ? "#FFFBEF" : "rgba(255,255,255,0.48)",
+                        border: active
+                          ? "1px solid rgba(140, 16, 7, 0.2)"
+                          : "1px solid rgba(102, 11, 5, 0.08)",
+                        padding: "8px 9px",
+                        boxShadow: active
+                          ? "0 8px 16px rgba(140, 16, 7, 0.11)"
+                          : "none",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: "50%",
+                          background: active ? "#8C1007" : "#FFF0C4",
+                          color: active ? "#FFF0C4" : "#660B05",
+                          display: "grid",
+                          placeItems: "center",
+                          fontSize: 11,
+                          fontWeight: 900,
+                        }}
+                      >
+                        {index + 1}
+                      </span>
+                      <span>
+                        <span
+                          style={{
+                            display: "block",
+                            color: "#3E0703",
+                            fontSize: 12,
+                            fontWeight: 900,
+                            lineHeight: 1.25,
+                          }}
+                        >
+                          {instruction.title}
+                        </span>
+                        <span
+                          style={{
+                            display: "block",
+                            color: c.warmGray,
+                            fontSize: 11,
+                            fontWeight: 650,
+                            lineHeight: 1.35,
+                            marginTop: 2,
+                          }}
+                        >
+                          {instruction.detail}
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 44px",
+                  gap: 8,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={playCurrentVoiceInstruction}
+                  style={{
+                    minHeight: 40,
+                    borderRadius: 12,
+                    border: "1px solid rgba(140, 16, 7, 0.2)",
+                    background: "#FFFBEF",
+                    color: "#660B05",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    fontSize: 11,
+                    fontWeight: 900,
+                    touchAction: "manipulation",
+                  }}
+                >
+                  <Volume2 size={15} />
+                  Current
+                </button>
+                <button
+                  type="button"
+                  onClick={() => playAllVoiceInstructions()}
+                  style={{
+                    minHeight: 40,
+                    borderRadius: 12,
+                    border: "1px solid rgba(140, 16, 7, 0.24)",
+                    background:
+                      "linear-gradient(135deg, #660B05 0%, #8C1007 100%)",
+                    color: "#FFF0C4",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    fontSize: 11,
+                    fontWeight: 900,
+                    touchAction: "manipulation",
+                  }}
+                >
+                  <PlayCircle size={15} />
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={stopVoiceGuidance}
+                  aria-label="Stop voice guidance"
+                  style={{
+                    minHeight: 40,
+                    borderRadius: 12,
+                    border: "1px solid rgba(102, 11, 5, 0.16)",
+                    background: "#FFFBEF",
+                    color: "#8C1007",
+                    display: "grid",
+                    placeItems: "center",
+                    touchAction: "manipulation",
+                  }}
+                >
+                  <PauseCircle size={17} />
+                </button>
+              </div>
+
+              <p
+                style={{
+                  margin: 0,
+                  color: "#660B05",
+                  fontSize: 11,
+                  fontWeight: 750,
+                  lineHeight: 1.35,
+                }}
+              >
+                Active instruction follows the floor segment currently shown on
+                the map. Future live positioning can advance this by distance
+                to each route point.
+              </p>
+            </div>
           )}
         </section>
       </div>

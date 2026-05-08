@@ -14,6 +14,7 @@ import { c, g, fonts, shadow } from "../theme";
 import { campusLocationById } from "../../data/campusLocations";
 
 interface LocData {
+  id: string;
   name: string;
   category: string;
   iconKey: string;
@@ -25,119 +26,19 @@ interface LocData {
   longitude: number | null;
 }
 
-function RouteMap({ color }: { color: string }) {
-  return (
-    <svg width="100%" height="180" viewBox="0 0 390 180" fill="none">
-      <rect width="390" height="180" fill="#E8F5E9" />
-      {/* Streets */}
-      <rect x="0" y="75" width="390" height="20" fill="#F5F5F5" opacity="0.9" />
-      <rect
-        x="160"
-        y="0"
-        width="20"
-        height="180"
-        fill="#F5F5F5"
-        opacity="0.9"
-      />
-      <rect
-        x="270"
-        y="0"
-        width="16"
-        height="180"
-        fill="#F5F5F5"
-        opacity="0.7"
-      />
-      {/* Buildings */}
-      <rect
-        x="10"
-        y="10"
-        width="140"
-        height="60"
-        rx="5"
-        fill="#D1D5DB"
-        opacity="0.7"
-      />
-      <rect
-        x="190"
-        y="10"
-        width="70"
-        height="60"
-        rx="5"
-        fill="#D1D5DB"
-        opacity="0.7"
-      />
-      <rect
-        x="10"
-        y="100"
-        width="140"
-        height="70"
-        rx="5"
-        fill="#D1D5DB"
-        opacity="0.7"
-      />
-      <rect
-        x="190"
-        y="100"
-        width="70"
-        height="70"
-        rx="5"
-        fill={color}
-        opacity="0.7"
-      />
-      <rect
-        x="295"
-        y="10"
-        width="85"
-        height="60"
-        rx="5"
-        fill="#D1D5DB"
-        opacity="0.7"
-      />
-      <rect
-        x="295"
-        y="100"
-        width="85"
-        height="70"
-        rx="5"
-        fill="#D1D5DB"
-        opacity="0.7"
-      />
-      {/* Route */}
-      <path
-        d="M200 95 L200 75 L200 75 L190 75 L160 75 L160 140 L195 140"
-        stroke={color}
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeDasharray="8 4"
-      />
-      {/* Start (user) */}
-      <circle cx="200" cy="95" r="8" fill="#1D4ED8" />
-      <circle cx="200" cy="95" r="4" fill="white" />
-      <circle cx="200" cy="95" r="14" fill="#1D4ED8" opacity="0.2" />
-      {/* Destination pin */}
-      <path
-        d="M195 155 C195 148 188 143 188 135 C188 128 191 122 195 120 C199 122 202 128 202 135 C202 143 195 148 195 155"
-        fill={color}
-        stroke="white"
-        strokeWidth="2"
-      />
-      <circle cx="195" cy="133" r="4" fill="white" />
-    </svg>
-  );
-}
-
 export function LocationDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [loc, setLoc] = useState<LocData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [imageVariantIndex, setImageVariantIndex] = useState(0);
 
   useEffect(() => {
     const location = id ? campusLocationById.get(id) : undefined;
 
     if (location) {
       setLoc({
+        id: location.id,
         name: location.name,
         category: location.category,
         iconKey: location.icon_key,
@@ -153,6 +54,10 @@ export function LocationDetail() {
     }
 
     setLoading(false);
+  }, [id]);
+
+  useEffect(() => {
+    setImageVariantIndex(0);
   }, [id]);
 
   const locationIcon = (size: number) => {
@@ -171,6 +76,16 @@ export function LocationDetail() {
       );
     }
   };
+
+  const locationImageCandidates = loc
+    ? [
+        `/location-images/${loc.id}.jpg`,
+        `/location-images/${loc.id}.jpeg`,
+        `/location-images/${loc.id}.png`,
+        `/location-images/${loc.id}.webp`,
+      ]
+    : [];
+  const locationImage = locationImageCandidates[imageVariantIndex] ?? null;
 
   if (loading) {
     return (
@@ -233,52 +148,58 @@ export function LocationDetail() {
         position: "relative",
       }}
     >
-      {/* Mini Map */}
-      <div style={{ flexShrink: 0, position: "relative" }}>
-        <RouteMap color={loc.color} />
-        <button
-          onClick={() => navigate(-1)}
-          style={{
-            position: "absolute",
-            top: 12,
-            left: 14,
-            background: c.white,
-            border: "none",
-            borderRadius: 10,
-            width: 38,
-            height: 38,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            boxShadow: shadow.card,
-          }}
-        >
-          <ArrowLeft size={18} color={c.darkBrown} />
-        </button>
-      </div>
-
       {/* Bottom Sheet Content */}
       <div
         style={{
           flex: 1,
           background: c.white,
-          borderRadius: "24px 24px 0 0",
+          borderRadius: 0,
           overflowY: "auto",
-          marginTop: -20,
-          padding: "16px 20px 20px",
+          padding: "12px 20px 20px",
         }}
       >
-        {/* Handle */}
         <div
           style={{
-            width: 36,
-            height: 4,
-            borderRadius: 2,
-            background: "rgba(139,115,85,0.25)",
-            margin: "0 auto 16px",
+            position: "relative",
+            margin: "0 -20px 18px",
+            background: c.creamLight,
           }}
-        />
+        >
+          {locationImage && (
+            <img
+              src={locationImage}
+              alt={`${loc.name} building`}
+              onError={() => setImageVariantIndex((index) => index + 1)}
+              style={{
+                width: "100%",
+                height: 280,
+                objectFit: "cover",
+                display: "block",
+                background: c.creamLight,
+              }}
+            />
+          )}
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              position: "absolute",
+              top: 14,
+              left: 14,
+              background: "rgba(255, 255, 255, 0.94)",
+              border: "none",
+              borderRadius: 12,
+              width: 40,
+              height: 40,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              boxShadow: shadow.card,
+            }}
+          >
+            <ArrowLeft size={18} color={c.darkBrown} />
+          </button>
+        </div>
 
         {/* Header */}
         <div
