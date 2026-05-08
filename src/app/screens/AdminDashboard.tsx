@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
 import { motion } from "motion/react";
+import { createClient } from "@supabase/supabase-js";
 import {
   Megaphone,
   Send,
@@ -107,16 +107,17 @@ function extractStorageObjectPath(url: string, bucket: string) {
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  background: c.cream,
-  border: "2px solid transparent",
+  background: c.white,
+  border: `1.5px solid ${c.warmGray}40`,
   borderRadius: 10,
-  padding: "12px 14px",
+  padding: "0 14px",
+  height: 48,
   fontFamily: fonts.ui,
-  fontSize: 13,
+  fontSize: 14,
   color: c.darkBrown,
   outline: "none",
   boxSizing: "border-box" as const,
-  transition: "border-color 0.2s",
+  transition: "border-color 0.2s, box-shadow 0.2s",
 };
 
 const selectStyle: React.CSSProperties = {
@@ -125,10 +126,36 @@ const selectStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
+const courseOptions = [
+  {
+    value: "Bachelor of Science in Information Technology",
+    label: "Bachelor of Science in Information Technology",
+  },
+  {
+    value: "Bachelor of Science in Computer Science",
+    label: "Bachelor of Science in Computer Science",
+  },
+  {
+    value: "Bachelor of Science in Entertainment and Multimedia Computing",
+    label: "Bachelor of Science in Entertainment and Multimedia Computing",
+  },
+];
+
+const adminAuthSupabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  },
+);
+
 /* ── Component ──────────────────────────────────────── */
 
 export function AdminDashboard() {
-  const navigate = useNavigate();
   const { currentUser } = useApp();
 
   /* ---------- State ---------- */
@@ -160,7 +187,6 @@ export function AdminDashboard() {
     identifier: "",
     department: "",
     yearSection: "",
-    program: "",
   });
 
   /* ── Detail-modal sub-mode state ── */
@@ -174,7 +200,6 @@ export function AdminDashboard() {
     student_id: "",
     employee_id: "",
     department: "",
-    program: "",
   });
   const [newPassword, setNewPassword] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -336,7 +361,6 @@ export function AdminDashboard() {
       identifier,
       department,
       yearSection,
-      program,
     } = createForm;
     if (
       !firstName.trim() ||
@@ -358,16 +382,26 @@ export function AdminDashboard() {
 
     const normalizedEmail = email.trim().toLowerCase();
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
+    const normalizedIdentifier = identifier.trim();
+    const normalizedDepartment = department.trim();
+    const normalizedYearSection = yearSection.trim();
 
-    /* 1. Create auth user via signUp */
-    const { data, error: signUpErr } = await supabase.auth.signUp({
+    /* 1. Create auth user with an isolated non-persistent client.
+       This prevents signUp from replacing the current admin session. */
+    const { data, error: signUpErr } = await adminAuthSupabase.auth.signUp({
       email: normalizedEmail,
       password,
       options: {
         data: {
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
           full_name: fullName,
           role,
           status: "approved",
+          id_number: normalizedIdentifier,
+          department: normalizedDepartment,
+          year_section: normalizedYearSection,
+          program: "",
         },
       },
     });
@@ -378,38 +412,34 @@ export function AdminDashboard() {
       return;
     }
 
-    /* 2. Upsert profile row directly (admin-approved) */
-    if (data.user) {
-      const { error: profileErr } = await supabase.from("profiles").upsert({
-        id: data.user.id,
-        email: normalizedEmail,
-        full_name: fullName,
-        role,
-        status: "approved",
-        department: department.trim() || null,
-        year_section: yearSection.trim() || null,
-        program: program.trim() || null,
-        student_id: role === "student" ? identifier.trim() || null : null,
-        employee_id: role === "faculty" ? identifier.trim() || null : null,
-        approved_by: currentUser.id || null,
-        approved_at: new Date().toISOString(),
-      });
-      if (profileErr) {
-        setError(profileErr.message);
-        setIsSaving(false);
-        return;
-      }
+    if (!data.user) {
+      setError("Account creation did not return a user. Please try again.");
+      setIsSaving(false);
+      return;
     }
 
-    /* Sign out the newly-created session so we stay as admin */
-    await supabase.auth.signOut();
+    /* 2. Upsert profile row directly (admin-approved) */
+    const { error: profileErr } = await supabase.from("profiles").upsert({
+      id: data.user.id,
+      email: normalizedEmail,
+      full_name: fullName,
+      role,
+      status: "approved",
+      department: normalizedDepartment || null,
+      year_section: normalizedYearSection || null,
+      program: "",
+      student_id: role === "student" ? normalizedIdentifier || null : null,
+      employee_id: role === "faculty" ? normalizedIdentifier || null : null,
+      approved_by: currentUser.id || null,
+      approved_at: new Date().toISOString(),
+    });
+    if (profileErr) {
+      setError(profileErr.message);
+      setIsSaving(false);
+      return;
+    }
 
-    /* HIGH-3 fix: Verify the admin's session survived the signUp call.
-       On Supabase versions where signUp replaces the current session,
-       the signOut above logs out the admin. Detect and handle gracefully. */
-    const {
-      data: { session: adminSession },
-    } = await supabase.auth.getSession();
+    await adminAuthSupabase.auth.signOut();
 
     setCreateForm({
       firstName: "",
@@ -420,17 +450,15 @@ export function AdminDashboard() {
       identifier: "",
       department: "",
       yearSection: "",
-      program: "",
     });
     setShowCreateModal(false);
 
-    if (!adminSession) {
+    if (false) {
       /* Admin session was lost — redirect to re-login */
-      setFeedback(
+      setError(
         "Account created and approved. Your session expired — please log in again.",
       );
       setIsSaving(false);
-      navigate("/login");
       return;
     }
 
@@ -454,7 +482,6 @@ export function AdminDashboard() {
         student_id: editForm.student_id.trim() || null,
         employee_id: editForm.employee_id.trim() || null,
         department: editForm.department.trim() || null,
-        program: editForm.program.trim() || null,
       })
       .eq("id", selectedUser.id);
 
@@ -585,7 +612,6 @@ export function AdminDashboard() {
       student_id: user.student_id || "",
       employee_id: user.employee_id || "",
       department: user.department || "",
-      program: user.program || "",
     });
   };
 
@@ -2176,7 +2202,6 @@ export function AdminDashboard() {
                                   selectedUser.employee_id || "-",
                                 ],
                                 ["Department", selectedUser.department || "-"],
-                                ["Program", selectedUser.program || "-"],
                                 ["User ID", selectedUser.id],
                                 [
                                   "Joined",
@@ -2338,36 +2363,41 @@ export function AdminDashboard() {
                                 }}
                               >
                                 Department
-                                <input
-                                  value={editForm.department}
-                                  onChange={(e) =>
-                                    setEditForm({
-                                      ...editForm,
-                                      department: e.target.value,
-                                    })
-                                  }
-                                  style={{ ...inputStyle, marginTop: 4 }}
-                                />
-                              </label>
-                              <label
-                                style={{
-                                  fontFamily: fonts.ui,
-                                  fontSize: 11,
-                                  fontWeight: 700,
-                                  color: c.warmGray,
-                                }}
-                              >
-                                Program
-                                <input
-                                  value={editForm.program}
-                                  onChange={(e) =>
-                                    setEditForm({
-                                      ...editForm,
-                                      program: e.target.value,
-                                    })
-                                  }
-                                  style={{ ...inputStyle, marginTop: 4 }}
-                                />
+                                <div
+                                  style={{ position: "relative", marginTop: 4 }}
+                                >
+                                  <select
+                                    value={editForm.department}
+                                    onChange={(e) =>
+                                      setEditForm({
+                                        ...editForm,
+                                        department: e.target.value,
+                                      })
+                                    }
+                                    style={selectStyle}
+                                  >
+                                    <option value="">Select department</option>
+                                    {courseOptions.map((course) => (
+                                      <option
+                                        key={course.value}
+                                        value={course.value}
+                                      >
+                                        {course.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <ChevronDown
+                                    size={12}
+                                    color={c.warmGray}
+                                    style={{
+                                      position: "absolute",
+                                      right: 10,
+                                      top: "50%",
+                                      transform: "translateY(-50%)",
+                                      pointerEvents: "none",
+                                    }}
+                                  />
+                                </div>
                               </label>
                               <button
                                 onClick={adminEditProfile}
@@ -2897,39 +2927,42 @@ export function AdminDashboard() {
                             }}
                           >
                             Department
-                            <input
-                              value={createForm.department}
-                              onChange={(e) =>
-                                setCreateForm({
-                                  ...createForm,
-                                  department: e.target.value,
-                                })
-                              }
-                              style={{ ...inputStyle, marginTop: 4 }}
-                            />
+                            <div style={{ position: "relative", marginTop: 4 }}>
+                              <select
+                                value={createForm.department}
+                                onChange={(e) =>
+                                  setCreateForm({
+                                    ...createForm,
+                                    department: e.target.value,
+                                  })
+                                }
+                                style={selectStyle}
+                              >
+                                <option value="">Select department</option>
+                                {courseOptions.map((course) => (
+                                  <option
+                                    key={course.value}
+                                    value={course.value}
+                                  >
+                                    {course.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <ChevronDown
+                                size={12}
+                                color={c.warmGray}
+                                style={{
+                                  position: "absolute",
+                                  right: 10,
+                                  top: "50%",
+                                  transform: "translateY(-50%)",
+                                  pointerEvents: "none",
+                                }}
+                              />
+                            </div>
                           </label>
                           {createForm.role === "student" && (
                             <>
-                              <label
-                                style={{
-                                  fontFamily: fonts.ui,
-                                  fontSize: 11,
-                                  fontWeight: 700,
-                                  color: c.warmGray,
-                                }}
-                              >
-                                Program
-                                <input
-                                  value={createForm.program}
-                                  onChange={(e) =>
-                                    setCreateForm({
-                                      ...createForm,
-                                      program: e.target.value,
-                                    })
-                                  }
-                                  style={{ ...inputStyle, marginTop: 4 }}
-                                />
-                              </label>
                               <label
                                 style={{
                                   fontFamily: fonts.ui,
