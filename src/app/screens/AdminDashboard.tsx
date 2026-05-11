@@ -23,6 +23,7 @@ import {
   Ban,
   X,
   UserPlus,
+  FileText,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { supabase } from "../../lib/supabase";
@@ -57,6 +58,23 @@ type UserProfile = {
   department: string | null;
   program: string | null;
   created_at: string;
+};
+
+type StudentDocumentRow = {
+  id: string;
+  user_id: string;
+  reg_card_url: string | null;
+  profile_pic_url: string | null;
+  uploaded_at: string;
+  profiles?: {
+    id: string;
+    full_name: string | null;
+    email: string | null;
+    status: "pending" | "approved" | "rejected";
+    student_id: string | null;
+    department: string | null;
+    program: string | null;
+  } | null;
 };
 
 type AnnouncementRow = {
@@ -165,6 +183,9 @@ export function AdminDashboard() {
   const [pendingUsers, setPendingUsers] = useState<PendingProfile[]>([]);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([]);
+  const [studentDocuments, setStudentDocuments] = useState<
+    StudentDocumentRow[]
+  >([]);
   const [locations, setLocations] = useState<CampusLocation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -175,6 +196,10 @@ export function AdminDashboard() {
     "" | "student" | "faculty" | "admin"
   >("");
   const [userStatusFilter, setUserStatusFilter] = useState<
+    "" | "pending" | "approved" | "rejected"
+  >("");
+  const [documentSearch, setDocumentSearch] = useState("");
+  const [documentStatusFilter, setDocumentStatusFilter] = useState<
     "" | "pending" | "approved" | "rejected"
   >("");
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
@@ -236,7 +261,7 @@ export function AdminDashboard() {
   const [isPreparingPendingDocs, setIsPreparingPendingDocs] = useState(false);
 
   const [activeTab, setActiveTab] = useState<
-    "announcements" | "users" | "broadcast" | "locations"
+    "announcements" | "users" | "documents" | "broadcast" | "locations"
   >("announcements");
 
   /* ---------- Data loading ---------- */
@@ -244,7 +269,8 @@ export function AdminDashboard() {
     setIsLoading(true);
     setError("");
 
-    const [pendingResult, allUsersResult, notifResult] = await Promise.all([
+    const [pendingResult, allUsersResult, docsResult, notifResult] =
+      await Promise.all([
       supabase
         .from("profiles")
         .select(
@@ -259,6 +285,12 @@ export function AdminDashboard() {
         )
         .order("created_at", { ascending: false }),
       supabase
+        .from("student_documents")
+        .select(
+          "id, user_id, reg_card_url, profile_pic_url, uploaded_at, profiles:user_id(id, full_name, email, status, student_id, department, program)",
+        )
+        .order("uploaded_at", { ascending: false }),
+      supabase
         .from("notifications")
         .select(
           "id, title, body, type, image_url, target_role, created_at, created_by",
@@ -267,10 +299,16 @@ export function AdminDashboard() {
         .limit(20),
     ]);
 
-    if (pendingResult.error || allUsersResult.error || notifResult.error) {
+    if (
+      pendingResult.error ||
+      allUsersResult.error ||
+      docsResult.error ||
+      notifResult.error
+    ) {
       setError(
         pendingResult.error?.message ??
           allUsersResult.error?.message ??
+          docsResult.error?.message ??
           notifResult.error?.message ??
           "Failed to load admin data.",
       );
@@ -280,6 +318,7 @@ export function AdminDashboard() {
 
     setPendingUsers((pendingResult.data ?? []) as PendingProfile[]);
     setAllUsers((allUsersResult.data ?? []) as UserProfile[]);
+    setStudentDocuments((docsResult.data ?? []) as StudentDocumentRow[]);
     setLocations(campusLocations);
 
     /* Resolve author names for announcements */
@@ -806,6 +845,37 @@ export function AdminDashboard() {
     }
   };
 
+  const openSubmittedDocsViewer = async (document: StudentDocumentRow) => {
+    if (!document.profile_pic_url && !document.reg_card_url) {
+      setError("No uploaded documents were found for this student.");
+      return;
+    }
+
+    setError("");
+    setIsPreparingPendingDocs(true);
+    try {
+      const [profilePicUrl, regCardUrl] = await Promise.all([
+        resolveStudentDocumentUrl(document.profile_pic_url),
+        resolveStudentDocumentUrl(document.reg_card_url),
+      ]);
+
+      setPendingDocsViewer({
+        userName: document.profiles?.full_name || "Unnamed Student",
+        email: document.profiles?.email || "No email",
+        profilePicUrl,
+        regCardUrl,
+      });
+    } catch (viewError) {
+      setError(
+        viewError instanceof Error
+          ? viewError.message
+          : "Unable to open uploaded documents right now.",
+      );
+    } finally {
+      setIsPreparingPendingDocs(false);
+    }
+  };
+
   /* ---------- Tab config ---------- */
   const tabs = [
     { key: "announcements" as const, label: "Announce" },
@@ -813,6 +883,12 @@ export function AdminDashboard() {
       key: "users" as const,
       label: `Users${
         pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ""
+      }`,
+    },
+    {
+      key: "documents" as const,
+      label: `Docs${
+        studentDocuments.length > 0 ? ` (${studentDocuments.length})` : ""
       }`,
     },
     { key: "broadcast" as const, label: "Broadcast" },
@@ -1228,19 +1304,24 @@ export function AdminDashboard() {
 
               {announcementItems.length === 0 ? (
                 <div
-                  style={{
-                    background: c.white,
-                    borderRadius: 16,
-                    padding: "40px 20px",
-                    boxShadow: shadow.card,
-                    textAlign: "center",
-                  }}
-                >
-                  <Megaphone
-                    size={40}
-                    color={c.warmGray}
-                    style={{ opacity: 0.3, marginBottom: 12 }}
-                  />
+                style={{
+                  background: c.white,
+                  borderRadius: 16,
+                  padding: "40px 20px",
+                  boxShadow: shadow.card,
+                  textAlign: "center",
+                  minHeight: 180,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Megaphone
+                  size={40}
+                  color={c.warmGray}
+                  style={{ opacity: 0.3, margin: "0 0 12px" }}
+                />
                   <p
                     style={{
                       fontFamily: fonts.ui,
@@ -3046,6 +3127,414 @@ export function AdminDashboard() {
                   )}
                 </div>
               </>
+            );
+          })()}
+
+        {/* ─── Student Documents Tab ─── */}
+        {activeTab === "documents" &&
+          !isLoading &&
+          (() => {
+            const q = documentSearch.trim().toLowerCase();
+            const filteredDocuments = studentDocuments.filter((doc) => {
+              const profile = doc.profiles;
+              const matchesSearch =
+                !q ||
+                (profile?.full_name ?? "").toLowerCase().includes(q) ||
+                (profile?.email ?? "").toLowerCase().includes(q) ||
+                (profile?.student_id ?? "").toLowerCase().includes(q) ||
+                (profile?.department ?? "").toLowerCase().includes(q) ||
+                (profile?.program ?? "").toLowerCase().includes(q);
+              const matchesStatus =
+                !documentStatusFilter ||
+                profile?.status === documentStatusFilter;
+              return matchesSearch && matchesStatus;
+            });
+
+            return (
+              <div>
+                <p
+                  style={{
+                    fontFamily: fonts.ui,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: c.warmGray,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.8,
+                    margin: "0 0 8px 2px",
+                  }}
+                >
+                  Submitted Documents
+                </p>
+
+                <div
+                  style={{
+                    background: c.white,
+                    borderRadius: 16,
+                    padding: 14,
+                    boxShadow: shadow.card,
+                    marginBottom: 12,
+                    display: "grid",
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ position: "relative" }}>
+                    <Search
+                      size={15}
+                      color={c.warmGray}
+                      style={{
+                        position: "absolute",
+                        left: 12,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                      }}
+                    />
+                    <input
+                      value={documentSearch}
+                      onChange={(e) => setDocumentSearch(e.target.value)}
+                      placeholder="Search student, ID, department..."
+                      style={{
+                        ...inputStyle,
+                        paddingLeft: 36,
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ position: "relative" }}>
+                    <select
+                      value={documentStatusFilter}
+                      onChange={(e) =>
+                        setDocumentStatusFilter(
+                          e.target.value as
+                            | ""
+                            | "pending"
+                            | "approved"
+                            | "rejected",
+                        )
+                      }
+                      style={selectStyle}
+                    >
+                      <option value="">All approval statuses</option>
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                    <ChevronDown
+                      size={14}
+                      color={c.warmGray}
+                      style={{
+                        position: "absolute",
+                        right: 14,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {studentDocuments.length === 0 ? (
+                  <div
+                    style={{
+                      background: c.white,
+                      borderRadius: 16,
+                      padding: "40px 20px",
+                      boxShadow: shadow.card,
+                      minHeight: 180,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      textAlign: "center",
+                    }}
+                  >
+                    <FileText
+                      size={40}
+                      color={c.warmGray}
+                      style={{ opacity: 0.3, margin: "0 0 12px" }}
+                    />
+                    <p
+                      style={{
+                        fontFamily: fonts.ui,
+                        fontSize: 14,
+                        color: c.warmGray,
+                        margin: 0,
+                      }}
+                    >
+                      No submitted documents yet
+                    </p>
+                    <p
+                      style={{
+                        fontFamily: fonts.ui,
+                        fontSize: 12,
+                        color: c.warmGrayLight,
+                        margin: "4px 0 0",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      Student verification uploads will appear here.
+                    </p>
+                  </div>
+                ) : filteredDocuments.length === 0 ? (
+                  <div
+                    style={{
+                      background: c.white,
+                      borderRadius: 16,
+                      padding: "32px 18px",
+                      boxShadow: shadow.card,
+                      textAlign: "center",
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontFamily: fonts.ui,
+                        fontSize: 13,
+                        color: c.warmGray,
+                        margin: 0,
+                      }}
+                    >
+                      No documents match your filters.
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                    }}
+                  >
+                    {filteredDocuments.map((doc) => {
+                      const profile = doc.profiles;
+                      const status = profile?.status ?? "pending";
+                      const hasProfilePhoto = Boolean(doc.profile_pic_url);
+                      const hasRegCard = Boolean(doc.reg_card_url);
+
+                      return (
+                        <div
+                          key={doc.id}
+                          style={{
+                            background: c.white,
+                            borderRadius: 14,
+                            padding: 14,
+                            boxShadow: shadow.card,
+                            borderLeft: `4px solid ${
+                              status === "approved"
+                                ? "#059669"
+                                : status === "rejected"
+                                  ? "#B91C1C"
+                                  : c.baseRed
+                            }`,
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 10,
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 42,
+                                height: 42,
+                                borderRadius: 12,
+                                background: `${c.baseRed}12`,
+                                display: "grid",
+                                placeItems: "center",
+                                flexShrink: 0,
+                                overflow: "hidden",
+                              }}
+                            >
+                              {doc.profile_pic_url ? (
+                                <img
+                                  src={doc.profile_pic_url}
+                                  alt="Student profile"
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                  }}
+                                />
+                              ) : (
+                                <FileText size={18} color={c.baseRed} />
+                              )}
+                            </div>
+
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                <p
+                                  style={{
+                                    margin: 0,
+                                    fontFamily: fonts.ui,
+                                    fontSize: 13,
+                                    fontWeight: 800,
+                                    color: c.darkBrown,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                    maxWidth: "100%",
+                                  }}
+                                >
+                                  {profile?.full_name || "Unnamed Student"}
+                                </p>
+                                <span
+                                  style={{
+                                    borderRadius: 999,
+                                    background:
+                                      status === "approved"
+                                        ? "#DCFCE7"
+                                        : status === "rejected"
+                                          ? "#FEE2E2"
+                                          : "#FEF3C7",
+                                    color:
+                                      status === "approved"
+                                        ? "#047857"
+                                        : status === "rejected"
+                                          ? "#B91C1C"
+                                          : "#92400E",
+                                    padding: "2px 7px",
+                                    fontFamily: fonts.ui,
+                                    fontSize: 9,
+                                    fontWeight: 800,
+                                    textTransform: "capitalize",
+                                  }}
+                                >
+                                  {status}
+                                </span>
+                              </div>
+
+                              <p
+                                style={{
+                                  margin: "4px 0 0",
+                                  fontFamily: fonts.ui,
+                                  fontSize: 11,
+                                  color: c.warmGray,
+                                  lineHeight: 1.45,
+                                }}
+                              >
+                                ID: {profile?.student_id || "Not provided"}
+                              </p>
+                              <p
+                                style={{
+                                  margin: "2px 0 0",
+                                  fontFamily: fonts.ui,
+                                  fontSize: 11,
+                                  color: c.warmGray,
+                                  lineHeight: 1.45,
+                                }}
+                              >
+                                {profile?.department || "No department"}
+                                {profile?.program ? ` · ${profile.program}` : ""}
+                              </p>
+                              <p
+                                style={{
+                                  margin: "2px 0 0",
+                                  fontFamily: fonts.mono,
+                                  fontSize: 10,
+                                  color: c.warmGrayLight,
+                                }}
+                              >
+                                Submitted{" "}
+                                {doc.uploaded_at
+                                  ? new Date(
+                                      doc.uploaded_at,
+                                    ).toLocaleDateString()
+                                  : "date unavailable"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 8,
+                              marginTop: 12,
+                              paddingTop: 10,
+                              borderTop: "1px solid rgba(139,115,85,0.08)",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 6,
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  borderRadius: 999,
+                                  background: hasRegCard
+                                    ? `${c.baseRed}12`
+                                    : "rgba(139,115,85,0.12)",
+                                  color: hasRegCard ? c.baseRed : c.warmGray,
+                                  padding: "3px 7px",
+                                  fontFamily: fonts.ui,
+                                  fontSize: 10,
+                                  fontWeight: 800,
+                                }}
+                              >
+                                Reg card {hasRegCard ? "uploaded" : "missing"}
+                              </span>
+                              <span
+                                style={{
+                                  borderRadius: 999,
+                                  background: hasProfilePhoto
+                                    ? "#EFF6FF"
+                                    : "rgba(139,115,85,0.12)",
+                                  color: hasProfilePhoto
+                                    ? "#1D4ED8"
+                                    : c.warmGray,
+                                  padding: "3px 7px",
+                                  fontFamily: fonts.ui,
+                                  fontSize: 10,
+                                  fontWeight: 800,
+                                }}
+                              >
+                                Photo {hasProfilePhoto ? "uploaded" : "missing"}
+                              </span>
+                            </div>
+
+                            <button
+                              onClick={() => openSubmittedDocsViewer(doc)}
+                              disabled={isPreparingPendingDocs}
+                              style={{
+                                border: `1px solid ${c.baseRed}33`,
+                                borderRadius: 10,
+                                background: `${c.baseRed}10`,
+                                color: c.baseRed,
+                                fontFamily: fonts.ui,
+                                fontSize: 11,
+                                fontWeight: 800,
+                                padding: "8px 10px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
+                                cursor: isPreparingPendingDocs
+                                  ? "default"
+                                  : "pointer",
+                                opacity: isPreparingPendingDocs ? 0.6 : 1,
+                                flexShrink: 0,
+                              }}
+                            >
+                              <Eye size={13} />
+                              View
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })()}
 

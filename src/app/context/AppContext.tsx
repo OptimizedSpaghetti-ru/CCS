@@ -9,6 +9,12 @@ import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
 import {
+  initializeMobileNotifications,
+  isMobileNotificationsSupported,
+  registerNotificationTapHandler,
+  sendMobileNotification,
+} from "../../lib/mobileNotifications";
+import {
   applyThemePreference,
   getStoredThemePreference,
   persistThemePreference,
@@ -31,6 +37,7 @@ interface AppContextType {
   isApproved: boolean;
   isNewSignUp: boolean;
   authError: string | null;
+  mobileNotificationPermissionDenied: boolean;
   unreadMessages: number;
   unreadNotifications: number;
   toasts: ToastData[];
@@ -202,6 +209,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] =
     useState<AppContextType["currentUser"]>(FALLBACK_USER);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [
+    mobileNotificationPermissionDenied,
+    setMobileNotificationPermissionDenied,
+  ] = useState(false);
   const [isNewSignUp, setIsNewSignUp] = useState(false);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -361,6 +372,97 @@ export function AppProvider({ children }: { children: ReactNode }) {
       supabase.removeChannel(notifCh);
     };
   }, [session?.user?.id, refreshUnreadCounts]);
+
+  useEffect(() => {
+    if (!session?.user?.id || currentUser.status !== "approved") return;
+    let cancelled = false;
+    let removeTapListener: (() => void) | undefined;
+
+    const setup = async () => {
+      if (!isMobileNotificationsSupported()) return;
+
+      const permission = await initializeMobileNotifications();
+      if (cancelled) return;
+      setMobileNotificationPermissionDenied(
+        permission.supported && !permission.granted,
+      );
+
+      removeTapListener = await registerNotificationTapHandler(() => {
+        window.location.assign("/app/notifications");
+      });
+    };
+
+    setup();
+
+    return () => {
+      cancelled = true;
+      removeTapListener?.();
+    };
+  }, [currentUser.status, session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id || currentUser.status !== "approved") return;
+    if (!isMobileNotificationsSupported()) return;
+
+    const shouldShowNotification = (row: any) => {
+      if (!row || row.type === "message") return false;
+      if (currentUser.role === "admin") return true;
+      if (currentUser.role === "student") {
+        return row.target_role === "student" || row.target_role === null;
+      }
+      if (currentUser.role === "faculty") {
+        return (
+          row.target_role === "faculty" ||
+          row.target_role === null ||
+          row.created_by === currentUser.id
+        );
+      }
+      return false;
+    };
+
+    const notificationChannel = supabase
+      .channel(`mobile-notifications-${session.user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications" },
+        async (payload) => {
+          const row = payload.new as any;
+          if (!shouldShowNotification(row)) return;
+
+          showToast({
+            type: row.type === "event" ? "event" : "announcement",
+            title: row.title?.trim() || "New announcement",
+            preview: row.body?.trim() || "Open CCS Connect to view details.",
+            time: "Now",
+          });
+
+          const kind =
+            row.type === "event"
+              ? "reminder"
+              : row.type === "system"
+                ? "system"
+                : "announcement";
+          await sendMobileNotification({
+            id: row.id,
+            title: row.title?.trim() || "CCS Connect",
+            body: row.body?.trim() || "You have a new notification.",
+            kind,
+            extra: { path: "/app/notifications" },
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(notificationChannel);
+    };
+  }, [
+    currentUser.id,
+    currentUser.role,
+    currentUser.status,
+    session?.user?.id,
+    showToast,
+  ]);
 
   const signIn = useCallback(async (identifier: string, password: string) => {
     setIsNewSignUp(false);
@@ -617,6 +719,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         isApproved: currentUser.status === "approved",
         isNewSignUp,
         authError,
+        mobileNotificationPermissionDenied,
         unreadMessages,
         unreadNotifications,
         toasts,

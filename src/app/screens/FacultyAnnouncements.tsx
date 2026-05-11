@@ -589,12 +589,17 @@ export function FacultyAnnouncements() {
                   padding: "40px 20px",
                   boxShadow: shadow.card,
                   textAlign: "center",
+                  minHeight: 180,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
                 <Megaphone
                   size={40}
                   color={c.warmGray}
-                  style={{ opacity: 0.3, marginBottom: 12 }}
+                  style={{ opacity: 0.3, margin: "0 0 12px" }}
                 />
                 <p
                   style={{

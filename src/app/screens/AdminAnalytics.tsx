@@ -21,6 +21,7 @@ import {
   Download,
   Loader2,
   Megaphone,
+  MessageSquare,
   RefreshCw,
   Users,
 } from "lucide-react";
@@ -30,7 +31,7 @@ import { c, fonts, g, shadow } from "../theme";
 import { supabase } from "../../lib/supabase";
 
 type Role = "student" | "faculty" | "admin";
-type FilterMode = "date" | "range" | "daily" | "weekly" | "monthly";
+type FilterMode = "date" | "range" | "daily" | "weekly" | "monthly" | "yearly";
 
 type ProfileAnalyticsRow = {
   id: string;
@@ -132,6 +133,14 @@ function endOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
 }
 
+function startOfYear(date: Date) {
+  return new Date(date.getFullYear(), 0, 1, 0, 0, 0, 0);
+}
+
+function endOfYear(date: Date) {
+  return new Date(date.getFullYear(), 11, 31, 23, 59, 59, 999);
+}
+
 function parseDateInput(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day);
@@ -163,6 +172,9 @@ function getBucketLabel(iso: string | null, mode: FilterMode) {
   }
   if (mode === "monthly") {
     return date.toLocaleDateString(undefined, { year: "numeric", month: "short" });
+  }
+  if (mode === "yearly") {
+    return String(date.getFullYear());
   }
   return formatShortDate(date);
 }
@@ -354,6 +366,7 @@ export function AdminAnalytics() {
     const date = parseDateInput(selectedDate);
     if (filterMode === "weekly") return { start: startOfWeek(date), end: endOfWeek(date) };
     if (filterMode === "monthly") return { start: startOfMonth(date), end: endOfMonth(date) };
+    if (filterMode === "yearly") return { start: startOfYear(date), end: endOfYear(date) };
     return { start: startOfDay(date), end: endOfDay(date) };
   }, [filterMode, rangeEnd, rangeStart, selectedDate]);
 
@@ -717,6 +730,7 @@ export function AdminAnalytics() {
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
           </select>
 
           {filterMode === "range" ? (
@@ -840,7 +854,7 @@ export function AdminAnalytics() {
               }}
             >
               <StatCard icon={Users} label="Total Users" value={data.profiles.length} helper={`${filtered.profiles.length} in filter`} />
-              <StatCard icon={Activity} label="Active Users" value={activeUsers} helper="Approved and online" />
+              <StatCard icon={MessageSquare} label="Messages Sent" value={data.messages.length} helper={`${filtered.messages.length} in filter`} />
               <StatCard icon={BarChart3} label="Students" value={roleCounts.student} helper={`${roleCounts.faculty} faculty`} />
               <StatCard icon={Megaphone} label="Announcements" value={totalAnnouncements} helper={`${filtered.announcements.length} in filter`} />
             </section>

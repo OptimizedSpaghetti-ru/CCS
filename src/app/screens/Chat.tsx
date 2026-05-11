@@ -243,6 +243,20 @@ export function Chat() {
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const markConversationRead = useCallback(
+    async (userId: string) => {
+      if (!conversationId) return;
+
+      await supabase
+        .from("messages")
+        .update({ read_at: new Date().toISOString() })
+        .eq("conversation_id", conversationId)
+        .neq("sender_id", userId)
+        .is("read_at", null);
+    },
+    [conversationId],
+  );
+
   const loadMessages = useCallback(async () => {
     if (!conversationId) return;
     const {
@@ -300,17 +314,11 @@ export function Chat() {
         })),
       );
 
-      /* Mark as read */
-      await supabase
-        .from("messages")
-        .update({ read_at: new Date().toISOString() })
-        .eq("conversation_id", conversationId)
-        .neq("sender_id", userId)
-        .is("read_at", null);
+      await markConversationRead(userId);
     } finally {
       setLoading(false);
     }
-  }, [conversationId]);
+  }, [conversationId, markConversationRead]);
 
   useEffect(() => {
     loadMessages();

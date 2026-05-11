@@ -276,6 +276,13 @@ export function Messages() {
       )
       .on(
         "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages" },
+        () => {
+          loadConversations();
+        },
+      )
+      .on(
+        "postgres_changes",
         { event: "UPDATE", schema: "public", table: "profiles" },
         () => {
           loadConversations();

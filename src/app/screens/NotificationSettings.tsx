@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -13,6 +13,14 @@ import {
   VolumeX,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+import { useApp } from "../context/AppContext";
+import {
+  defaultMobileNotificationPrefs,
+  getMobileNotificationPrefs,
+  initializeMobileNotifications,
+  isMobileNotificationsSupported,
+  saveMobileNotificationPrefs,
+} from "../../lib/mobileNotifications";
 
 function Toggle({
   value,
@@ -62,6 +70,8 @@ const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export function NotificationSettings() {
   const navigate = useNavigate();
+  const { mobileNotificationPermissionDenied } = useApp();
+  const mobileSupported = isMobileNotificationsSupported();
   const [masterEnabled, setMasterEnabled] = useState(true);
   const [settings, setSettings] = useState({
     directMessages: true,
@@ -81,6 +91,52 @@ export function NotificationSettings() {
     "Fri",
   ]);
   const [sound, setSound] = useState("Chime");
+  const [permissionStatus, setPermissionStatus] = useState<
+    "unsupported" | "granted" | "denied" | "unknown"
+  >(mobileSupported ? "unknown" : "unsupported");
+
+  useEffect(() => {
+    let mounted = true;
+    getMobileNotificationPrefs().then((prefs) => {
+      if (!mounted) return;
+      setMasterEnabled(prefs.enabled);
+      setSettings((prev) => ({
+        ...prev,
+        announcements: prefs.announcements,
+        scheduleChanges: prefs.scheduleChanges,
+        systemAlerts: prefs.systemAlerts,
+      }));
+    });
+
+    if (mobileNotificationPermissionDenied) {
+      setPermissionStatus("denied");
+    }
+
+    return () => {
+      mounted = false;
+    };
+  }, [mobileNotificationPermissionDenied]);
+
+  useEffect(() => {
+    saveMobileNotificationPrefs({
+      ...defaultMobileNotificationPrefs,
+      enabled: masterEnabled,
+      announcements: settings.announcements,
+      scheduleChanges: settings.scheduleChanges,
+      systemAlerts: settings.systemAlerts,
+    });
+  }, [
+    masterEnabled,
+    settings.announcements,
+    settings.scheduleChanges,
+    settings.systemAlerts,
+  ]);
+
+  const requestPhoneNotifications = async () => {
+    if (!mobileSupported) return;
+    const result = await initializeMobileNotifications();
+    setPermissionStatus(result.granted ? "granted" : "denied");
+  };
 
   const toggle = (k: keyof typeof settings) => (v: boolean) =>
     setSettings((prev) => ({ ...prev, [k]: v }));
@@ -175,6 +231,71 @@ export function NotificationSettings() {
 
       <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
         {/* Master Toggle */}
+        {mobileSupported && (
+          <div
+            style={{
+              background:
+                permissionStatus === "denied"
+                  ? "rgba(140,16,7,0.10)"
+                  : c.white,
+              borderRadius: 16,
+              padding: "14px 16px",
+              boxShadow: shadow.card,
+              marginBottom: 14,
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <Bell size={20} color={c.baseRed} style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <p
+                style={{
+                  fontFamily: fonts.ui,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: c.darkBrown,
+                  margin: 0,
+                }}
+              >
+                Android Phone Notifications
+              </p>
+              <p
+                style={{
+                  fontFamily: fonts.ui,
+                  fontSize: 11,
+                  color: c.warmGray,
+                  margin: "2px 0 0",
+                  lineHeight: 1.35,
+                }}
+              >
+                {permissionStatus === "denied"
+                  ? "Permission is denied. Enable notifications in Android settings to receive phone alerts."
+                  : permissionStatus === "granted"
+                    ? "Permission granted for phone notification tray alerts."
+                    : "Allow CCS Connect to show announcement alerts on your phone."}
+              </p>
+            </div>
+            <button
+              onClick={requestPhoneNotifications}
+              style={{
+                border: "none",
+                borderRadius: 10,
+                background: g.button,
+                color: c.cream,
+                padding: "8px 10px",
+                fontFamily: fonts.ui,
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >
+              Enable
+            </button>
+          </div>
+        )}
+
         <div
           style={{
             background: masterEnabled ? g.header : c.white,
