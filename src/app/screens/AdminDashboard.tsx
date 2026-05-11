@@ -5,7 +5,6 @@ import { createClient } from "@supabase/supabase-js";
 import {
   BarChart3,
   Megaphone,
-  Send,
   MapPinned,
   Image as ImageIcon,
   Loader2,
@@ -238,18 +237,10 @@ export function AdminDashboard() {
     "student" | "faculty" | "admin" | ""
   >("");
 
-  const [broadcastBody, setBroadcastBody] = useState("");
-  const [broadcastTargetRole, setBroadcastTargetRole] = useState<
-    "student" | "faculty" | "admin" | ""
-  >("student");
   const [announcementImageFile, setAnnouncementImageFile] =
     useState<File | null>(null);
-  const [broadcastImageFile, setBroadcastImageFile] = useState<File | null>(
-    null,
-  );
   const [notificationDeleteTarget, setNotificationDeleteTarget] = useState<{
     id: string;
-    kind: "announcement" | "broadcast";
     title: string;
   } | null>(null);
   const [pendingDocsViewer, setPendingDocsViewer] = useState<{
@@ -261,7 +252,7 @@ export function AdminDashboard() {
   const [isPreparingPendingDocs, setIsPreparingPendingDocs] = useState(false);
 
   const [activeTab, setActiveTab] = useState<
-    "announcements" | "users" | "documents" | "broadcast" | "locations"
+    "announcements" | "users" | "documents" | "locations"
   >("announcements");
 
   /* ---------- Data loading ---------- */
@@ -664,16 +655,13 @@ export function AdminDashboard() {
     setConfirmDelete(false);
   };
 
-  const postNotification = async (type: "announcement" | "broadcast") => {
-    const title =
-      type === "announcement" ? announcementTitle.trim() : "Broadcast Message";
-    const body =
-      type === "announcement" ? announcementBody.trim() : broadcastBody.trim();
-    const targetRole =
-      type === "announcement" ? announcementTargetRole : broadcastTargetRole;
+  const postAnnouncement = async () => {
+    const title = announcementTitle.trim();
+    const body = announcementBody.trim();
+    const targetRole = announcementTargetRole;
 
-    if (!body || (type === "announcement" && !title)) {
-      setError("Fill in the required announcement or broadcast fields.");
+    if (!body || !title) {
+      setError("Fill in the required announcement fields.");
       return;
     }
 
@@ -682,8 +670,7 @@ export function AdminDashboard() {
     setFeedback("");
 
     let imageUrl: string | null = null;
-    const uploadFile =
-      type === "announcement" ? announcementImageFile : broadcastImageFile;
+    const uploadFile = announcementImageFile;
 
     if (uploadFile) {
       /* ── Validate image file (HIGH-4 security fix) ── */
@@ -707,7 +694,7 @@ export function AdminDashboard() {
 
       const ext = uploadFile.name.split(".").pop() ?? "jpg";
       const safeExt = ext.toLowerCase();
-      const filePath = `notifications/${type}/${Date.now()}-${Math.random()
+      const filePath = `notifications/announcement/${Date.now()}-${Math.random()
         .toString(36)
         .slice(2, 8)}.${safeExt}`;
 
@@ -727,7 +714,7 @@ export function AdminDashboard() {
     }
 
     const { error: insertError } = await supabase.from("notifications").insert({
-      type,
+      type: "announcement",
       title,
       body,
       image_url: imageUrl,
@@ -741,28 +728,17 @@ export function AdminDashboard() {
       return;
     }
 
-    if (type === "announcement") {
-      setAnnouncementTitle("");
-      setAnnouncementBody("");
-      setAnnouncementTargetRole("");
-      setAnnouncementImageFile(null);
-    } else {
-      setBroadcastBody("");
-      setBroadcastTargetRole("student");
-      setBroadcastImageFile(null);
-    }
+    setAnnouncementTitle("");
+    setAnnouncementBody("");
+    setAnnouncementTargetRole("");
+    setAnnouncementImageFile(null);
 
-    setFeedback(
-      `${type === "announcement" ? "Announcement" : "Broadcast"} posted.`,
-    );
+    setFeedback("Announcement posted.");
     await loadAdminData();
     setIsSaving(false);
   };
 
-  const deleteNotification = async (
-    notificationId: string,
-    kind: "announcement" | "broadcast",
-  ) => {
+  const deleteNotification = async (notificationId: string) => {
     setIsSaving(true);
     setError("");
     setFeedback("");
@@ -778,22 +754,14 @@ export function AdminDashboard() {
       return;
     }
 
-    setFeedback(
-      `${
-        kind === "announcement" ? "Announcement" : "Broadcast"
-      } deleted successfully.`,
-    );
+    setFeedback("Announcement deleted successfully.");
     setNotificationDeleteTarget(null);
     await loadAdminData();
     setIsSaving(false);
   };
 
-  const requestNotificationDelete = (
-    notificationId: string,
-    kind: "announcement" | "broadcast",
-    title: string,
-  ) => {
-    setNotificationDeleteTarget({ id: notificationId, kind, title });
+  const requestNotificationDelete = (notificationId: string, title: string) => {
+    setNotificationDeleteTarget({ id: notificationId, title });
   };
 
   const resolveStudentDocumentUrl = async (rawUrl: string | null) => {
@@ -891,14 +859,10 @@ export function AdminDashboard() {
         studentDocuments.length > 0 ? ` (${studentDocuments.length})` : ""
       }`,
     },
-    { key: "broadcast" as const, label: "Broadcast" },
   ];
 
   const announcementItems = announcements.filter(
     (item) => item.type === "announcement",
-  );
-  const broadcastItems = announcements.filter(
-    (item) => item.type === "broadcast",
   );
 
   /* ---------- Render ---------- */
@@ -1257,7 +1221,7 @@ export function AdminDashboard() {
                     )}
                   </div>
                   <button
-                    onClick={() => postNotification("announcement")}
+                    onClick={postAnnouncement}
                     disabled={isSaving}
                     style={{
                       width: "100%",
@@ -1412,7 +1376,6 @@ export function AdminDashboard() {
                           onClick={() =>
                             requestNotificationDelete(
                               ann.id,
-                              "announcement",
                               ann.title || "Untitled announcement",
                             )
                           }
@@ -3538,313 +3501,6 @@ export function AdminDashboard() {
             );
           })()}
 
-        {/* ─── Broadcast Tab ─── */}
-        {activeTab === "broadcast" && !isLoading && (
-          <div>
-            <p
-              style={{
-                fontFamily: fonts.ui,
-                fontSize: 10,
-                fontWeight: 700,
-                color: c.warmGray,
-                textTransform: "uppercase",
-                letterSpacing: 0.8,
-                margin: "0 0 8px 2px",
-              }}
-            >
-              Send Broadcast
-            </p>
-            <div
-              style={{
-                background: c.white,
-                borderRadius: 16,
-                padding: 16,
-                boxShadow: "0 4px 24px rgba(94,16,16,0.10)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
-              >
-                <textarea
-                  value={broadcastBody}
-                  onChange={(e) => setBroadcastBody(e.target.value)}
-                  placeholder="Write your broadcast message…"
-                  style={{
-                    ...inputStyle,
-                    minHeight: 120,
-                    resize: "none" as const,
-                    lineHeight: 1.6,
-                  }}
-                />
-                <div style={{ position: "relative" }}>
-                  <select
-                    value={broadcastTargetRole}
-                    onChange={(e) =>
-                      setBroadcastTargetRole(
-                        e.target.value as "student" | "faculty" | "admin" | "",
-                      )
-                    }
-                    style={selectStyle}
-                  >
-                    <option value="">All roles</option>
-                    <option value="student">Students only</option>
-                    <option value="faculty">Faculty only</option>
-                    <option value="admin">Admins only</option>
-                  </select>
-                  <ChevronDown
-                    size={14}
-                    color={c.warmGray}
-                    style={{
-                      position: "absolute",
-                      right: 14,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      pointerEvents: "none",
-                    }}
-                  />
-                </div>
-                <div
-                  style={{
-                    border: `1px solid ${c.warmGray}33`,
-                    borderRadius: 10,
-                    padding: "10px 12px",
-                    background: c.cream,
-                  }}
-                >
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontFamily: fonts.ui,
-                      fontSize: 12,
-                      color: c.warmGray,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <ImageIcon size={14} />
-                    Attach pubmat image (optional)
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ display: "none" }}
-                      onChange={(e) =>
-                        setBroadcastImageFile(e.target.files?.[0] ?? null)
-                      }
-                    />
-                  </label>
-                  {broadcastImageFile && (
-                    <p
-                      style={{
-                        margin: "6px 0 0",
-                        fontFamily: fonts.ui,
-                        fontSize: 11,
-                        color: c.darkBrown,
-                      }}
-                    >
-                      Selected: {broadcastImageFile.name}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => postNotification("broadcast")}
-                  disabled={isSaving}
-                  style={{
-                    width: "100%",
-                    height: 48,
-                    border: "none",
-                    borderRadius: 12,
-                    background: g.button,
-                    color: c.cream,
-                    fontFamily: fonts.ui,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: isSaving ? "default" : "pointer",
-                    boxShadow: shadow.button,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    opacity: isSaving ? 0.6 : 1,
-                  }}
-                >
-                  <Send size={16} />
-                  {isSaving ? "Sending…" : "Send Broadcast"}
-                </button>
-              </div>
-            </div>
-
-            <p
-              style={{
-                fontFamily: fonts.ui,
-                fontSize: 10,
-                fontWeight: 700,
-                color: c.warmGray,
-                textTransform: "uppercase",
-                letterSpacing: 0.8,
-                margin: "16px 0 8px 2px",
-              }}
-            >
-              Recent Broadcasts
-            </p>
-
-            {broadcastItems.length === 0 ? (
-              <div
-                style={{
-                  background: c.white,
-                  borderRadius: 16,
-                  padding: "24px 16px",
-                  boxShadow: shadow.card,
-                  textAlign: "center",
-                }}
-              >
-                <p
-                  style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 12,
-                    color: c.warmGray,
-                    margin: 0,
-                  }}
-                >
-                  No broadcasts yet
-                </p>
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
-              >
-                {broadcastItems.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      background: c.white,
-                      borderRadius: 14,
-                      padding: "12px 14px",
-                      boxShadow: shadow.card,
-                      borderLeft: "4px solid #3B82F6",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        justifyContent: "space-between",
-                        gap: 10,
-                      }}
-                    >
-                      <div style={{ flex: 1 }}>
-                        <p
-                          style={{
-                            fontFamily: fonts.ui,
-                            fontSize: 13,
-                            fontWeight: 700,
-                            color: c.darkBrown,
-                            margin: 0,
-                          }}
-                        >
-                          {item.title || "Broadcast Message"}
-                        </p>
-                        <p
-                          style={{
-                            fontFamily: fonts.ui,
-                            fontSize: 12,
-                            color: c.warmGray,
-                            margin: "6px 0 0",
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          {item.body}
-                        </p>
-                        {item.image_url && (
-                          <img
-                            src={item.image_url}
-                            alt="broadcast pubmat"
-                            style={{
-                              width: "100%",
-                              maxHeight: 220,
-                              objectFit: "cover",
-                              borderRadius: 10,
-                              marginTop: 8,
-                              border: "1px solid rgba(139,115,85,0.18)",
-                            }}
-                          />
-                        )}
-                      </div>
-                      <button
-                        onClick={() =>
-                          requestNotificationDelete(
-                            item.id,
-                            "broadcast",
-                            item.title || "Broadcast Message",
-                          )
-                        }
-                        disabled={isSaving}
-                        style={{
-                          border: "none",
-                          background: "none",
-                          color: c.baseRed,
-                          cursor: isSaving ? "default" : "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: 28,
-                          height: 28,
-                          borderRadius: 8,
-                          flexShrink: 0,
-                          opacity: isSaving ? 0.5 : 1,
-                        }}
-                        aria-label="Delete broadcast"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginTop: 8,
-                        paddingTop: 8,
-                        borderTop: "1px solid rgba(139,115,85,0.08)",
-                      }}
-                    >
-                      <p
-                        style={{
-                          fontFamily: fonts.ui,
-                          fontSize: 10,
-                          color: c.warmGrayLight,
-                          margin: 0,
-                        }}
-                      >
-                        Target: {item.target_role || "all"}
-                      </p>
-                      <p
-                        style={{
-                          fontFamily: fonts.mono,
-                          fontSize: 10,
-                          color: c.warmGrayLight,
-                          margin: 0,
-                        }}
-                      >
-                        {timeAgo(item.created_at)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* ─── Locations Tab ─── */}
         {activeTab === "locations" && !isLoading && (
           <div>
@@ -4059,8 +3715,7 @@ export function AdminDashboard() {
                     lineHeight: 1.5,
                   }}
                 >
-                  Delete this {notificationDeleteTarget.kind}? This action
-                  cannot be undone.
+                  Delete this announcement? This action cannot be undone.
                 </p>
                 <p
                   style={{
@@ -4101,10 +3756,7 @@ export function AdminDashboard() {
                   </button>
                   <button
                     onClick={() =>
-                      deleteNotification(
-                        notificationDeleteTarget.id,
-                        notificationDeleteTarget.kind,
-                      )
+                      deleteNotification(notificationDeleteTarget.id)
                     }
                     disabled={isSaving}
                     style={{
