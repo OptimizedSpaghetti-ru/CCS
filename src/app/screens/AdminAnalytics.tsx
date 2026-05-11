@@ -30,7 +30,7 @@ import { TopBar } from "../components/TopBar";
 import { c, fonts, g, shadow } from "../theme";
 import { supabase } from "../../lib/supabase";
 
-type Role = "student" | "faculty" | "admin";
+type Role = "student" | "faculty" | "admin" | "it_support";
 type FilterMode = "date" | "range" | "daily" | "weekly" | "monthly" | "yearly";
 
 type ProfileAnalyticsRow = {
@@ -484,6 +484,7 @@ export function AdminAnalytics() {
       student: data.profiles.filter((profile) => profile.role === "student").length,
       faculty: data.profiles.filter((profile) => profile.role === "faculty").length,
       admin: data.profiles.filter((profile) => profile.role === "admin").length,
+      itSupport: data.profiles.filter((profile) => profile.role === "it_support").length,
     }),
     [data.profiles],
   );
@@ -493,6 +494,7 @@ export function AdminAnalytics() {
       student: filtered.profiles.filter((profile) => profile.role === "student").length,
       faculty: filtered.profiles.filter((profile) => profile.role === "faculty").length,
       admin: filtered.profiles.filter((profile) => profile.role === "admin").length,
+      itSupport: filtered.profiles.filter((profile) => profile.role === "it_support").length,
     }),
     [filtered.profiles],
   );
@@ -550,6 +552,7 @@ export function AdminAnalytics() {
       { name: "Students", value: filteredRoleCounts.student, color: palette.red },
       { name: "Faculty", value: filteredRoleCounts.faculty, color: palette.dark },
       { name: "Admins", value: filteredRoleCounts.admin, color: palette.gold },
+      { name: "IT Support", value: filteredRoleCounts.itSupport, color: "#059669" },
     ],
     [filteredRoleCounts],
   );
@@ -591,6 +594,7 @@ export function AdminAnalytics() {
       ["Student Accounts", roleCounts.student],
       ["Faculty Accounts", roleCounts.faculty],
       ["Admin Accounts", roleCounts.admin],
+      ["IT Support Accounts", roleCounts.itSupport],
       ["Total Announcements Posted", totalAnnouncements],
       ["Announcements in Filter", filtered.announcements.length],
       ["Messages in Filter", filtered.messages.length],
@@ -605,6 +609,7 @@ export function AdminAnalytics() {
           ["Students", roleCounts.student, filteredRoleCounts.student],
           ["Faculty", roleCounts.faculty, filteredRoleCounts.faculty],
           ["Admins", roleCounts.admin, filteredRoleCounts.admin],
+          ["IT Support", roleCounts.itSupport, filteredRoleCounts.itSupport],
         ],
       },
       {
@@ -855,7 +860,7 @@ export function AdminAnalytics() {
             >
               <StatCard icon={Users} label="Total Users" value={data.profiles.length} helper={`${filtered.profiles.length} in filter`} />
               <StatCard icon={MessageSquare} label="Messages Sent" value={data.messages.length} helper={`${filtered.messages.length} in filter`} />
-              <StatCard icon={BarChart3} label="Students" value={roleCounts.student} helper={`${roleCounts.faculty} faculty`} />
+              <StatCard icon={BarChart3} label="Students" value={roleCounts.student} helper={`${roleCounts.faculty} faculty, ${roleCounts.itSupport} IT support`} />
               <StatCard icon={Megaphone} label="Announcements" value={totalAnnouncements} helper={`${filtered.announcements.length} in filter`} />
             </section>
 

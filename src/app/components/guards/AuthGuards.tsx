@@ -76,3 +76,25 @@ export function FacultyGuard() {
 
   return <Outlet />;
 }
+
+export function ITSupportGuard() {
+  const { isLoadingAuth, isAuthenticated, isApproved, currentUser } = useApp();
+
+  if (isLoadingAuth) {
+    return null;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isApproved) {
+    return <Navigate to="/pending-approval" replace />;
+  }
+
+  if (currentUser.role !== "it_support") {
+    return <Navigate to="/app/home" replace />;
+  }
+
+  return <Outlet />;
+}

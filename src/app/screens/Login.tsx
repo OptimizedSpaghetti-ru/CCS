@@ -131,7 +131,9 @@ export function Login() {
       return;
     }
 
-    navigate("/app/home", { replace: true });
+    navigate(result.role === "it_support" ? "/app/it-support" : "/app/home", {
+      replace: true,
+    });
   };
 
   return (

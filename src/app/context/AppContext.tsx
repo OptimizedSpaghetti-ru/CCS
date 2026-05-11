@@ -46,7 +46,10 @@ interface AppContextType {
   themePreference: ThemePreference;
   resolvedThemeMode: ThemeMode;
   setThemePreference: (preference: ThemePreference) => void;
-  signIn: (identifier: string, password: string) => Promise<{ error?: string }>;
+  signIn: (
+    identifier: string,
+    password: string,
+  ) => Promise<{ error?: string; role?: "student" | "faculty" | "admin" | "it_support" }>;
   signUp: (payload: {
     firstName: string;
     lastName: string;
@@ -64,7 +67,7 @@ interface AppContextType {
   refreshProfile: () => Promise<void>;
   currentUser: {
     name: string;
-    role: "student" | "faculty" | "admin";
+    role: "student" | "faculty" | "admin" | "it_support";
     status: "pending" | "approved" | "rejected";
     id: string;
     identifier: string;
@@ -101,8 +104,16 @@ function getInitials(name: string) {
   return tokens.map((token) => token[0]?.toUpperCase() ?? "").join("");
 }
 
-function normalizeRole(value: unknown): "student" | "faculty" | "admin" {
-  if (value === "admin" || value === "faculty") return value;
+function normalizeRole(
+  value: unknown,
+): "student" | "faculty" | "admin" | "it_support" {
+  if (
+    value === "admin" ||
+    value === "faculty" ||
+    value === "it_support"
+  ) {
+    return value;
+  }
   return "student";
 }
 
@@ -406,6 +417,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const shouldShowNotification = (row: any) => {
       if (!row || row.type === "message") return false;
+      if (row.recipient_id && row.recipient_id !== currentUser.id) {
+        return false;
+      }
+      if (row.recipient_id === currentUser.id) return true;
       if (currentUser.role === "admin") return true;
       if (currentUser.role === "student") {
         return row.target_role === "student" || row.target_role === null;
@@ -416,6 +431,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           row.target_role === null ||
           row.created_by === currentUser.id
         );
+      }
+      if (currentUser.role === "it_support") {
+        return row.target_role === "it_support" || row.target_role === null;
       }
       return false;
     };
@@ -480,8 +498,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return { error: error.message };
     }
 
+    let profile: Record<string, unknown> | null = null;
     try {
-      let profile: Record<string, unknown> | null = null;
       for (const delayMs of [0, 400, 1200]) {
         if (delayMs > 0) {
           await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -511,7 +529,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    return {};
+    return { role: normalizeRole(profile?.role ?? data.user.user_metadata?.role) };
   }, []);
 
   /* ── File validation constants (HIGH-4 security fix) ── */

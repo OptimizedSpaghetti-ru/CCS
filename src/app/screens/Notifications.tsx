@@ -206,6 +206,7 @@ export function Notifications() {
 
   function formatRole(role: unknown) {
     if (typeof role !== "string" || !role) return "";
+    if (role === "it_support") return "IT Support";
     return role.charAt(0).toUpperCase() + role.slice(1);
   }
 
@@ -228,6 +229,8 @@ export function Notifications() {
       // - Faculty: see announcements they authored, or null-target ones
       // - Admin: see all
       const visibleRows = rows.filter((n: any) => {
+        if (n.recipient_id && n.recipient_id !== currentUser.id) return false;
+        if (n.recipient_id === currentUser.id) return true;
         if (currentUser.role === "admin") return true;
         if (currentUser.role === "student") {
           return n.target_role === "student" || n.target_role === null;
@@ -240,6 +243,9 @@ export function Notifications() {
             n.target_role === null ||
             n.created_by === currentUser.id
           );
+        }
+        if (currentUser.role === "it_support") {
+          return n.target_role === "it_support" || n.target_role === null;
         }
         return true;
       });

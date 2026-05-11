@@ -21,7 +21,14 @@ import { PendingApproval } from "./screens/PendingApproval";
 import { AdminDashboard } from "./screens/AdminDashboard";
 import { AdminAnalytics } from "./screens/AdminAnalytics";
 import { FacultyAnnouncements } from "./screens/FacultyAnnouncements";
-import { ApprovedGuard, AdminGuard, FacultyGuard } from "./components/guards/AuthGuards";
+import { Assistance } from "./screens/Assistance";
+import { ITSupportDashboard } from "./screens/ITSupportDashboard";
+import {
+  ApprovedGuard,
+  AdminGuard,
+  FacultyGuard,
+  ITSupportGuard,
+} from "./components/guards/AuthGuards";
 
 export const router = createBrowserRouter([
   {
@@ -58,6 +65,7 @@ export const router = createBrowserRouter([
           { path: "map/location/:id", Component: LocationDetail },
           { path: "notifications", Component: Notifications },
           { path: "notifications/settings", Component: NotificationSettings },
+          { path: "assistance", Component: Assistance },
           { path: "profile", Component: Profile },
           { path: "profile/edit", Component: EditProfile },
           { path: "settings", Component: Settings },
@@ -69,6 +77,11 @@ export const router = createBrowserRouter([
               { index: true, Component: AdminDashboard },
               { path: "analytics", Component: AdminAnalytics },
             ],
+          },
+          {
+            path: "it-support",
+            Component: ITSupportGuard,
+            children: [{ index: true, Component: ITSupportDashboard }],
           },
           {
             path: "faculty",

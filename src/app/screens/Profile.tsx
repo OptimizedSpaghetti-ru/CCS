@@ -14,6 +14,7 @@ import {
   BookOpen,
   Building2,
   CalendarDays,
+  Wrench,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { useApp } from "../context/AppContext";
@@ -178,6 +179,8 @@ export function Profile() {
   const roleLabel =
     currentUser.role === "admin"
       ? "Admin"
+      : currentUser.role === "it_support"
+      ? "IT Support"
       : currentUser.role === "faculty"
       ? "Faculty"
       : "Student";
@@ -335,6 +338,8 @@ export function Profile() {
                   ? currentUser.yearSection
                   : currentUser.role === "faculty"
                   ? "Faculty"
+                  : currentUser.role === "it_support"
+                  ? "IT Support"
                   : "Administrator"}
               </p>
               <p
@@ -401,6 +406,8 @@ export function Profile() {
               title={
                 currentUser.role === "faculty"
                   ? "Faculty Information"
+                  : currentUser.role === "it_support"
+                  ? "IT Support Information"
                   : "Admin Information"
               }
             >
@@ -447,6 +454,13 @@ export function Profile() {
                 onClick={() => navigate("/app/admin")}
               />
             )}
+            {currentUser.role === "it_support" && (
+              <SettingRow
+                icon={<Wrench size={16} />}
+                label="IT Support Dashboard"
+                onClick={() => navigate("/app/it-support")}
+              />
+            )}
             <SettingRow
               icon={<Lock size={16} />}
               label="Login & Security"
@@ -456,6 +470,13 @@ export function Profile() {
               icon={<HelpCircle size={16} />}
               label="Help & Support"
             />
+            {currentUser.role !== "it_support" && (
+              <SettingRow
+                icon={<Wrench size={16} />}
+                label="Assistance"
+                onClick={() => navigate("/app/assistance")}
+              />
+            )}
             <SettingRow
               icon={<LogOut size={16} />}
               label="Log Out"

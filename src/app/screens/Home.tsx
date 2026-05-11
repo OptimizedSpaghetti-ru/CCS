@@ -8,6 +8,7 @@ import {
   BookOpen,
   ChevronRight,
   Megaphone,
+  Wrench,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { supabase } from "../../lib/supabase";
@@ -106,11 +107,13 @@ export function Home() {
       /* recent notifications shown as announcements */
       const { data: notifs } = await supabase
         .from("notifications")
-        .select("id, title, body, type, image_url, target_role, created_by, created_at")
+        .select("id, title, body, type, image_url, target_role, recipient_id, created_by, created_at")
         .order("created_at", { ascending: false })
         .limit(20);
       if (notifs) {
         const visible = (notifs as any[]).filter((n) => {
+          if (n.recipient_id && n.recipient_id !== currentUser.id) return false;
+          if (n.recipient_id === currentUser.id) return true;
           if (currentUser.role === "admin") return true;
           if (currentUser.role === "student") {
             return n.target_role === "student" || n.target_role === null;
@@ -121,6 +124,9 @@ export function Home() {
               n.target_role === null ||
               n.created_by === currentUser.id
             );
+          }
+          if (currentUser.role === "it_support") {
+            return n.target_role === "it_support" || n.target_role === null;
           }
           return true;
         });
@@ -221,6 +227,8 @@ export function Home() {
             >
               {currentUser.role === "admin"
                 ? "Administrator"
+                : currentUser.role === "it_support"
+                  ? "IT Support"
                 : currentUser.role === "faculty"
                   ? "Faculty"
                   : currentUser.identifier}
@@ -328,6 +336,22 @@ export function Home() {
                 label="Admin"
                 path="/app/admin"
                 color="#059669"
+              />
+            )}
+            {currentUser.role !== "it_support" && (
+              <QuickAction
+                icon={<Wrench size={20} />}
+                label="Assist"
+                path="/app/assistance"
+                color="#8C1007"
+              />
+            )}
+            {currentUser.role === "it_support" && (
+              <QuickAction
+                icon={<Wrench size={20} />}
+                label="Support"
+                path="/app/it-support"
+                color="#8C1007"
               />
             )}
             {currentUser.role === "faculty" && (

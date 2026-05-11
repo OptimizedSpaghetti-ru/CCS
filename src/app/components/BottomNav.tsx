@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { useNavigate, useLocation } from "react-router";
-import { MessageSquare, Map, Home, Bell, User, Shield, Megaphone, BarChart3 } from "lucide-react";
+import { MessageSquare, Map, Home, Bell, User, Shield, Megaphone, BarChart3, Wrench } from "lucide-react";
 import { c, shadow, fonts } from "../theme";
 import { useApp } from "../context/AppContext";
 
@@ -34,6 +34,14 @@ const adminTabs: Tab[] = [
   { icon: User, label: "Profile", path: "/app/profile" },
 ];
 
+const itSupportTabs: Tab[] = [
+  { icon: Wrench, label: "Support", path: "/app/it-support" },
+  { icon: MessageSquare, label: "Messages", path: "/app/messages" },
+  { icon: Home, label: "Home", path: "/app/home" },
+  { icon: Bell, label: "Notifs", path: "/app/notifications" },
+  { icon: User, label: "Profile", path: "/app/profile" },
+];
+
 export function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -51,6 +59,8 @@ export function BottomNav() {
   const tabs =
     currentUser.role === "admin"
       ? adminTabs
+      : currentUser.role === "it_support"
+        ? itSupportTabs
       : currentUser.role === "faculty"
         ? facultyTabs
         : studentTabs;

@@ -38,7 +38,7 @@ type PendingProfile = {
   id: string;
   full_name: string | null;
   email: string | null;
-  role: "student" | "faculty" | "admin";
+  role: "student" | "faculty" | "admin" | "it_support";
   status: "pending" | "approved" | "rejected";
   student_documents?: {
     reg_card_url: string | null;
@@ -50,7 +50,7 @@ type UserProfile = {
   id: string;
   full_name: string | null;
   email: string | null;
-  role: "student" | "faculty" | "admin";
+  role: "student" | "faculty" | "admin" | "it_support";
   status: "pending" | "approved" | "rejected";
   student_id: string | null;
   employee_id: string | null;
@@ -98,6 +98,12 @@ function timeAgo(iso: string) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function formatRoleLabel(role: string | null | undefined) {
+  if (role === "it_support") return "IT Support";
+  if (!role) return "User";
+  return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
 function extractStorageObjectPath(url: string, bucket: string) {
@@ -192,7 +198,7 @@ export function AdminDashboard() {
   const [error, setError] = useState("");
   const [userSearch, setUserSearch] = useState("");
   const [userRoleFilter, setUserRoleFilter] = useState<
-    "" | "student" | "faculty" | "admin"
+    "" | "student" | "faculty" | "admin" | "it_support"
   >("");
   const [userStatusFilter, setUserStatusFilter] = useState<
     "" | "pending" | "approved" | "rejected"
@@ -210,7 +216,7 @@ export function AdminDashboard() {
     lastName: "",
     email: "",
     password: "",
-    role: "student" as "student" | "faculty" | "admin",
+    role: "student" as "student" | "faculty" | "admin" | "it_support",
     identifier: "",
     department: "",
     yearSection: "",
@@ -223,7 +229,7 @@ export function AdminDashboard() {
   const [editForm, setEditForm] = useState({
     full_name: "",
     email: "",
-    role: "student" as "student" | "faculty" | "admin",
+    role: "student" as "student" | "faculty" | "admin" | "it_support",
     student_id: "",
     employee_id: "",
     department: "",
@@ -234,7 +240,7 @@ export function AdminDashboard() {
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementBody, setAnnouncementBody] = useState("");
   const [announcementTargetRole, setAnnouncementTargetRole] = useState<
-    "student" | "faculty" | "admin" | ""
+    "student" | "faculty" | "admin" | "it_support" | ""
   >("");
 
   const [announcementImageFile, setAnnouncementImageFile] =
@@ -462,7 +468,10 @@ export function AdminDashboard() {
       year_section: normalizedYearSection || null,
       program: "",
       student_id: role === "student" ? normalizedIdentifier || null : null,
-      employee_id: role === "faculty" ? normalizedIdentifier || null : null,
+      employee_id:
+        role === "faculty" || role === "it_support"
+          ? normalizedIdentifier || null
+          : null,
       approved_by: currentUser.id || null,
       approved_at: new Date().toISOString(),
     });
@@ -1155,6 +1164,7 @@ export function AdminDashboard() {
                             | "student"
                             | "faculty"
                             | "admin"
+                            | "it_support"
                             | "",
                         )
                       }
@@ -1164,6 +1174,7 @@ export function AdminDashboard() {
                       <option value="student">Students only</option>
                       <option value="faculty">Faculty only</option>
                       <option value="admin">Admins only</option>
+                      <option value="it_support">IT Support only</option>
                     </select>
                     <ChevronDown
                       size={14}
@@ -1555,16 +1566,20 @@ export function AdminDashboard() {
                                   background:
                                     user.role === "faculty"
                                       ? `${c.baseRed}20`
+                                      : user.role === "it_support"
+                                      ? "#05966920"
                                       : "#3B528020",
                                   color:
                                     user.role === "faculty"
                                       ? c.baseRed
+                                      : user.role === "it_support"
+                                      ? "#059669"
                                       : "#3B5280",
                                   borderRadius: 20,
                                   padding: "1px 6px",
                                 }}
                               >
-                                {user.role}
+                                {formatRoleLabel(user.role)}
                               </span>
                             </div>
                             <p
@@ -1799,7 +1814,8 @@ export function AdminDashboard() {
                               | ""
                               | "student"
                               | "faculty"
-                              | "admin",
+                              | "admin"
+                              | "it_support",
                           )
                         }
                         style={{ ...selectStyle, paddingRight: 28 }}
@@ -1808,6 +1824,7 @@ export function AdminDashboard() {
                         <option value="student">Student</option>
                         <option value="faculty">Faculty</option>
                         <option value="admin">Admin</option>
+                        <option value="it_support">IT Support</option>
                       </select>
                       <ChevronDown
                         size={12}
@@ -2038,12 +2055,16 @@ export function AdminDashboard() {
                                     background:
                                       user.role === "admin"
                                         ? `${c.baseRed}15`
+                                        : user.role === "it_support"
+                                        ? "#05966915"
                                         : user.role === "faculty"
                                         ? "#3B528015"
                                         : "#0369a115",
                                     color:
                                       user.role === "admin"
                                         ? c.baseRed
+                                        : user.role === "it_support"
+                                        ? "#059669"
                                         : user.role === "faculty"
                                         ? "#3B5280"
                                         : "#0369a1",
@@ -2051,7 +2072,7 @@ export function AdminDashboard() {
                                     padding: "2px 8px",
                                   }}
                                 >
-                                  {user.role}
+                                  {formatRoleLabel(user.role)}
                                 </span>
                               </div>
                               <div style={{ flex: 1 }}>
@@ -2263,7 +2284,7 @@ export function AdminDashboard() {
                                   selectedUser.full_name || "Unnamed User",
                                 ],
                                 ["Email", selectedUser.email || "No email"],
-                                ["Role", selectedUser.role],
+                                ["Role", formatRoleLabel(selectedUser.role)],
                                 ["Status", selectedUser.status],
                                 ["Student ID", selectedUser.student_id || "-"],
                                 [
@@ -2361,7 +2382,8 @@ export function AdminDashboard() {
                                         role: e.target.value as
                                           | "student"
                                           | "faculty"
-                                          | "admin",
+                                          | "admin"
+                                          | "it_support",
                                       })
                                     }
                                     style={selectStyle}
@@ -2369,6 +2391,7 @@ export function AdminDashboard() {
                                     <option value="student">Student</option>
                                     <option value="faculty">Faculty</option>
                                     <option value="admin">Admin</option>
+                                    <option value="it_support">IT Support</option>
                                   </select>
                                   <ChevronDown
                                     size={12}
@@ -2943,7 +2966,8 @@ export function AdminDashboard() {
                                     role: e.target.value as
                                       | "student"
                                       | "faculty"
-                                      | "admin",
+                                      | "admin"
+                                      | "it_support",
                                   })
                                 }
                                 style={selectStyle}
@@ -2951,6 +2975,7 @@ export function AdminDashboard() {
                                 <option value="student">Student</option>
                                 <option value="faculty">Faculty</option>
                                 <option value="admin">Admin</option>
+                                <option value="it_support">IT Support</option>
                               </select>
                               <ChevronDown
                                 size={12}
