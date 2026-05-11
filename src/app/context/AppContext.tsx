@@ -23,6 +23,21 @@ import {
   type ThemePreference,
 } from "../theme";
 
+declare global {
+  interface Window {
+    CCSAndroidBridge?: {
+      startNotificationPolling?: (
+        supabaseUrl: string,
+        anonKey: string,
+        accessToken: string,
+        userId: string,
+        userRole: string,
+      ) => void;
+      stopNotificationPolling?: () => void;
+    };
+  }
+}
+
 export interface ToastData {
   id: string;
   type: "message" | "announcement" | "event" | "error";
@@ -65,6 +80,7 @@ interface AppContextType {
   }) => Promise<{ error?: string; message?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  refreshAppData: () => Promise<void>;
   currentUser: {
     name: string;
     role: "student" | "faculty" | "admin" | "it_support";
@@ -401,6 +417,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       removeTapListener = await registerNotificationTapHandler(() => {
         window.location.assign("/app/notifications");
       });
+
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (accessToken && window.CCSAndroidBridge?.startNotificationPolling) {
+        window.CCSAndroidBridge.startNotificationPolling(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY,
+          accessToken,
+          session.user.id,
+          currentUser.role,
+        );
+      }
     };
 
     setup();
@@ -408,15 +436,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
       removeTapListener?.();
+      window.CCSAndroidBridge?.stopNotificationPolling?.();
     };
-  }, [currentUser.status, session?.user?.id]);
+  }, [currentUser.role, currentUser.status, session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user?.id || currentUser.status !== "approved") return;
     if (!isMobileNotificationsSupported()) return;
 
     const shouldShowNotification = (row: any) => {
-      if (!row || row.type === "message") return false;
+      if (!row) return false;
       if (row.recipient_id && row.recipient_id !== currentUser.id) {
         return false;
       }
@@ -448,14 +477,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (!shouldShowNotification(row)) return;
 
           showToast({
-            type: row.type === "event" ? "event" : "announcement",
-            title: row.title?.trim() || "New announcement",
+            type:
+              row.type === "message"
+                ? "message"
+                : row.type === "event"
+                  ? "event"
+                  : "announcement",
+            title:
+              row.title?.trim() ||
+              (row.type === "message" ? "New Message" : "New notification"),
             preview: row.body?.trim() || "Open CCS Connect to view details.",
             time: "Now",
           });
 
           const kind =
-            row.type === "event"
+            row.type === "message"
+              ? "message"
+              : row.type === "event"
               ? "reminder"
               : row.type === "system"
                 ? "system"
@@ -465,7 +503,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
             title: row.title?.trim() || "CCS Connect",
             body: row.body?.trim() || "You have a new notification.",
             kind,
-            extra: { path: "/app/notifications" },
+            extra: {
+              path: row.conversation_id
+                ? `/app/messages/${row.conversation_id}`
+                : "/app/notifications",
+            },
           });
         },
       )
@@ -729,6 +771,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await hydrateUser(latestSession);
   }, [hydrateUser]);
 
+  const refreshAppData = useCallback(async () => {
+    const {
+      data: { session: latestSession },
+    } = await supabase.auth.getSession();
+
+    await hydrateUser(latestSession);
+    if (latestSession?.user?.id) {
+      await refreshUnreadCounts(latestSession.user.id);
+    }
+
+    window.dispatchEvent(new CustomEvent("ccs:refresh"));
+  }, [hydrateUser, refreshUnreadCounts]);
+
   return (
     <AppContext.Provider
       value={{
@@ -750,6 +805,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         signUp,
         signOut,
         refreshProfile,
+        refreshAppData,
         currentUser,
       }}
     >

@@ -228,7 +228,7 @@ export function Notifications() {
     let notificationNotifs: Notif[] = [];
 
     if (!error && data) {
-      const rows = (data as any[]).filter((n) => n.type !== "message");
+      const rows = data as any[];
 
       // Role-based visibility filter:
       // - Students: see announcements with target_role = 'student' OR target_role = null (all roles)
@@ -309,7 +309,7 @@ export function Notifications() {
             id: n.id,
             type: isAssistanceNotification(n)
               ? "assistance"
-              : (["announcement", "event"].includes(n.type)
+              : (["announcement", "event", "message"].includes(n.type)
                   ? n.type
                   : "announcement"),
             source: "notification",
@@ -323,6 +323,11 @@ export function Notifications() {
             time: fmtTime(n.created_at),
             unread: !statusMap.get(n.id)?.read_at,
             day: dayLabel(n.created_at),
+            conversationId: n.conversation_id ?? undefined,
+            path:
+              n.type === "message" && n.conversation_id
+                ? `/app/messages/${n.conversation_id}`
+                : undefined,
           };
         });
     }
@@ -412,8 +417,19 @@ export function Notifications() {
       }
     }
 
+    const notificationMessageConversationIds = new Set(
+      notificationNotifs
+        .filter((notif) => notif.type === "message" && notif.conversationId)
+        .map((notif) => notif.conversationId),
+    );
+
     setNotifs(
-      [...messageNotifs, ...notificationNotifs].sort(
+      [
+        ...messageNotifs.filter(
+          (notif) => !notificationMessageConversationIds.has(notif.conversationId),
+        ),
+        ...notificationNotifs,
+      ].sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       ),

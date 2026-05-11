@@ -359,11 +359,21 @@ export function Chat() {
     const body = text.trim();
     setText("");
 
-    await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      sender_id: session.user.id,
-      body,
-    });
+    const { data: sentMessage } = await supabase
+      .from("messages")
+      .insert({
+        conversation_id: conversationId,
+        sender_id: session.user.id,
+        body,
+      })
+      .select("id")
+      .single();
+
+    if (sentMessage?.id) {
+      await supabase.rpc("create_message_notifications", {
+        p_message_id: sentMessage.id,
+      });
+    }
   };
 
   return (

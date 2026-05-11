@@ -169,11 +169,22 @@ export function Compose() {
       }
 
       /* send first message */
-      await supabase.from("messages").insert({
-        conversation_id: convId,
-        sender_id: currentUser.id,
-        body: body.trim(),
-      });
+      const { data: sentMessage, error: messageError } = await supabase
+        .from("messages")
+        .insert({
+          conversation_id: convId,
+          sender_id: currentUser.id,
+          body: body.trim(),
+        })
+        .select("id")
+        .single();
+
+      if (messageError) throw messageError;
+      if (sentMessage?.id) {
+        await supabase.rpc("create_message_notifications", {
+          p_message_id: sentMessage.id,
+        });
+      }
 
       /* navigate to the conversation */
       if (isGroup) {

@@ -8,6 +8,7 @@ import { Preferences } from "@capacitor/preferences";
 
 export type MobileNotificationKind =
   | "announcement"
+  | "message"
   | "system"
   | "reminder";
 
@@ -34,6 +35,15 @@ const channels: Channel[] = [
     id: "announcements",
     name: "Announcements",
     description: "Campus announcements and faculty posts",
+    importance: 4,
+    visibility: 1,
+    lights: true,
+    vibration: true,
+  },
+  {
+    id: "messages",
+    name: "Messages",
+    description: "Direct and group message notifications",
     importance: 4,
     visibility: 1,
     lights: true,
@@ -129,6 +139,7 @@ function numericNotificationId(id: string) {
 }
 
 function getChannelId(kind: MobileNotificationKind) {
+  if (kind === "message") return "messages";
   if (kind === "reminder") return "reminders";
   if (kind === "system") return "system-updates";
   return "announcements";
@@ -139,6 +150,7 @@ function isAllowedByPrefs(
   prefs: MobileNotificationPrefs,
 ) {
   if (!prefs.enabled) return false;
+  if (kind === "message") return true;
   if (kind === "announcement") return prefs.announcements;
   if (kind === "reminder") return prefs.scheduleChanges;
   return prefs.systemAlerts;
@@ -174,6 +186,7 @@ export async function sendMobileNotification({
     body,
     channelId: getChannelId(kind),
     smallIcon: "ic_stat_ccs_connect",
+    largeIcon: "school_logo_notification",
     iconColor: "#8C1007",
     extra: {
       notificationId: id,
