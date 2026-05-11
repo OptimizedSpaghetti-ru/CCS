@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
+import { useNavigate } from "react-router";
 import { createClient } from "@supabase/supabase-js";
 import {
+  BarChart3,
   Megaphone,
   Send,
   MapPinned,
@@ -157,6 +159,7 @@ const adminAuthSupabase = createClient(
 
 export function AdminDashboard() {
   const { currentUser } = useApp();
+  const navigate = useNavigate();
 
   /* ---------- State ---------- */
   const [pendingUsers, setPendingUsers] = useState<PendingProfile[]>([]);
@@ -915,6 +918,28 @@ export function AdminDashboard() {
               Admin
             </span>
           </div>
+          <button
+            onClick={() => navigate("/app/admin/analytics")}
+            style={{
+              marginLeft: "auto",
+              border: "1px solid rgba(255,240,196,0.18)",
+              background: "rgba(255,240,196,0.12)",
+              color: c.cream,
+              borderRadius: 10,
+              padding: "8px 10px",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontFamily: fonts.ui,
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            <BarChart3 size={14} />
+            Analytics
+          </button>
         </div>
 
         {/* Tab bar */}

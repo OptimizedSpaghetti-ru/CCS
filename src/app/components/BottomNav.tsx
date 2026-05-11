@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { useNavigate, useLocation } from "react-router";
-import { MessageSquare, Map, Home, Bell, User, Shield, Megaphone } from "lucide-react";
+import { MessageSquare, Map, Home, Bell, User, Shield, Megaphone, BarChart3 } from "lucide-react";
 import { c, shadow, fonts } from "../theme";
 import { useApp } from "../context/AppContext";
 
@@ -20,16 +20,16 @@ const studentTabs: Tab[] = [
 
 const facultyTabs: Tab[] = [
   { icon: MessageSquare, label: "Messages", path: "/app/messages" },
-  { icon: Map, label: "Map", path: "/app/map" },
-  { icon: Home, label: "Home", path: "/app/home" },
   { icon: Megaphone, label: "Announce", path: "/app/faculty/announcements" },
+  { icon: Home, label: "Home", path: "/app/home" },
+  { icon: Bell, label: "Notifs", path: "/app/notifications" },
   { icon: User, label: "Profile", path: "/app/profile" },
 ];
 
 const adminTabs: Tab[] = [
-  { icon: Home, label: "Home", path: "/app/home" },
   { icon: Shield, label: "Admin", path: "/app/admin" },
-  { icon: MessageSquare, label: "Messages", path: "/app/messages" },
+  { icon: BarChart3, label: "Analytics", path: "/app/admin/analytics" },
+  { icon: Home, label: "Home", path: "/app/home" },
   { icon: Bell, label: "Notifs", path: "/app/notifications" },
   { icon: User, label: "Profile", path: "/app/profile" },
 ];
@@ -55,7 +55,10 @@ export function BottomNav() {
         ? facultyTabs
         : studentTabs;
 
-  const isActive = (path: string) => location.pathname.startsWith(path);
+  const isActive = (path: string) =>
+    path === "/app/admin"
+      ? location.pathname === path
+      : location.pathname.startsWith(path);
 
   return (
     <div

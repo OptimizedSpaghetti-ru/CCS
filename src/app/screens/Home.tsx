@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import {
   MessageSquare,
   Map,
-  Bell,
+  BarChart3,
   BookOpen,
   ChevronRight,
   Megaphone,
@@ -306,12 +306,14 @@ export function Home() {
               path="/app/map"
               color="#1D4ED8"
             />
-            <QuickAction
-              icon={<Bell size={20} />}
-              label="Alerts"
-              path="/app/notifications"
-              color="#D97706"
-            />
+            {currentUser.role === "admin" && (
+              <QuickAction
+                icon={<BarChart3 size={20} />}
+                label="Analytics"
+                path="/app/admin/analytics"
+                color="#8C1007"
+              />
+            )}
             {currentUser.role === "student" && (
               <QuickAction
                 icon={<BookOpen size={20} />}

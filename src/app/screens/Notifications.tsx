@@ -23,6 +23,8 @@ interface Notif {
   body: string;
   imageUrl?: string;
   createdBy?: string | null;
+  authorName?: string;
+  authorRole?: string;
   createdAt: string;
   time: string;
   unread: boolean;
@@ -49,6 +51,10 @@ function NotifItem({
   const navigate = useNavigate();
   const conf = typeConfig[notif.type] ?? typeConfig.announcement;
   const Icon = conf.icon;
+  const authorMeta =
+    notif.source === "notification" && notif.authorName
+      ? `${notif.authorName}${notif.authorRole ? ` (${notif.authorRole})` : ""}`
+      : "";
 
   return (
     <div
@@ -149,6 +155,7 @@ function NotifItem({
             style={{ fontFamily: fonts.mono, fontSize: 10, color: c.warmGray }}
           >
             {notif.time}
+            {authorMeta ? ` | ${authorMeta}` : ""}
           </span>
         </div>
       </div>
@@ -195,6 +202,11 @@ export function Notifications() {
       hour: "numeric",
       minute: "2-digit",
     });
+  }
+
+  function formatRole(role: unknown) {
+    if (typeof role !== "string" || !role) return "";
+    return role.charAt(0).toUpperCase() + role.slice(1);
   }
 
   const loadNotifs = useCallback(async () => {
@@ -250,23 +262,55 @@ export function Notifications() {
         );
       }
 
+      const authorIds = [
+        ...new Set(
+          visibleRows
+            .map((n: any) => n.created_by)
+            .filter((id: unknown): id is string => typeof id === "string" && id.length > 0),
+        ),
+      ];
+      let authorMap = new Map<
+        string,
+        { full_name: string | null; role: string | null }
+      >();
+
+      if (authorIds.length > 0) {
+        const { data: authors } = await supabase
+          .from("profiles")
+          .select("id, full_name, role")
+          .in("id", authorIds);
+
+        authorMap = new Map(
+          (authors ?? []).map((author: any) => [
+            author.id,
+            { full_name: author.full_name ?? null, role: author.role ?? null },
+          ]),
+        );
+      }
+
       notificationNotifs = visibleRows
         .filter((n: any) => !statusMap.get(n.id)?.dismissed_at)
-        .map((n: any) => ({
-          id: n.id,
-          type: (["announcement", "event"].includes(n.type)
-            ? n.type
-            : "announcement") as Notif["type"],
-          source: "notification",
-          title: n.title?.trim() || "Notification",
-          body: n.body?.trim() || "Tap to view details.",
-          imageUrl: n.image_url ?? undefined,
-          createdBy: n.created_by ?? null,
-          createdAt: n.created_at,
-          time: fmtTime(n.created_at),
-          unread: !statusMap.get(n.id)?.read_at,
-          day: dayLabel(n.created_at),
-        }));
+        .map((n: any) => {
+          const author = n.created_by ? authorMap.get(n.created_by) : null;
+
+          return {
+            id: n.id,
+            type: (["announcement", "event"].includes(n.type)
+              ? n.type
+              : "announcement") as Notif["type"],
+            source: "notification",
+            title: n.title?.trim() || "Notification",
+            body: n.body?.trim() || "Tap to view details.",
+            imageUrl: n.image_url ?? undefined,
+            createdBy: n.created_by ?? null,
+            authorName: author?.full_name?.trim() || undefined,
+            authorRole: formatRole(author?.role),
+            createdAt: n.created_at,
+            time: fmtTime(n.created_at),
+            unread: !statusMap.get(n.id)?.read_at,
+            day: dayLabel(n.created_at),
+          };
+        });
     }
 
     let messageNotifs: Notif[] = [];
@@ -362,7 +406,7 @@ export function Notifications() {
     );
 
     setLoading(false);
-  }, [currentUser.id]);
+  }, [currentUser.id, currentUser.role]);
 
   useEffect(() => {
     loadNotifs();

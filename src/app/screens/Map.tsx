@@ -75,6 +75,13 @@ type RouteInstruction = {
   voicePrompt: string;
 };
 
+type NavigationPin = {
+  floorId: FloorId;
+  x: number;
+  y: number;
+  heading: number;
+};
+
 type VoiceNavigationArchitecture = {
   routeGeneration: string[];
   instructionParser: string[];
@@ -209,6 +216,20 @@ const floorConfigs: Record<FloorId, FloorConfig> = {
 };
 
 const floorOptions = Object.values(floorConfigs);
+const DEFAULT_NAVIGATION_PIN: NavigationPin = {
+  floorId: "1st",
+  x: 1035,
+  y: 230,
+  heading: 20,
+};
+const CURRENT_LOCATION_STORAGE_KEY = "ccs-indoor-current-location";
+const OLD_DEFAULT_NAVIGATION_PIN = { x: 965, y: 240 };
+const MAP_BOUNDS = {
+  minX: -45,
+  maxX: 1085,
+  minY: 35,
+  maxY: 570,
+};
 
 const categoryOptions: Array<{ value: RoomCategory; label: string }> = [
   { value: "all", label: "All rooms" },
@@ -243,6 +264,79 @@ function getRoomCenter(room: Room) {
     x: room.x + room.w / 2,
     y: room.y + room.h / 2,
   };
+}
+
+function isWithinMapBounds(x: number, y: number) {
+  return (
+    Number.isFinite(x) &&
+    Number.isFinite(y) &&
+    x >= MAP_BOUNDS.minX &&
+    x <= MAP_BOUNDS.maxX &&
+    y >= MAP_BOUNDS.minY &&
+    y <= MAP_BOUNDS.maxY
+  );
+}
+
+function isValidNavigationPin(pin: Partial<NavigationPin>) {
+  return Boolean(
+    pin.floorId &&
+      floorConfigs[pin.floorId] &&
+      typeof pin.x === "number" &&
+      typeof pin.y === "number" &&
+      isWithinMapBounds(pin.x, pin.y),
+  );
+}
+
+function isOldDefaultNavigationPin(pin: Partial<NavigationPin>) {
+  return (
+    pin.floorId === "1st" &&
+    pin.x === OLD_DEFAULT_NAVIGATION_PIN.x &&
+    pin.y === OLD_DEFAULT_NAVIGATION_PIN.y
+  );
+}
+
+function getStoredNavigationPin() {
+  if (typeof window === "undefined") return DEFAULT_NAVIGATION_PIN;
+
+  try {
+    const raw = window.localStorage.getItem(CURRENT_LOCATION_STORAGE_KEY);
+    if (!raw) return DEFAULT_NAVIGATION_PIN;
+    const parsed = JSON.parse(raw) as Partial<NavigationPin>;
+    if (isOldDefaultNavigationPin(parsed)) {
+      persistNavigationPin(DEFAULT_NAVIGATION_PIN);
+      return DEFAULT_NAVIGATION_PIN;
+    }
+    if (isValidNavigationPin(parsed)) {
+      return {
+        floorId: parsed.floorId!,
+        x: parsed.x!,
+        y: parsed.y!,
+        heading: typeof parsed.heading === "number" ? parsed.heading : 0,
+      };
+    }
+  } catch {
+    persistNavigationPin(DEFAULT_NAVIGATION_PIN);
+    return DEFAULT_NAVIGATION_PIN;
+  }
+
+  persistNavigationPin(DEFAULT_NAVIGATION_PIN);
+  return DEFAULT_NAVIGATION_PIN;
+}
+
+function persistNavigationPin(pin: NavigationPin) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(CURRENT_LOCATION_STORAGE_KEY, JSON.stringify(pin));
+}
+
+function getRoomNavigationPin(floorId: FloorId, room: Room): NavigationPin {
+  const center = getRoomCenter(room);
+  const pin = {
+    floorId,
+    x: center.x,
+    y: center.y,
+    heading: 0,
+  };
+  return isValidNavigationPin(pin) ? pin : DEFAULT_NAVIGATION_PIN;
 }
 
 function getSortedRooms(rooms: Room[]) {
@@ -541,10 +635,13 @@ function NavigationMarker({
   heading?: number;
 }) {
   return (
-    <g transform={`translate(${x} ${y}) rotate(${heading})`}>
-      <circle r="13" fill="#8C1007" />
-      <circle r="30" fill="#8C1007" opacity="0.16" />
-      <path d="M0 -18 L12 15 L0 8 L-12 15 Z" fill="#FFF0C4" />
+    <g
+      transform={`translate(${x} ${y}) rotate(${heading})`}
+      className="pointer-events-none"
+    >
+      <circle r="13" fill="#1D4ED8" stroke="#FFFBEF" strokeWidth="5" />
+      <circle r="30" fill="#1D4ED8" opacity="0.16" />
+      <path d="M0 -18 L12 15 L0 8 L-12 15 Z" fill="#FFFBEF" />
     </g>
   );
 }
@@ -916,11 +1013,11 @@ export function Map() {
   const [tilt, setTilt] = useState(58);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isGestureTransforming, setIsGestureTransforming] = useState(false);
-  const [userLocation, setUserLocation] = useState({
-    x: 965,
-    y: 240,
-    heading: 20,
-  });
+  const [currentLocation, setCurrentLocation] = useState<NavigationPin>(
+    getStoredNavigationPin,
+  );
+  const [routeStartLocation, setRouteStartLocation] =
+    useState<NavigationPin | null>(null);
   const constraintsRef = useRef<HTMLDivElement | null>(null);
   const mapPanRef = useRef({
     active: false,
@@ -938,11 +1035,7 @@ export function Map() {
     lastDistance: 0,
   });
   const suppressSelectRef = useRef(false);
-  const currentLocation = {
-    floorId: "1st" as FloorId,
-    x: userLocation.x,
-    y: userLocation.y,
-  };
+  const activeRouteStart = routeStartLocation ?? currentLocation;
   const activeFloor = floorConfigs[selectedFloor];
   const rooms = activeFloor.rooms;
   const sortedRooms = useMemo(() => getSortedRooms(rooms), [rooms]);
@@ -995,14 +1088,15 @@ export function Map() {
     if (!navigationTarget || !navigationTargetRoom) return [];
 
     return buildRouteInstructions({
-      currentFloorId: currentLocation.floorId,
-      currentPoint: { x: currentLocation.x, y: currentLocation.y },
+      currentFloorId: activeRouteStart.floorId,
+      currentPoint: { x: activeRouteStart.x, y: activeRouteStart.y },
       targetFloorId: navigationTarget.floorId,
       targetRoom: navigationTargetRoom,
     });
   }, [
-    currentLocation.floorId,
-    currentLocation.x,
+    activeRouteStart.floorId,
+    activeRouteStart.x,
+    activeRouteStart.y,
     navigationTarget,
     navigationTargetRoom,
   ]);
@@ -1017,20 +1111,20 @@ export function Map() {
 
     const destination = getRoomCenter(navigationTargetRoom);
 
-    if (navigationTarget.floorId === currentLocation.floorId) {
-      if (selectedFloor !== currentLocation.floorId) return [];
+    if (navigationTarget.floorId === activeRouteStart.floorId) {
+      if (selectedFloor !== activeRouteStart.floorId) return [];
       return [
-        { x: currentLocation.x, y: currentLocation.y },
-        { x: (currentLocation.x + destination.x) / 2, y: 310 },
+        { x: activeRouteStart.x, y: activeRouteStart.y },
+        { x: (activeRouteStart.x + destination.x) / 2, y: 310 },
         destination,
       ];
     }
 
-    if (selectedFloor === currentLocation.floorId) {
+    if (selectedFloor === activeRouteStart.floorId) {
       const transition = getRoomCenter(getTransitionRoom(rooms));
       return [
-        { x: currentLocation.x, y: currentLocation.y },
-        { x: (currentLocation.x + transition.x) / 2, y: 310 },
+        { x: activeRouteStart.x, y: activeRouteStart.y },
+        { x: (activeRouteStart.x + transition.x) / 2, y: 310 },
         transition,
       ];
     }
@@ -1046,9 +1140,9 @@ export function Map() {
 
     return [];
   }, [
-    currentLocation.floorId,
-    currentLocation.x,
-    currentLocation.y,
+    activeRouteStart.floorId,
+    activeRouteStart.x,
+    activeRouteStart.y,
     navigationTarget,
     navigationTargetRoom,
     rooms,
@@ -1076,13 +1170,52 @@ export function Map() {
   };
 
   const startNavigation = (floorId = selectedFloor, roomId = selectedId) => {
+    const routeStart = currentLocation;
+    setRouteStartLocation(routeStart);
     setNavigationTarget({ floorId, roomId });
-    focusRoom(floorId, roomId);
+    if (floorId === routeStart.floorId) {
+      focusRoom(floorId, roomId);
+      return;
+    }
+
+    const transitionRoom = getTransitionRoom(floorConfigs[routeStart.floorId].rooms);
+    setSelectedFloor(routeStart.floorId);
+    setSelectedId(transitionRoom.id);
+    setSearchQuery("");
+    window.setTimeout(() => {
+      setPosition(
+        clampPosition((560 - routeStart.x) * scale, (310 - routeStart.y) * scale),
+      );
+    }, 0);
   };
 
   const clearNavigation = () => {
     setNavigationTarget(null);
+    setRouteStartLocation(null);
     stopVoiceGuidance();
+  };
+
+  const completeNavigation = () => {
+    if (!navigationTarget || !navigationTargetRoom) return;
+
+    const nextLocation = getRoomNavigationPin(
+      navigationTarget.floorId,
+      navigationTargetRoom,
+    );
+    setCurrentLocation(nextLocation);
+    persistNavigationPin(nextLocation);
+    setSelectedFloor(nextLocation.floorId);
+    setNavigationTarget(null);
+    setRouteStartLocation(null);
+    stopVoiceGuidance();
+    window.setTimeout(() => {
+      setPosition(
+        clampPosition(
+          (560 - nextLocation.x) * scale,
+          (310 - nextLocation.y) * scale,
+        ),
+      );
+    }, 0);
   };
 
   const speakInstruction = (text: string, onEnd?: () => void) => {
@@ -1103,13 +1236,15 @@ export function Map() {
     speakInstruction(instruction.voicePrompt);
   };
 
-  const playAllVoiceInstructions = (startIndex = 0) => {
+  const playAllVoiceInstructions = (startIndex = 0, onComplete?: () => void) => {
     const instruction = routeInstructions[startIndex];
     if (!instruction) return;
 
     speakInstruction(instruction.voicePrompt, () => {
       if (startIndex + 1 < routeInstructions.length) {
-        playAllVoiceInstructions(startIndex + 1);
+        playAllVoiceInstructions(startIndex + 1, onComplete);
+      } else {
+        onComplete?.();
       }
     });
   };
@@ -1126,16 +1261,16 @@ export function Map() {
     setPosition({ x: 0, y: 0 });
   };
 
-  const simulateLocation = () => {
-    const points = [
-      { x: 965, y: 240, heading: 20 },
-      { x: 820, y: 305, heading: -80 },
-      { x: 620, y: 305, heading: -90 },
-      { x: 390, y: 305, heading: -90 },
-      { x: 155, y: 305, heading: -90 },
-    ];
-
-    setUserLocation(points[Math.floor(Math.random() * points.length)]);
+  const focusCurrentLocation = () => {
+    setSelectedFloor(currentLocation.floorId);
+    window.setTimeout(() => {
+      setPosition(
+        clampPosition(
+          (560 - currentLocation.x) * scale,
+          (310 - currentLocation.y) * scale,
+        ),
+      );
+    }, 0);
   };
 
   const clampPosition = (x: number, y: number) => {
@@ -1663,7 +1798,7 @@ export function Map() {
               pointerEvents: "none",
             }}
           >
-            <ControlButton label="Locate" onClick={simulateLocation}>
+            <ControlButton label="Center blue pin" onClick={focusCurrentLocation}>
               <LocateFixed size={18} />
             </ControlButton>
             <ControlButton label="Reset view" onClick={resetView}>
@@ -1760,11 +1895,11 @@ export function Map() {
                       />
                     ))}
 
-                    {selectedFloor === currentLocation.floorId && (
+                    {selectedFloor === activeRouteStart.floorId && (
                       <NavigationMarker
-                        x={userLocation.x}
-                        y={userLocation.y}
-                        heading={userLocation.heading - rotation}
+                        x={activeRouteStart.x}
+                        y={activeRouteStart.y}
+                        heading={activeRouteStart.heading - rotation}
                       />
                     )}
 
@@ -1964,8 +2099,11 @@ export function Map() {
                   }}
                 >
                   Route to {navigationTargetRoom.name}
-                  {navigationTarget.floorId !== currentLocation.floorId
-                    ? ` via ${getTransitionRoom(rooms).name}`
+                  {navigationTarget.floorId !== activeRouteStart.floorId
+                    ? ` via ${
+                        getTransitionRoom(floorConfigs[activeRouteStart.floorId].rooms)
+                          .name
+                      }`
                     : ""}
                 </p>
               </div>
@@ -2074,7 +2212,7 @@ export function Map() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => playAllVoiceInstructions()}
+                  onClick={() => playAllVoiceInstructions(0, completeNavigation)}
                   style={{
                     minHeight: 40,
                     borderRadius: 12,
@@ -2113,6 +2251,28 @@ export function Map() {
                 </button>
               </div>
 
+              <button
+                type="button"
+                onClick={completeNavigation}
+                style={{
+                  minHeight: 40,
+                  borderRadius: 12,
+                  border: "1px solid rgba(29, 78, 216, 0.24)",
+                  background: "rgba(29, 78, 216, 0.1)",
+                  color: "#1D4ED8",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  fontSize: 11,
+                  fontWeight: 900,
+                  touchAction: "manipulation",
+                }}
+              >
+                <LocateFixed size={15} />
+                Mark Arrived and Set as Start Point
+              </button>
+
               <p
                 style={{
                   margin: 0,
@@ -2122,9 +2282,9 @@ export function Map() {
                   lineHeight: 1.35,
                 }}
               >
-                Active instruction follows the floor segment currently shown on
-                the map. Future live positioning can advance this by distance
-                to each route point.
+                The blue pin is the current start point. Mark arrival after a
+                successful route to use this destination as the next starting
+                point.
               </p>
             </div>
           )}
