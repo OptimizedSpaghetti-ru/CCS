@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { Capacitor } from "@capacitor/core";
 import {
   BarChart,
   Bar,
@@ -30,6 +31,20 @@ import type { LucideIcon } from "lucide-react";
 import { TopBar } from "../components/TopBar";
 import { c, fonts, g, shadow } from "../theme";
 import { supabase } from "../../lib/supabase";
+
+declare global {
+  interface Window {
+    CCSAndroidBridge?: {
+      speak?: (text: string) => void;
+      stopSpeech?: () => void;
+      shareBase64File?: (
+        filename: string,
+        mimeType: string,
+        base64Data: string,
+      ) => void;
+    };
+  }
+}
 
 type Role = "student" | "faculty" | "admin" | "it_support";
 type FilterMode = "date" | "range" | "daily" | "weekly" | "monthly" | "yearly";
@@ -352,6 +367,36 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function blobToBase64(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Unable to read export file."));
+    reader.onloadend = () => {
+      const result = String(reader.result ?? "");
+      resolve(result.includes(",") ? result.split(",")[1] : result);
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function saveWorkbook(blob: Blob, filename: string) {
+  const mimeType =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+  if (
+    Capacitor.isNativePlatform() &&
+    Capacitor.getPlatform() === "android" &&
+    window.CCSAndroidBridge?.shareBase64File
+  ) {
+    const base64Data = await blobToBase64(blob);
+    window.CCSAndroidBridge.shareBase64File(filename, mimeType, base64Data);
+    return "shared";
+  }
+
+  downloadBlob(blob, filename);
+  return "downloaded";
+}
+
 export function AdminAnalytics() {
   const today = dateInputValue(new Date());
   const [filterMode, setFilterMode] = useState<FilterMode>("monthly");
@@ -367,6 +412,7 @@ export function AdminAnalytics() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [messageAccessWarning, setMessageAccessWarning] = useState("");
+  const [exportStatus, setExportStatus] = useState("");
 
   const dateRange = useMemo(() => {
     if (filterMode === "range") {
@@ -657,7 +703,8 @@ export function AdminAnalytics() {
   const hasChartData = activitySeries.some((row) => row.total > 0);
   const hasAssistanceData = filtered.assistance.length > 0;
 
-  const exportAnalytics = () => {
+  const exportAnalytics = async () => {
+    setExportStatus("");
     const summaryRows: Array<Array<string | number>> = [
       ["CCS Connect Analytics Export"],
       ["Date Filter", filterMode],
@@ -769,7 +816,23 @@ export function AdminAnalytics() {
       },
     ]);
 
-    downloadBlob(workbook, `ccs-connect-analytics-${dateInputValue(new Date())}.xlsx`);
+    try {
+      const result = await saveWorkbook(
+        workbook,
+        `ccs-connect-analytics-${dateInputValue(new Date())}.xlsx`,
+      );
+      setExportStatus(
+        result === "shared"
+          ? "Export ready. Choose where to save or share the Excel file."
+          : "Excel export downloaded.",
+      );
+    } catch (exportError) {
+      setExportStatus(
+        exportError instanceof Error
+          ? exportError.message
+          : "Unable to export analytics.",
+      );
+    }
   };
 
   return (
@@ -907,6 +970,24 @@ export function AdminAnalytics() {
             <Download size={16} />
             Export to Excel
           </button>
+
+          {exportStatus && (
+            <p
+              style={{
+                margin: 0,
+                borderRadius: 12,
+                background: "rgba(102,11,5,0.08)",
+                color: "#660B05",
+                padding: "9px 10px",
+                fontFamily: fonts.ui,
+                fontSize: 11,
+                fontWeight: 750,
+                lineHeight: 1.35,
+              }}
+            >
+              {exportStatus}
+            </p>
+          )}
 
           <p
             style={{

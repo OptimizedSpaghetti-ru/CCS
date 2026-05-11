@@ -173,6 +173,8 @@ export async function sendMobileNotification({
     title,
     body,
     channelId: getChannelId(kind),
+    smallIcon: "ic_stat_ccs_connect",
+    iconColor: "#8C1007",
     extra: {
       notificationId: id,
       kind,

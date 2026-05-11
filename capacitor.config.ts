@@ -5,6 +5,12 @@ const config: CapacitorConfig = {
   appName: "CCS Connect",
   webDir: "dist",
   bundledWebRuntime: false,
+  plugins: {
+    LocalNotifications: {
+      smallIcon: "ic_stat_ccs_connect",
+      iconColor: "#8C1007",
+    },
+  },
 };
 
 export default config;

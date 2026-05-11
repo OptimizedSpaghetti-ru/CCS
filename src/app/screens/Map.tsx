@@ -15,6 +15,20 @@ import {
 } from "lucide-react";
 import { c, fonts, shadow } from "../theme";
 
+declare global {
+  interface Window {
+    CCSAndroidBridge?: {
+      speak?: (text: string) => void;
+      stopSpeech?: () => void;
+      shareBase64File?: (
+        filename: string,
+        mimeType: string,
+        base64Data: string,
+      ) => void;
+    };
+  }
+}
+
 type RoomType =
   | "room"
   | "lab"
@@ -244,6 +258,60 @@ const categoryOptions: Array<{ value: RoomCategory; label: string }> = [
   { value: "facility", label: "Other Facilities" },
 ];
 
+type RoomCategoryStyle = {
+  top: string;
+  label: string;
+  symbol: string;
+};
+
+const categoryRoomStyles: Record<Exclude<RoomCategory, "all">, RoomCategoryStyle> = {
+  "computer-lab": {
+    top: "#BFD7F2",
+    label: "#1E3A5F",
+    symbol: "#1E4E79",
+  },
+  lecture: {
+    top: "#C8E6C9",
+    label: "#244D2C",
+    symbol: "#2F6B3A",
+  },
+  faculty: {
+    top: "#D8C7EA",
+    label: "#472A63",
+    symbol: "#5C3A78",
+  },
+  office: {
+    top: "#F2C99A",
+    label: "#63320D",
+    symbol: "#8C4B13",
+  },
+  library: {
+    top: "#DCC07A",
+    label: "#53360A",
+    symbol: "#745014",
+  },
+  "comfort-room": {
+    top: "#B8E1DC",
+    label: "#164C49",
+    symbol: "#1F6A65",
+  },
+  staircase: {
+    top: "#D7D2C8",
+    label: "#403A34",
+    symbol: "#5A534A",
+  },
+  elevator: {
+    top: "#4A423D",
+    label: "#FFF0C4",
+    symbol: "#0F0F0F",
+  },
+  facility: {
+    top: "#F2C1BD",
+    label: "#6B211B",
+    symbol: "#8C1007",
+  },
+};
+
 function getRoomCategory(room: Room): RoomCategory {
   const name = room.name.toLowerCase();
 
@@ -252,11 +320,16 @@ function getRoomCategory(room: Room): RoomCategory {
   if (room.type === "restroom") return "comfort-room";
   if (room.type === "faculty") return "faculty";
   if (name.includes("library")) return "library";
-  if (name.includes("computer lab")) return "computer-lab";
+  if (room.type === "lab" || name.includes("computer lab")) return "computer-lab";
   if (room.type === "office" || name.includes("office")) return "office";
   if (room.type === "room" || name.includes("lecture")) return "lecture";
 
   return "facility";
+}
+
+function getRoomCategoryStyle(room: Room) {
+  const category = getRoomCategory(room);
+  return category === "all" ? categoryRoomStyles.facility : categoryRoomStyles[category];
 }
 
 function getRoomCenter(room: Room) {
@@ -551,20 +624,6 @@ function buildRouteInstructions({
   return instructions;
 }
 
-const fills: Record<RoomType, string> = {
-  room: "#FFFBEF",
-  lab: "#FFF0C4",
-  restroom: "#F8E7AE",
-  utility: "#F4E1B2",
-  office: "#FFE2B6",
-  faculty: "#FFE6B8",
-  cafeteria: "#FFDFA0",
-  exit: "#F5E8BA",
-  elevator: "#F3D8A6",
-  stairs: "#EFD7A9",
-  entrance: "#F7C991",
-};
-
 const roomTypeLabels: Record<RoomType, string> = {
   room: "Room",
   lab: "Laboratory",
@@ -732,7 +791,7 @@ function RoutePath({ points }: { points: Array<{ x: number; y: number }> }) {
   );
 }
 
-function RoomLabel({ room }: { room: Room }) {
+function RoomLabel({ room, color }: { room: Room; color: string }) {
   const fontSize = room.w < 90 ? 12 : room.w < 130 ? 14 : 17;
   const words = room.name.split(" ");
   const lines: string[] = [];
@@ -756,10 +815,14 @@ function RoomLabel({ room }: { room: Room }) {
       textAnchor="middle"
       className="pointer-events-none select-none"
       style={{
-        fill: c.darkBrown,
+        fill: color,
         fontFamily: fonts.ui,
         fontSize,
         fontWeight: 800,
+        paintOrder: "stroke",
+        stroke: "rgba(255, 251, 239, 0.72)",
+        strokeWidth: 3,
+        strokeLinejoin: "round",
       }}
     >
       {lines.slice(0, 3).map((text, index) => (
@@ -771,7 +834,13 @@ function RoomLabel({ room }: { room: Room }) {
   );
 }
 
-function StairIcon({ x, y, w, h }: Pick<Room, "x" | "y" | "w" | "h">) {
+function StairIcon({
+  x,
+  y,
+  w,
+  h,
+  color,
+}: Pick<Room, "x" | "y" | "w" | "h"> & { color: string }) {
   const left = x + Math.max(10, w * 0.16);
   const right = x + w - Math.max(10, w * 0.16);
   const top = y + Math.max(14, h * 0.16);
@@ -783,10 +852,10 @@ function StairIcon({ x, y, w, h }: Pick<Room, "x" | "y" | "w" | "h">) {
       <path
         d={`M${left} ${bottom} L${right} ${top}`}
         fill="none"
-        stroke="#660B05"
+        stroke={color}
         strokeWidth="5"
         strokeLinecap="round"
-        opacity="0.26"
+        opacity="0.36"
       />
       {Array.from({ length: stepCount }).map((_, index) => {
         const t = index / (stepCount - 1);
@@ -800,7 +869,7 @@ function StairIcon({ x, y, w, h }: Pick<Room, "x" | "y" | "w" | "h">) {
             y1={yPos}
             x2={Math.min(x + w - 8, endX)}
             y2={yPos}
-            stroke="#3E0703"
+            stroke={color}
             strokeWidth="4"
             strokeLinecap="round"
           />
@@ -809,7 +878,7 @@ function StairIcon({ x, y, w, h }: Pick<Room, "x" | "y" | "w" | "h">) {
       <path
         d={`M${right - 9} ${top + 4} l12 -4 l-4 12`}
         fill="none"
-        stroke="#8C1007"
+        stroke={color}
         strokeWidth="4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -818,7 +887,13 @@ function StairIcon({ x, y, w, h }: Pick<Room, "x" | "y" | "w" | "h">) {
   );
 }
 
-function ElevatorIcon({ x, y, w, h }: Pick<Room, "x" | "y" | "w" | "h">) {
+function ElevatorIcon({
+  x,
+  y,
+  w,
+  h,
+  color,
+}: Pick<Room, "x" | "y" | "w" | "h"> & { color: string }) {
   const boxW = Math.min(58, w * 0.58);
   const boxH = Math.min(66, h * 0.62);
   const boxX = x + w / 2 - boxW / 2;
@@ -833,7 +908,7 @@ function ElevatorIcon({ x, y, w, h }: Pick<Room, "x" | "y" | "w" | "h">) {
         height={boxH}
         rx="6"
         fill="#FFFBEF"
-        stroke="#3E0703"
+        stroke={color}
         strokeWidth="4"
       />
       <line
@@ -841,21 +916,21 @@ function ElevatorIcon({ x, y, w, h }: Pick<Room, "x" | "y" | "w" | "h">) {
         y1={boxY + 8}
         x2={boxX + boxW / 2}
         y2={boxY + boxH - 8}
-        stroke="#660B05"
+        stroke={color}
         strokeWidth="3"
       />
       <path
         d={`M${boxX + boxW * 0.28} ${boxY - 12} l-8 8 h16 z`}
-        fill="#8C1007"
+        fill={color}
       />
       <path
         d={`M${boxX + boxW * 0.72} ${boxY - 4} l-8 -8 h16 z`}
-        fill="#8C1007"
+        fill={color}
       />
       <path
         d={`M${boxX + boxW * 0.28} ${boxY + boxH * 0.48} v-18 m0 0 l-8 8 m8 -8 l8 8`}
         fill="none"
-        stroke="#3E0703"
+        stroke={color}
         strokeWidth="4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -863,7 +938,7 @@ function ElevatorIcon({ x, y, w, h }: Pick<Room, "x" | "y" | "w" | "h">) {
       <path
         d={`M${boxX + boxW * 0.72} ${boxY + boxH * 0.38} v18 m0 0 l-8 -8 m8 8 l8 -8`}
         fill="none"
-        stroke="#3E0703"
+        stroke={color}
         strokeWidth="4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -872,13 +947,13 @@ function ElevatorIcon({ x, y, w, h }: Pick<Room, "x" | "y" | "w" | "h">) {
   );
 }
 
-function RoomSymbol({ room }: { room: Room }) {
+function RoomSymbol({ room, color }: { room: Room; color: string }) {
   if (room.type === "stairs") {
-    return <StairIcon x={room.x} y={room.y} w={room.w} h={room.h} />;
+    return <StairIcon x={room.x} y={room.y} w={room.w} h={room.h} color={color} />;
   }
 
   if (room.type === "elevator") {
-    return <ElevatorIcon x={room.x} y={room.y} w={room.w} h={room.h} />;
+    return <ElevatorIcon x={room.x} y={room.y} w={room.w} h={room.h} color={color} />;
   }
 
   return null;
@@ -936,7 +1011,8 @@ function IsoRoom({
   dimmed: boolean;
   isDestination: boolean;
 }) {
-  const top = fills[room.type];
+  const categoryStyle = getRoomCategoryStyle(room);
+  const top = categoryStyle.top;
   const isSelected = selectedId === room.id;
   const depth = Math.max(8, Math.min(room.h3d, 28));
   const side = shade(top, -14);
@@ -993,8 +1069,8 @@ function IsoRoom({
         strokeWidth={isDestination ? 7 : isSelected ? 5 : 3}
         rx="4"
       />
-      <RoomLabel room={room} />
-      <RoomSymbol room={room} />
+      <RoomLabel room={room} color={categoryStyle.label} />
+      <RoomSymbol room={room} color={categoryStyle.symbol} />
     </g>
   );
 }
@@ -1033,7 +1109,17 @@ export function Map() {
   const touchPinchRef = useRef({
     active: false,
     lastDistance: 0,
+    lastAngle: 0,
+    lastCenterX: 0,
+    lastCenterY: 0,
+    tiltPrimed: false,
   });
+  const voiceQueueRef = useRef<{
+    prompts: string[];
+    index: number;
+    onComplete?: () => void;
+    timeoutId?: number;
+  } | null>(null);
   const suppressSelectRef = useRef(false);
   const activeRouteStart = routeStartLocation ?? currentLocation;
   const activeFloor = floorConfigs[selectedFloor];
@@ -1219,6 +1305,20 @@ export function Map() {
   };
 
   const speakInstruction = (text: string, onEnd?: () => void) => {
+    if (window.CCSAndroidBridge?.speak) {
+      window.CCSAndroidBridge.speak(text);
+      if (onEnd) {
+        const timeoutId = window.setTimeout(
+          onEnd,
+          Math.max(1800, text.length * 72),
+        );
+        if (voiceQueueRef.current) {
+          voiceQueueRef.current.timeoutId = timeoutId;
+        }
+      }
+      return;
+    }
+
     if (!("speechSynthesis" in window)) return;
 
     window.speechSynthesis.cancel();
@@ -1233,25 +1333,50 @@ export function Map() {
   const playCurrentVoiceInstruction = () => {
     const instruction = routeInstructions[activeInstructionIndex];
     if (!instruction) return;
+    stopVoiceGuidance();
     speakInstruction(instruction.voicePrompt);
   };
 
   const playAllVoiceInstructions = (startIndex = 0, onComplete?: () => void) => {
-    const instruction = routeInstructions[startIndex];
-    if (!instruction) return;
+    const prompts = routeInstructions
+      .slice(startIndex)
+      .map((instruction) => instruction.voicePrompt);
+    if (prompts.length === 0) return;
 
-    speakInstruction(instruction.voicePrompt, () => {
-      if (startIndex + 1 < routeInstructions.length) {
-        playAllVoiceInstructions(startIndex + 1, onComplete);
-      } else {
-        onComplete?.();
+    stopVoiceGuidance();
+    voiceQueueRef.current = { prompts, index: 0, onComplete };
+
+    const playNext = () => {
+      const queue = voiceQueueRef.current;
+      if (!queue) return;
+
+      const prompt = queue.prompts[queue.index];
+      if (!prompt) {
+        const complete = queue.onComplete;
+        voiceQueueRef.current = null;
+        complete?.();
+        return;
       }
-    });
+
+      speakInstruction(prompt, () => {
+        if (!voiceQueueRef.current) return;
+        voiceQueueRef.current.index += 1;
+        playNext();
+      });
+    };
+
+    playNext();
   };
 
   const stopVoiceGuidance = () => {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
+    if (voiceQueueRef.current?.timeoutId) {
+      window.clearTimeout(voiceQueueRef.current.timeoutId);
+    }
+    voiceQueueRef.current = null;
+    window.CCSAndroidBridge?.stopSpeech?.();
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
   };
 
   const resetView = () => {
@@ -1302,6 +1427,21 @@ export function Map() {
       second.clientY - first.clientY,
     );
   };
+
+  const getTouchAngle = (touches: React.TouchList) => {
+    const first = touches[0];
+    const second = touches[1];
+    return (
+      (Math.atan2(second.clientY - first.clientY, second.clientX - first.clientX) *
+        180) /
+      Math.PI
+    );
+  };
+
+  const getTouchCenter = (touches: React.TouchList) => ({
+    x: (touches[0].clientX + touches[1].clientX) / 2,
+    y: (touches[0].clientY + touches[1].clientY) / 2,
+  });
 
   const startMouseRotation = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -1386,7 +1526,12 @@ export function Map() {
     touchPinchRef.current = {
       active: true,
       lastDistance: getTouchDistance(event.touches),
+      lastAngle: getTouchAngle(event.touches),
+      lastCenterX: getTouchCenter(event.touches).x,
+      lastCenterY: getTouchCenter(event.touches).y,
+      tiltPrimed: false,
     };
+    suppressSelectRef.current = true;
     setIsGestureTransforming(true);
   };
 
@@ -1412,9 +1557,37 @@ export function Map() {
     event.preventDefault();
 
     const nextDistance = getTouchDistance(event.touches);
-    const delta = nextDistance - touchPinchRef.current.lastDistance;
+    const nextAngle = getTouchAngle(event.touches);
+    const nextCenter = getTouchCenter(event.touches);
+    const distanceDelta = nextDistance - touchPinchRef.current.lastDistance;
+    const angleDelta = nextAngle - touchPinchRef.current.lastAngle;
+    const centerDeltaX = nextCenter.x - touchPinchRef.current.lastCenterX;
+    const centerDeltaY = nextCenter.y - touchPinchRef.current.lastCenterY;
+
     touchPinchRef.current.lastDistance = nextDistance;
-    setScale((value) => Math.max(0.42, Math.min(1.45, value + delta * 0.003)));
+    touchPinchRef.current.lastAngle = nextAngle;
+    touchPinchRef.current.lastCenterX = nextCenter.x;
+    touchPinchRef.current.lastCenterY = nextCenter.y;
+
+    setScale((value) =>
+      Math.max(0.42, Math.min(1.45, value + distanceDelta * 0.003)),
+    );
+
+    if (Math.abs(angleDelta) > 0.35 && Math.abs(angleDelta) < 24) {
+      setRotation((value) => value + angleDelta * 0.7);
+    }
+
+    const shouldTilt =
+      touchPinchRef.current.tiltPrimed ||
+      (Math.abs(centerDeltaY) > 2.5 &&
+        Math.abs(centerDeltaY) > Math.abs(centerDeltaX) * 1.45 &&
+        Math.abs(distanceDelta) < 9 &&
+        Math.abs(angleDelta) < 6);
+
+    if (shouldTilt) {
+      touchPinchRef.current.tiltPrimed = true;
+      setTilt((value) => Math.max(38, Math.min(72, value + centerDeltaY * 0.16)));
+    }
   };
 
   const stopTouchPinch = () => {
@@ -1428,6 +1601,9 @@ export function Map() {
     if (touchPinchRef.current.active) {
       touchPinchRef.current.active = false;
       setIsGestureTransforming(false);
+      window.setTimeout(() => {
+        suppressSelectRef.current = false;
+      }, 140);
     }
   };
 
@@ -1552,8 +1728,8 @@ export function Map() {
               color: c.warmGray,
             }}
           >
-            {activeFloor.label}. Drag to pan, pinch to zoom on mobile, or right-drag
-            on desktop to rotate and tilt.
+            {activeFloor.label}. Drag to pan. On mobile, pinch to zoom,
+            twist to rotate, and move two fingers vertically to tilt.
           </p>
         </section>
 
