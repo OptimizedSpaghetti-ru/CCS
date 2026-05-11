@@ -106,12 +106,26 @@ export function Home() {
       /* recent notifications shown as announcements */
       const { data: notifs } = await supabase
         .from("notifications")
-        .select("id, title, body, type, image_url, created_at")
+        .select("id, title, body, type, image_url, target_role, created_by, created_at")
         .order("created_at", { ascending: false })
-        .limit(5);
+        .limit(20);
       if (notifs) {
+        const visible = (notifs as any[]).filter((n) => {
+          if (currentUser.role === "admin") return true;
+          if (currentUser.role === "student") {
+            return n.target_role === "student" || n.target_role === null;
+          }
+          if (currentUser.role === "faculty") {
+            return (
+              n.target_role === "faculty" ||
+              n.target_role === null ||
+              n.created_by === currentUser.id
+            );
+          }
+          return true;
+        });
         setAnnouncements(
-          notifs.map((n: any) => ({
+          visible.slice(0, 5).map((n: any) => ({
             id: n.id,
             title: n.title ?? "",
             body: n.body ?? "",
@@ -127,7 +141,7 @@ export function Home() {
         );
       }
     })();
-  }, [currentUser.id]);
+  }, [currentUser.id, currentUser.role]);
 
   return (
     <div style={{ flex: 1, overflowY: "auto", background: c.creamLight }}>
@@ -316,10 +330,10 @@ export function Home() {
             )}
             {currentUser.role === "faculty" && (
               <QuickAction
-                icon={<BookOpen size={20} />}
-                label="Profile"
-                path="/app/profile"
-                color="#059669"
+                icon={<Megaphone size={20} />}
+                label="Announce"
+                path="/app/faculty/announcements"
+                color="#D97706"
               />
             )}
           </div>

@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { useNavigate, useLocation } from "react-router";
-import { MessageSquare, Map, Home, Bell, User, Shield } from "lucide-react";
+import { MessageSquare, Map, Home, Bell, User, Shield, Megaphone } from "lucide-react";
 import { c, shadow, fonts } from "../theme";
 import { useApp } from "../context/AppContext";
 
@@ -22,7 +22,7 @@ const facultyTabs: Tab[] = [
   { icon: MessageSquare, label: "Messages", path: "/app/messages" },
   { icon: Map, label: "Map", path: "/app/map" },
   { icon: Home, label: "Home", path: "/app/home" },
-  { icon: Bell, label: "Notifs", path: "/app/notifications" },
+  { icon: Megaphone, label: "Announce", path: "/app/faculty/announcements" },
   { icon: User, label: "Profile", path: "/app/profile" },
 ];
 

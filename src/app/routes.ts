@@ -19,7 +19,8 @@ import { Notifications } from "./screens/Notifications";
 import { NotificationSettings } from "./screens/NotificationSettings";
 import { PendingApproval } from "./screens/PendingApproval";
 import { AdminDashboard } from "./screens/AdminDashboard";
-import { ApprovedGuard, AdminGuard } from "./components/guards/AuthGuards";
+import { FacultyAnnouncements } from "./screens/FacultyAnnouncements";
+import { ApprovedGuard, AdminGuard, FacultyGuard } from "./components/guards/AuthGuards";
 
 export const router = createBrowserRouter([
   {
@@ -64,6 +65,16 @@ export const router = createBrowserRouter([
             path: "admin",
             Component: AdminGuard,
             children: [{ index: true, Component: AdminDashboard }],
+          },
+          {
+            path: "faculty",
+            Component: FacultyGuard,
+            children: [
+              {
+                path: "announcements",
+                Component: FacultyAnnouncements,
+              },
+            ],
           },
         ],
       },

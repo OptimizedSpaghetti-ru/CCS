@@ -210,7 +210,29 @@ export function Notifications() {
 
     if (!error && data) {
       const rows = (data as any[]).filter((n) => n.type !== "message");
-      const ids = rows.map((n: any) => n.id);
+
+      // Role-based visibility filter:
+      // - Students: see announcements with target_role = 'student' OR target_role = null (all roles)
+      // - Faculty: see announcements they authored, or null-target ones
+      // - Admin: see all
+      const visibleRows = rows.filter((n: any) => {
+        if (currentUser.role === "admin") return true;
+        if (currentUser.role === "student") {
+          return n.target_role === "student" || n.target_role === null;
+        }
+        if (currentUser.role === "faculty") {
+          // Faculty see announcements addressed to faculty or all roles,
+          // but NOT student-only announcements from other faculty
+          return (
+            n.target_role === "faculty" ||
+            n.target_role === null ||
+            n.created_by === currentUser.id
+          );
+        }
+        return true;
+      });
+
+      const ids = visibleRows.map((n: any) => n.id);
       let statusMap = new Map<
         string,
         { read_at: string | null; dismissed_at: string | null }
@@ -228,7 +250,7 @@ export function Notifications() {
         );
       }
 
-      notificationNotifs = rows
+      notificationNotifs = visibleRows
         .filter((n: any) => !statusMap.get(n.id)?.dismissed_at)
         .map((n: any) => ({
           id: n.id,
