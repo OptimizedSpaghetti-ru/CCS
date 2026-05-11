@@ -424,6 +424,19 @@ export function AdminDashboard() {
     const normalizedIdentifier = identifier.trim();
     const normalizedDepartment = department.trim();
     const normalizedYearSection = yearSection.trim();
+    const profilePayload = {
+      p_email: normalizedEmail,
+      p_full_name: fullName,
+      p_role: role,
+      p_department: normalizedDepartment || null,
+      p_year_section: normalizedYearSection || null,
+      p_program: "",
+      p_student_id: role === "student" ? normalizedIdentifier || null : null,
+      p_employee_id:
+        role === "faculty" || role === "it_support"
+          ? normalizedIdentifier || null
+          : null,
+    };
 
     /* 1. Create auth user with an isolated non-persistent client.
        This prevents signUp from replacing the current admin session. */
@@ -436,7 +449,7 @@ export function AdminDashboard() {
           last_name: lastName.trim(),
           full_name: fullName,
           role,
-          status: "approved",
+          status: "pending",
           id_number: normalizedIdentifier,
           department: normalizedDepartment,
           year_section: normalizedYearSection,
@@ -457,26 +470,62 @@ export function AdminDashboard() {
       return;
     }
 
-    /* 2. Upsert profile row directly (admin-approved) */
-    const { error: profileErr } = await supabase.from("profiles").upsert({
-      id: data.user.id,
-      email: normalizedEmail,
-      full_name: fullName,
-      role,
-      status: "approved",
-      department: normalizedDepartment || null,
-      year_section: normalizedYearSection || null,
-      program: "",
-      student_id: role === "student" ? normalizedIdentifier || null : null,
-      employee_id:
-        role === "faculty" || role === "it_support"
-          ? normalizedIdentifier || null
-          : null,
-      approved_by: currentUser.id || null,
-      approved_at: new Date().toISOString(),
-    });
-    if (profileErr) {
-      setError(profileErr.message);
+    /* 2. Synchronize the profile row. Auth can succeed before profile sync;
+       only surface a real error if the final profile row is missing or wrong. */
+    const { data: rpcProfile, error: rpcErr } = await supabase
+      .rpc("admin_upsert_created_profile", {
+        p_user_id: data.user.id,
+        ...profilePayload,
+      })
+      .maybeSingle();
+
+    let finalProfile = rpcProfile as UserProfile | null;
+
+    if (rpcErr || !finalProfile) {
+      const { data: updatedProfile } = await supabase
+        .from("profiles")
+        .update({
+          email: normalizedEmail,
+          full_name: fullName,
+          role,
+          status: "pending",
+          department: normalizedDepartment || null,
+          year_section: normalizedYearSection || null,
+          program: "",
+          student_id:
+            role === "student" ? normalizedIdentifier || null : null,
+          employee_id:
+            role === "faculty" || role === "it_support"
+              ? normalizedIdentifier || null
+              : null,
+          approved_by: null,
+          approved_at: null,
+        })
+        .eq("id", data.user.id)
+        .select(
+          "id, full_name, email, role, status, student_id, employee_id, department, program, created_at",
+        )
+        .maybeSingle();
+
+      finalProfile = updatedProfile as UserProfile | null;
+    }
+
+    if (!finalProfile) {
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select(
+          "id, full_name, email, role, status, student_id, employee_id, department, program, created_at",
+        )
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      finalProfile = existingProfile as UserProfile | null;
+    }
+
+    if (!finalProfile || finalProfile.role !== role) {
+      setError(
+        "The auth account was created, but its profile could not be saved with the selected role. Please refresh and edit the account role before approving it.",
+      );
       setIsSaving(false);
       return;
     }
@@ -504,7 +553,7 @@ export function AdminDashboard() {
       return;
     }
 
-    setFeedback("Account created and approved successfully.");
+    setFeedback("Account created and added to pending approvals.");
     await loadAdminData();
     setIsSaving(false);
   };

@@ -20,6 +20,87 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.is_it_support_user() TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.admin_upsert_created_profile(
+  p_user_id uuid,
+  p_email text,
+  p_full_name text,
+  p_role text,
+  p_department text DEFAULT NULL,
+  p_year_section text DEFAULT NULL,
+  p_program text DEFAULT NULL,
+  p_student_id text DEFAULT NULL,
+  p_employee_id text DEFAULT NULL
+)
+RETURNS public.profiles
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  updated_profile public.profiles;
+BEGIN
+  IF NOT public.is_admin_user() THEN
+    RAISE EXCEPTION 'Only admins can create managed profiles.';
+  END IF;
+
+  IF p_role NOT IN ('student', 'faculty', 'admin', 'it_support') THEN
+    RAISE EXCEPTION 'Unsupported role: %', p_role;
+  END IF;
+
+  INSERT INTO public.profiles (
+    id,
+    email,
+    full_name,
+    role,
+    status,
+    department,
+    year_section,
+    program,
+    student_id,
+    employee_id
+  )
+  VALUES (
+    p_user_id,
+    p_email,
+    p_full_name,
+    p_role,
+    'pending',
+    NULLIF(p_department, ''),
+    NULLIF(p_year_section, ''),
+    NULLIF(p_program, ''),
+    NULLIF(p_student_id, ''),
+    NULLIF(p_employee_id, '')
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    full_name = EXCLUDED.full_name,
+    role = EXCLUDED.role,
+    status = 'pending',
+    department = EXCLUDED.department,
+    year_section = EXCLUDED.year_section,
+    program = EXCLUDED.program,
+    student_id = EXCLUDED.student_id,
+    employee_id = EXCLUDED.employee_id,
+    approved_by = NULL,
+    approved_at = NULL
+  RETURNING * INTO updated_profile;
+
+  RETURN updated_profile;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.admin_upsert_created_profile(
+  uuid,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text
+) TO authenticated;
+
 DO $$
 DECLARE
   constraint_name text;

@@ -520,18 +520,28 @@ export function Settings() {
               </span>
             }
           />
-          <SettingRow
-            icon={<FileText size={18} />}
-            label="Terms of Service"
-            iconColor={isDark ? c.cream : c.baseRed}
-            rightEl={<ChevronRight size={16} color={c.warmGray} />}
-          />
-          <SettingRow
-            icon={<Lock size={18} />}
-            label="Privacy Policy"
-            iconColor={isDark ? c.cream : c.baseRed}
-            rightEl={<ChevronRight size={16} color={c.warmGray} />}
-          />
+          <div
+            onClick={() => navigate("/app/settings/terms")}
+            style={{ cursor: "pointer" }}
+          >
+            <SettingRow
+              icon={<FileText size={18} />}
+              label="Terms of Service"
+              iconColor={isDark ? c.cream : c.baseRed}
+              rightEl={<ChevronRight size={16} color={c.warmGray} />}
+            />
+          </div>
+          <div
+            onClick={() => navigate("/app/settings/privacy")}
+            style={{ cursor: "pointer" }}
+          >
+            <SettingRow
+              icon={<Lock size={18} />}
+              label="Privacy Policy"
+              iconColor={isDark ? c.cream : c.baseRed}
+              rightEl={<ChevronRight size={16} color={c.warmGray} />}
+            />
+          </div>
         </SectionCard>
 
         {/* Danger Zone */}

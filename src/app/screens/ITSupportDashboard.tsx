@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   CheckCircle2,
   Eye,
@@ -392,9 +393,16 @@ export function ITSupportDashboard() {
             {filtered.map((request) => {
               const color = statusColor(request.status);
               return (
-                <button
+                <motion.button
                   key={request.id}
                   onClick={() => openRequest(request)}
+                  whileHover={{
+                    y: -2,
+                    scale: 1.01,
+                    boxShadow: "0 10px 28px rgba(62,7,3,0.16)",
+                  }}
+                  whileTap={{ scale: 0.97 }}
+                  transition={{ duration: 0.16, ease: "easeOut" }}
                   style={{
                     border: "none",
                     textAlign: "left",
@@ -404,6 +412,7 @@ export function ITSupportDashboard() {
                     boxShadow: shadow.card,
                     borderLeft: `4px solid ${color}`,
                     cursor: "pointer",
+                    transformOrigin: "center",
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
@@ -422,38 +431,51 @@ export function ITSupportDashboard() {
                   <p style={{ margin: "8px 0 0", fontFamily: fonts.ui, fontSize: 12, color: c.warmGray }}>
                     {request.category} - {request.priority} - {formatDate(request.created_at)}
                   </p>
-                </button>
+                </motion.button>
               );
             })}
           </div>
         )}
       </div>
 
-      {selected && (
-        <div
-          onClick={() => setSelected(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 160,
-            background: "rgba(20,12,6,0.55)",
-            padding: 16,
-            display: "flex",
-            alignItems: "flex-end",
-          }}
-        >
-          <div
-            onClick={(event) => event.stopPropagation()}
+      <AnimatePresence>
+        {selected && (
+          <motion.div
+            onClick={() => setSelected(null)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
             style={{
-              width: "100%",
-              maxHeight: "88vh",
-              overflowY: "auto",
-              background: c.white,
-              borderRadius: "18px 18px 12px 12px",
-              boxShadow: "0 16px 40px rgba(0,0,0,0.28)",
+              position: "fixed",
+              inset: 0,
+              zIndex: 160,
+              background: "rgba(20,12,6,0.58)",
               padding: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backdropFilter: "blur(3px)",
             }}
           >
+            <motion.div
+              onClick={(event) => event.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.88, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 16 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              style={{
+                width: "min(100%, 360px)",
+                aspectRatio: "1 / 1",
+                maxHeight: "min(86vh, 360px)",
+                overflowY: "auto",
+                background: c.white,
+                borderRadius: 18,
+                boxShadow: "0 18px 46px rgba(0,0,0,0.32)",
+                padding: 14,
+                border: "1px solid rgba(255,240,196,0.42)",
+              }}
+            >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
               <div>
                 <p style={{ margin: 0, fontFamily: fonts.display, fontSize: 18, fontWeight: 800, color: c.darkBrown }}>
@@ -465,6 +487,7 @@ export function ITSupportDashboard() {
               </div>
               <button
                 onClick={() => setSelected(null)}
+                aria-label="Close request details"
                 style={{
                   border: "none",
                   background: `${c.baseRed}10`,
@@ -474,6 +497,15 @@ export function ITSupportDashboard() {
                   height: 34,
                   fontWeight: 900,
                   cursor: "pointer",
+                  transition: "transform 0.16s ease, background 0.16s ease",
+                }}
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.transform = "scale(1.05)";
+                  event.currentTarget.style.background = `${c.baseRed}18`;
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.transform = "scale(1)";
+                  event.currentTarget.style.background = `${c.baseRed}10`;
                 }}
               >
                 x
@@ -560,15 +592,27 @@ export function ITSupportDashboard() {
                   justifyContent: "center",
                   gap: 8,
                   opacity: isSaving ? 0.7 : 1,
+                  cursor: isSaving ? "default" : "pointer",
+                  transition: "transform 0.16s ease, box-shadow 0.16s ease",
+                }}
+                onMouseEnter={(event) => {
+                  if (isSaving) return;
+                  event.currentTarget.style.transform = "translateY(-1px)";
+                  event.currentTarget.style.boxShadow = shadow.button;
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.transform = "translateY(0)";
+                  event.currentTarget.style.boxShadow = "none";
                 }}
               >
                 {isSaving ? <Loader2 size={16} className="animate-spin" /> : <MessageSquareText size={16} />}
                 {isSaving ? "Saving..." : "Update Request"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

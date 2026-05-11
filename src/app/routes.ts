@@ -12,8 +12,10 @@ import { MapView } from "./screens/MapView";
 import { MapSearch } from "./screens/MapSearch";
 import { LocationDetail } from "./screens/LocationDetail";
 import { Profile } from "./screens/Profile";
+import { HelpSupport } from "./screens/HelpSupport";
 import { EditProfile } from "./screens/EditProfile";
 import { Settings } from "./screens/Settings";
+import { PrivacyPolicy, TermsOfService } from "./screens/LegalPage";
 import { Security } from "./screens/Security";
 import { Notifications } from "./screens/Notifications";
 import { NotificationSettings } from "./screens/NotificationSettings";
@@ -67,8 +69,11 @@ export const router = createBrowserRouter([
           { path: "notifications/settings", Component: NotificationSettings },
           { path: "assistance", Component: Assistance },
           { path: "profile", Component: Profile },
+          { path: "help-support", Component: HelpSupport },
           { path: "profile/edit", Component: EditProfile },
           { path: "settings", Component: Settings },
+          { path: "settings/terms", Component: TermsOfService },
+          { path: "settings/privacy", Component: PrivacyPolicy },
           { path: "settings/security", Component: Security },
           {
             path: "admin",

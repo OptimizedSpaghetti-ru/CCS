@@ -87,6 +87,10 @@ function getGreeting() {
   return "Good evening,";
 }
 
+function isAssistanceNotification(row: any) {
+  return Boolean(row?.recipient_id || row?.target_role === "it_support");
+}
+
 export function Home() {
   const { currentUser } = useApp();
   const navigate = useNavigate();
@@ -114,7 +118,9 @@ export function Home() {
         const visible = (notifs as any[]).filter((n) => {
           if (n.recipient_id && n.recipient_id !== currentUser.id) return false;
           if (n.recipient_id === currentUser.id) return true;
-          if (currentUser.role === "admin") return true;
+          if (currentUser.role === "admin") {
+            return !isAssistanceNotification(n);
+          }
           if (currentUser.role === "student") {
             return n.target_role === "student" || n.target_role === null;
           }

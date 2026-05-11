@@ -7,17 +7,18 @@ import {
   Trash2,
   CheckCircle,
   Settings,
+  Wrench,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { TopBar } from "../components/TopBar";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
 
-const tabs = ["All", "Messages", "Announcements"];
+const tabs = ["All", "Messages", "Announcements", "Assistance"];
 
 interface Notif {
   id: string;
-  type: "message" | "announcement" | "event";
+  type: "message" | "announcement" | "event" | "assistance";
   source: "notification" | "message";
   title: string;
   body: string;
@@ -37,7 +38,12 @@ const typeConfig = {
   message: { icon: MessageSquare, color: c.baseRed, label: "Message" },
   announcement: { icon: Megaphone, color: "#D97706", label: "Announcement" },
   event: { icon: Calendar, color: "#1D4ED8", label: "Event" },
+  assistance: { icon: Wrench, color: "#059669", label: "Assistance" },
 };
+
+function isAssistanceNotification(row: any) {
+  return Boolean(row?.recipient_id || row?.target_role === "it_support");
+}
 
 function NotifItem({
   notif,
@@ -301,9 +307,11 @@ export function Notifications() {
 
           return {
             id: n.id,
-            type: (["announcement", "event"].includes(n.type)
-              ? n.type
-              : "announcement") as Notif["type"],
+            type: isAssistanceNotification(n)
+              ? "assistance"
+              : (["announcement", "event"].includes(n.type)
+                  ? n.type
+                  : "announcement"),
             source: "notification",
             title: n.title?.trim() || "Notification",
             body: n.body?.trim() || "Tap to view details.",
@@ -452,7 +460,9 @@ export function Notifications() {
       ? true
       : activeTab === "Messages"
         ? n.type === "message"
-        : n.type === "announcement",
+        : activeTab === "Assistance"
+          ? n.type === "assistance"
+          : n.type === "announcement" || n.type === "event",
   );
 
   const grouped = filtered.reduce(
@@ -605,7 +615,7 @@ export function Notifications() {
           borderBottom: `1px solid ${isDark ? "rgba(255,232,217,0.12)" : "transparent"}`,
         }}
       >
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
           {tabs.map((tab) => (
             <button
               className="hover-press"

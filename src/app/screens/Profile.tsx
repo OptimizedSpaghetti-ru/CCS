@@ -469,6 +469,7 @@ export function Profile() {
             <SettingRow
               icon={<HelpCircle size={16} />}
               label="Help & Support"
+              onClick={() => navigate("/app/help-support")}
             />
             {currentUser.role !== "it_support" && (
               <SettingRow

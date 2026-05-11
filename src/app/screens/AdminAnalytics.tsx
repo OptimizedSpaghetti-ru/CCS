@@ -24,6 +24,7 @@ import {
   MessageSquare,
   RefreshCw,
   Users,
+  Wrench,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { TopBar } from "../components/TopBar";
@@ -57,10 +58,19 @@ type MessageAnalyticsRow = {
   created_at: string | null;
 };
 
+type AssistanceAnalyticsRow = {
+  id: string;
+  status: string | null;
+  category: string | null;
+  priority: string | null;
+  created_at: string | null;
+};
+
 type AnalyticsData = {
   profiles: ProfileAnalyticsRow[];
   notifications: NotificationAnalyticsRow[];
   messages: MessageAnalyticsRow[];
+  assistance: AssistanceAnalyticsRow[];
 };
 
 type SeriesRow = {
@@ -68,6 +78,7 @@ type SeriesRow = {
   users: number;
   announcements: number;
   messages: number;
+  assistance: number;
   total: number;
 };
 
@@ -351,6 +362,7 @@ export function AdminAnalytics() {
     profiles: [],
     notifications: [],
     messages: [],
+    assistance: [],
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -375,7 +387,7 @@ export function AdminAnalytics() {
     setError("");
     setMessageAccessWarning("");
 
-    const [profilesResult, notificationsResult, messagesResult] = await Promise.all([
+    const [profilesResult, notificationsResult, messagesResult, assistanceResult] = await Promise.all([
       supabase
         .from("profiles")
         .select("id, role, status, created_at, is_online, show_online_status")
@@ -388,12 +400,17 @@ export function AdminAnalytics() {
         .from("messages")
         .select("id, created_at")
         .order("created_at", { ascending: true }),
+      supabase
+        .from("assistance_requests")
+        .select("id, status, category, priority, created_at")
+        .order("created_at", { ascending: true }),
     ]);
 
-    if (profilesResult.error || notificationsResult.error) {
+    if (profilesResult.error || notificationsResult.error || assistanceResult.error) {
       setError(
         profilesResult.error?.message ??
           notificationsResult.error?.message ??
+          assistanceResult.error?.message ??
           "Unable to load analytics.",
       );
       setIsLoading(false);
@@ -442,6 +459,7 @@ export function AdminAnalytics() {
       messages: messagesResult.error
         ? []
         : ((messagesResult.data ?? []) as MessageAnalyticsRow[]),
+      assistance: (assistanceResult.data ?? []) as AssistanceAnalyticsRow[],
     });
     setIsLoading(false);
   }, []);
@@ -456,6 +474,7 @@ export function AdminAnalytics() {
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, loadAnalytics)
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, loadAnalytics)
       .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, loadAnalytics)
+      .on("postgres_changes", { event: "*", schema: "public", table: "assistance_requests" }, loadAnalytics)
       .subscribe();
 
     return () => {
@@ -475,8 +494,11 @@ export function AdminAnalytics() {
     const messages = data.messages.filter((item) =>
       isWithinRange(item.created_at, dateRange.start, dateRange.end),
     );
+    const assistance = data.assistance.filter((item) =>
+      isWithinRange(item.created_at, dateRange.start, dateRange.end),
+    );
 
-    return { profiles, announcements, messages };
+    return { profiles, announcements, messages, assistance };
   }, [data, dateRange.end, dateRange.start]);
 
   const roleCounts = useMemo(
@@ -514,7 +536,14 @@ export function AdminAnalytics() {
     const map = new Map<string, SeriesRow>();
     const ensure = (label: string) => {
       if (!map.has(label)) {
-        map.set(label, { label, users: 0, announcements: 0, messages: 0, total: 0 });
+        map.set(label, {
+          label,
+          users: 0,
+          announcements: 0,
+          messages: 0,
+          assistance: 0,
+          total: 0,
+        });
       }
       return map.get(label)!;
     };
@@ -534,9 +563,20 @@ export function AdminAnalytics() {
       row.messages += 1;
       row.total += 1;
     });
+    filtered.assistance.forEach((item) => {
+      const row = ensure(getBucketLabel(item.created_at, filterMode));
+      row.assistance += 1;
+      row.total += 1;
+    });
 
     return [...map.values()];
-  }, [filterMode, filtered.announcements, filtered.messages, filtered.profiles]);
+  }, [
+    filterMode,
+    filtered.announcements,
+    filtered.assistance,
+    filtered.messages,
+    filtered.profiles,
+  ]);
 
   const accountSeries = useMemo(
     () =>
@@ -560,6 +600,7 @@ export function AdminAnalytics() {
   const totalAnnouncements = data.notifications.filter(
     (item) => item.type === "announcement",
   ).length;
+  const totalAssistance = data.assistance.length;
   const announcementAuthorSeries = useMemo(
     () => [
       {
@@ -578,8 +619,43 @@ export function AdminAnalytics() {
     [filtered.announcements],
   );
 
+  const assistanceSeries = useMemo(
+    () =>
+      activitySeries.map((row) => ({
+        label: row.label,
+        submitted: row.assistance,
+      })),
+    [activitySeries],
+  );
+
+  const assistanceStatusSeries = useMemo(() => {
+    const order = ["Pending", "In Progress", "Resolved", "Rejected/Closed"];
+    return order.map((status) => ({
+      label: status,
+      value: filtered.assistance.filter((item) => item.status === status).length,
+    }));
+  }, [filtered.assistance]);
+
+  const assistanceCategorySeries = useMemo(() => {
+    const map = new Map<string, number>();
+    filtered.assistance.forEach((item) => {
+      const label = item.category || "Uncategorized";
+      map.set(label, (map.get(label) ?? 0) + 1);
+    });
+    return [...map.entries()].map(([label, value]) => ({ label, value }));
+  }, [filtered.assistance]);
+
+  const assistancePrioritySeries = useMemo(() => {
+    const order = ["Low", "Medium", "High", "Urgent"];
+    return order.map((priority) => ({
+      label: priority,
+      value: filtered.assistance.filter((item) => item.priority === priority).length,
+    }));
+  }, [filtered.assistance]);
+
   const rangeLabel = `${formatRangeDate(dateRange.start)} - ${formatRangeDate(dateRange.end)}`;
   const hasChartData = activitySeries.some((row) => row.total > 0);
+  const hasAssistanceData = filtered.assistance.length > 0;
 
   const exportAnalytics = () => {
     const summaryRows: Array<Array<string | number>> = [
@@ -598,6 +674,8 @@ export function AdminAnalytics() {
       ["Total Announcements Posted", totalAnnouncements],
       ["Announcements in Filter", filtered.announcements.length],
       ["Messages in Filter", filtered.messages.length],
+      ["Total Assistance Requests", totalAssistance],
+      ["Assistance Requests in Filter", filtered.assistance.length],
     ];
 
     const workbook = createWorkbook([
@@ -636,7 +714,14 @@ export function AdminAnalytics() {
       {
         name: "Activity",
         rows: [
-          ["Period", "Accounts Created", "Announcements Posted", "Messages Sent", "Total"],
+          [
+            "Period",
+            "Accounts Created",
+            "Announcements Posted",
+            "Messages Sent",
+            "Assistance Submitted",
+            "Total",
+          ],
           ...activitySeries.map(
             (row) =>
               [
@@ -644,8 +729,41 @@ export function AdminAnalytics() {
                 asNumber(row.users),
                 asNumber(row.announcements),
                 asNumber(row.messages),
+                asNumber(row.assistance),
                 asNumber(row.total),
               ] as Array<string | number>,
+          ),
+        ],
+      },
+      {
+        name: "Assistance Summary",
+        rows: [
+          ["Metric", "Value"],
+          ["Total Submitted All Time", totalAssistance],
+          ["Submitted in Filter", filtered.assistance.length],
+          [],
+          ["Status", "Count"],
+          ...assistanceStatusSeries.map(
+            (row) => [row.label, row.value] as Array<string | number>,
+          ),
+          [],
+          ["Category", "Count"],
+          ...assistanceCategorySeries.map(
+            (row) => [row.label, row.value] as Array<string | number>,
+          ),
+          [],
+          ["Priority", "Count"],
+          ...assistancePrioritySeries.map(
+            (row) => [row.label, row.value] as Array<string | number>,
+          ),
+        ],
+      },
+      {
+        name: "Assistance Over Time",
+        rows: [
+          ["Period", "Submitted Requests"],
+          ...assistanceSeries.map(
+            (row) => [row.label, row.submitted] as Array<string | number>,
           ),
         ],
       },
@@ -862,6 +980,7 @@ export function AdminAnalytics() {
               <StatCard icon={MessageSquare} label="Messages Sent" value={data.messages.length} helper={`${filtered.messages.length} in filter`} />
               <StatCard icon={BarChart3} label="Students" value={roleCounts.student} helper={`${roleCounts.faculty} faculty, ${roleCounts.itSupport} IT support`} />
               <StatCard icon={Megaphone} label="Announcements" value={totalAnnouncements} helper={`${filtered.announcements.length} in filter`} />
+              <StatCard icon={Wrench} label="Assistance" value={totalAssistance} helper={`${filtered.assistance.length} in filter`} />
             </section>
 
             <ChartCard title="Account Creation" empty={!hasChartData}>
@@ -949,21 +1068,78 @@ export function AdminAnalytics() {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 1fr 1fr",
+                        gridTemplateColumns: "1fr 1fr",
                         gap: 6,
                       }}
                     >
                       <ActivityChip label="Accounts" value={row.users} color={palette.red} />
                       <ActivityChip label="Posts" value={row.announcements} color={palette.dark} />
                       <ActivityChip label="Messages" value={row.messages} color={palette.gold} />
+                      <ActivityChip label="Assist" value={row.assistance} color="#059669" />
                     </div>
                   </div>
                 ))}
               </div>
             </ChartCard>
 
+            <ChartCard title="Assistance Submitted" empty={!hasAssistanceData}>
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={assistanceSeries} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
+                  <CartesianGrid stroke="rgba(102,11,5,0.10)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: palette.muted }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: palette.muted }} axisLine={false} tickLine={false} />
+                  <Tooltip />
+                  <Line
+                    type="monotone"
+                    dataKey="submitted"
+                    name="Submitted requests"
+                    stroke="#059669"
+                    strokeWidth={3}
+                    dot={{ r: 3, fill: "#059669" }}
+                    activeDot={{ r: 5, fill: palette.red }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Assistance by Status" empty={!hasAssistanceData}>
+              <ResponsiveContainer width="100%" height={210}>
+                <BarChart data={assistanceStatusSeries} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
+                  <CartesianGrid stroke="rgba(102,11,5,0.10)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: palette.muted }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: palette.muted }} axisLine={false} tickLine={false} />
+                  <Tooltip />
+                  <Bar dataKey="value" fill={palette.red} radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Assistance by Category" empty={!hasAssistanceData}>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={assistanceCategorySeries} layout="vertical" margin={{ top: 8, right: 8, left: 16, bottom: 0 }}>
+                  <CartesianGrid stroke="rgba(102,11,5,0.10)" horizontal={false} />
+                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10, fill: palette.muted }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="label" width={92} tick={{ fontSize: 9, fill: palette.muted }} axisLine={false} tickLine={false} />
+                  <Tooltip />
+                  <Bar dataKey="value" fill={palette.dark} radius={[0, 8, 8, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Assistance by Priority" empty={!hasAssistanceData}>
+              <ResponsiveContainer width="100%" height={210}>
+                <BarChart data={assistancePrioritySeries} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
+                  <CartesianGrid stroke="rgba(102,11,5,0.10)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: palette.muted }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: palette.muted }} axisLine={false} tickLine={false} />
+                  <Tooltip />
+                  <Bar dataKey="value" fill={palette.gold} radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
             <ChartCard
-              title="Student vs Faculty Accounts"
+              title="Accounts by Role"
               empty={rolePie.every((slice) => slice.value === 0)}
             >
               <ResponsiveContainer width="100%" height={230}>
