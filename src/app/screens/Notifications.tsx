@@ -28,6 +28,7 @@ interface Notif {
   title: string;
   body: string;
   imageUrl?: string;
+  announcementId?: string;
   createdBy?: string | null;
   authorName?: string;
   authorRole?: string;
@@ -84,7 +85,7 @@ function NotifItem({
 }: {
   notif: Notif;
   onDismiss: (notif: Notif) => void;
-  onOpenAnnouncement: (notif: Notif) => void;
+  onOpenAnnouncement: (notif: Notif) => void | Promise<void>;
   isDark: boolean;
 }) {
   const navigate = useNavigate();
@@ -365,6 +366,26 @@ export function Notifications() {
     return role.charAt(0).toUpperCase() + role.slice(1);
   }
 
+  async function getAuthorMeta(authorId: unknown, fallbackRole: unknown) {
+    if (typeof authorId !== "string" || !authorId) {
+      return {
+        authorName: "CCS Connect",
+        authorRole: formatRole(fallbackRole),
+      };
+    }
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("full_name, role")
+      .eq("id", authorId)
+      .maybeSingle();
+
+    return {
+      authorName: data?.full_name?.trim() || "CCS Connect",
+      authorRole: formatRole(data?.role ?? fallbackRole),
+    };
+  }
+
   const loadNotifs = useCallback(async () => {
     setLoading(true);
 
@@ -462,6 +483,7 @@ export function Notifications() {
               title: n.title?.trim() || "Notification",
               body: n.body?.trim() || "Tap to view details.",
               imageUrl: n.image_url ?? undefined,
+              announcementId: n.announcement_id ?? undefined,
               createdBy: n.created_by ?? null,
               authorName: author?.full_name?.trim() || undefined,
               authorRole: formatRole(author?.role),
@@ -727,8 +749,36 @@ export function Notifications() {
     }
   };
 
-  const openAnnouncement = (notif: Notif) => {
+  const openAnnouncement = async (notif: Notif) => {
     const conf = typeConfig[notif.type] ?? typeConfig.announcement;
+
+    if (notif.announcementId) {
+      const { data: announcement, error } = await supabase
+        .from("announcements")
+        .select("*")
+        .eq("id", notif.announcementId)
+        .maybeSingle();
+
+      if (!error && announcement) {
+        const author = await getAuthorMeta(
+          announcement.created_by,
+          announcement.created_by_role,
+        );
+
+        setSelectedAnnouncement({
+          id: announcement.id,
+          title: announcement.title?.trim() || notif.title,
+          body: announcement.body?.trim() || notif.body,
+          imageUrl: announcement.image_url ?? notif.imageUrl,
+          authorName: author.authorName,
+          authorRole: author.authorRole,
+          createdAt: announcement.created_at ?? notif.createdAt,
+          category: announcement.category || conf.label,
+        });
+        return;
+      }
+    }
+
     setSelectedAnnouncement({
       id: notif.id,
       title: notif.title,
@@ -837,67 +887,76 @@ export function Notifications() {
 
       {/* Notification List */}
       <div style={{ flex: 1, overflowY: "auto", background: c.creamLight }}>
-        {loading ? (
-          <NotificationsLoading isDark={isDark} />
-        ) : Object.entries(grouped).length === 0 ? (
-          <div style={{ padding: "60px 32px", textAlign: "center" }}>
-            <h3
-              style={{
-                fontFamily: fonts.display,
-                fontSize: 18,
-                color: c.darkBrown,
-                margin: "0 0 8px",
-              }}
-            >
-              You're all caught up!
-            </h3>
-            <p
-              style={{
-                fontFamily: fonts.ui,
-                fontSize: 14,
-                color: c.warmGray,
-                margin: 0,
-              }}
-            >
-              No notifications right now.
-            </p>
-          </div>
-        ) : (
-          Object.entries(grouped).map(([day, dayNotifs]) => (
-            <div key={day}>
-              <div
+        <div key={activeTab} className="notifications-filter-panel">
+          {loading ? (
+            <NotificationsLoading isDark={isDark} />
+          ) : Object.entries(grouped).length === 0 ? (
+            <div style={{ padding: "60px 32px", textAlign: "center" }}>
+              <h3
                 style={{
-                  padding: "10px 16px 6px",
-                  background: c.creamLight,
-                  borderTop: `1px solid ${isDark ? "rgba(255,232,217,0.06)" : "transparent"}`,
+                  fontFamily: fonts.display,
+                  fontSize: 18,
+                  color: c.darkBrown,
+                  margin: "0 0 8px",
                 }}
               >
-                <p
+                You're all caught up!
+              </h3>
+              <p
+                style={{
+                  fontFamily: fonts.ui,
+                  fontSize: 14,
+                  color: c.warmGray,
+                  margin: 0,
+                }}
+              >
+                No notifications right now.
+              </p>
+            </div>
+          ) : (
+            Object.entries(grouped).map(([day, dayNotifs], groupIndex) => (
+              <div key={day}>
+                <div
                   style={{
-                    fontFamily: fonts.ui,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: c.warmGray,
-                    margin: 0,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.8,
+                    padding: "10px 16px 6px",
+                    background: c.creamLight,
+                    borderTop: `1px solid ${isDark ? "rgba(255,232,217,0.06)" : "transparent"}`,
                   }}
                 >
-                  {day}
-                </p>
+                  <p
+                    style={{
+                      fontFamily: fonts.ui,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: c.warmGray,
+                      margin: 0,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.8,
+                    }}
+                  >
+                    {day}
+                  </p>
+                </div>
+                {dayNotifs.map((n, itemIndex) => (
+                  <div
+                    key={n.id}
+                    className="notifications-filter-item"
+                    style={{
+                      animationDelay: `${Math.min(groupIndex * 35 + itemIndex * 28, 180)}ms`,
+                    }}
+                  >
+                    <NotifItem
+                      notif={n}
+                      onDismiss={dismiss}
+                      onOpenAnnouncement={openAnnouncement}
+                      isDark={isDark}
+                    />
+                  </div>
+                ))}
               </div>
-              {dayNotifs.map((n) => (
-                <NotifItem
-                  key={n.id}
-                  notif={n}
-                  onDismiss={dismiss}
-                  onOpenAnnouncement={openAnnouncement}
-                  isDark={isDark}
-                />
-              ))}
-            </div>
-          ))
-        )}
+            ))
+          )}
+        </div>
       </div>
       <AnnouncementDetailSheet
         announcement={selectedAnnouncement}

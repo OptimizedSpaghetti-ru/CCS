@@ -21,7 +21,8 @@ type FacultyAnnouncement = {
   title: string;
   body: string;
   image_url?: string | null;
-  target_role: string | null;
+  target_role?: string | null;
+  target_audience?: string | null;
   created_at: string;
   created_by: string | null;
 };
@@ -78,15 +79,21 @@ export function FacultyAnnouncements() {
   const loadAnnouncements = useCallback(async () => {
     setIsLoading(true);
     const { data, error: fetchError } = await supabase
-      .from("notifications")
-      .select("id, title, body, image_url, target_role, created_at, created_by")
+      .from("announcements")
+      .select("id, title, body, image_url, target_audience, created_at, created_by")
       .eq("created_by", currentUser.id)
-      .eq("type", "announcement")
+      .eq("target_audience", "student")
+      .eq("is_published", true)
       .order("created_at", { ascending: false })
       .limit(30);
 
     if (!fetchError && data) {
-      setAnnouncements(data as FacultyAnnouncement[]);
+      setAnnouncements(
+        (data as FacultyAnnouncement[]).map((item) => ({
+          ...item,
+          target_role: item.target_audience ?? "student",
+        })),
+      );
     }
     setIsLoading(false);
   }, [currentUser.id]);
@@ -101,7 +108,7 @@ export function FacultyAnnouncements() {
         {
           event: "*",
           schema: "public",
-          table: "notifications",
+          table: "announcements",
           filter: `created_by=eq.${currentUser.id}`,
         },
         () => {
@@ -170,9 +177,31 @@ export function FacultyAnnouncements() {
         .getPublicUrl(filePath).data.publicUrl;
     }
 
-    // Server-side: RLS policy also enforces target_role = 'student' for faculty
+    const { data: announcement, error: announcementError } = await supabase
+      .from("announcements")
+      .insert({
+        title: trimmedTitle,
+        body: trimmedBody,
+        image_url: imageUrl,
+        target_audience: FACULTY_TARGET_ROLE,
+        category: "Announcement",
+        created_by: currentUser.id,
+        created_by_role: currentUser.role,
+        is_published: true,
+      })
+      .select("id")
+      .single();
+
+    if (announcementError || !announcement) {
+      setError(announcementError?.message ?? "Failed to save announcement.");
+      setIsSaving(false);
+      return;
+    }
+
+    // Server-side: RLS policy also enforces target audience = 'student' for faculty
     const { error: insertError } = await supabase.from("notifications").insert({
       type: "announcement",
+      announcement_id: announcement.id,
       title: trimmedTitle,
       body: trimmedBody,
       image_url: imageUrl,
@@ -200,8 +229,14 @@ export function FacultyAnnouncements() {
     setError("");
     setFeedback("");
 
-    const { error: deleteError } = await supabase
+    await supabase
       .from("notifications")
+      .delete()
+      .eq("announcement_id", id)
+      .eq("created_by", currentUser.id);
+
+    const { error: deleteError } = await supabase
+      .from("announcements")
       .delete()
       .eq("id", id)
       .eq("created_by", currentUser.id); // extra guard: only own rows

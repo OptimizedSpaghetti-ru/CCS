@@ -80,11 +80,14 @@ type AnnouncementRow = {
   id: string;
   title: string;
   body: string;
-  type: string;
+  type?: string;
   image_url?: string | null;
-  target_role: string | null;
+  target_role?: string | null;
+  target_audience?: string | null;
+  category?: string | null;
   created_at: string;
   created_by: string | null;
+  created_by_role?: string | null;
   author_name?: string;
 };
 
@@ -288,10 +291,11 @@ export function AdminDashboard() {
         )
         .order("uploaded_at", { ascending: false }),
       supabase
-        .from("notifications")
+        .from("announcements")
         .select(
-          "id, title, body, type, image_url, target_role, created_at, created_by",
+          "id, title, body, image_url, target_audience, category, created_at, created_by, created_by_role",
         )
+        .eq("is_published", true)
         .order("created_at", { ascending: false })
         .limit(20),
     ]);
@@ -338,6 +342,8 @@ export function AdminDashboard() {
     setAnnouncements(
       rawNotifs.map((n) => ({
         ...n,
+        type: n.category === "Event" ? "event" : "announcement",
+        target_role: n.target_audience ?? null,
         author_name: n.created_by
           ? authorsMap[n.created_by] ?? "Admin"
           : "System",
@@ -771,8 +777,30 @@ export function AdminDashboard() {
         .getPublicUrl(filePath).data.publicUrl;
     }
 
+    const { data: announcement, error: announcementError } = await supabase
+      .from("announcements")
+      .insert({
+        title,
+        body,
+        image_url: imageUrl,
+        target_audience: targetRole || "all",
+        category: "Announcement",
+        created_by: currentUser.id || null,
+        created_by_role: currentUser.role,
+        is_published: true,
+      })
+      .select("id")
+      .single();
+
+    if (announcementError || !announcement) {
+      setError(announcementError?.message ?? "Failed to save announcement.");
+      setIsSaving(false);
+      return;
+    }
+
     const { error: insertError } = await supabase.from("notifications").insert({
       type: "announcement",
+      announcement_id: announcement.id,
       title,
       body,
       image_url: imageUrl,
@@ -801,8 +829,13 @@ export function AdminDashboard() {
     setError("");
     setFeedback("");
 
-    const { error: deleteError } = await supabase
+    await supabase
       .from("notifications")
+      .delete()
+      .eq("announcement_id", notificationId);
+
+    const { error: deleteError } = await supabase
+      .from("announcements")
       .delete()
       .eq("id", notificationId);
 

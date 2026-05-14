@@ -130,7 +130,7 @@ function canSeeAnnouncement(row: any, user: { id: string; role: string }) {
   if (user.role === "admin") return true;
   if (user.role === "faculty" && row.created_by === user.id) return true;
 
-  const target = String(row.target_role ?? "").trim().toLowerCase();
+  const target = String(row.target_audience ?? row.target_role ?? "").trim().toLowerCase();
   if (!target || ["all", "all_roles", "everyone", "public"].includes(target)) {
     return true;
   }
@@ -160,21 +160,22 @@ export function Home() {
       setAnnouncementsError("");
 
       try {
-        const { data: typedRows, error: typedError } = await supabase
-          .from("notifications")
+        const { data: announcementRows, error: announcementError } = await supabase
+          .from("announcements")
           .select("*")
-          .in("type", ["announcement", "event"])
+          .eq("is_published", true)
           .order("created_at", { ascending: false })
           .limit(50);
 
-        let rows = typedRows ?? [];
+        let rows = announcementRows ?? [];
 
-        if (typedError) {
+        if (announcementError) {
           const { data: fallbackRows, error: fallbackError } = await supabase
             .from("notifications")
             .select("*")
+            .in("type", ["announcement", "event"])
             .order("created_at", { ascending: false })
-            .limit(200);
+            .limit(50);
 
           if (fallbackError) throw fallbackError;
           rows = fallbackRows ?? [];
@@ -213,7 +214,8 @@ export function Home() {
         setAnnouncements(
           visible.slice(0, 5).map((n: any) => {
             const author = n.created_by ? authorMap.get(n.created_by) : null;
-            const category = n.type === "event" ? "Event" : "Announcement";
+            const category =
+              n.category || (n.type === "event" ? "Event" : "Announcement");
 
             return {
               id: n.id,
@@ -223,12 +225,12 @@ export function Home() {
               createdAt: n.created_at,
               imageUrl: n.image_url ?? undefined,
               authorName: author?.full_name?.trim() || "CCS Connect",
-              authorRole: formatRole(author?.role),
+              authorRole: formatRole(author?.role ?? n.created_by_role),
               category,
               type:
-                n.type === "announcement"
+                category === "Announcement"
                   ? "urgent"
-                  : n.type === "event"
+                  : category === "Event"
                     ? "warning"
                     : "info",
             };
@@ -240,7 +242,7 @@ export function Home() {
         setAnnouncements([]);
         setAnnouncementsError(message);
         console.warn("Failed to load home announcements", message, {
-          source: "notifications",
+          source: "announcements",
           role: currentUser.role,
         });
       } finally {
