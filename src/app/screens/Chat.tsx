@@ -13,6 +13,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+import { AppLoadingState } from "../components/AppLoadingState";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
 
@@ -229,7 +230,8 @@ function MessageBubble({
 export function Chat() {
   const navigate = useNavigate();
   const { id: conversationId } = useParams();
-  const { currentUser } = useApp();
+  const { resolvedThemeMode } = useApp();
+  const isDark = resolvedThemeMode === "dark";
   const [text, setText] = useState("");
   const [messages, setMessages] = useState<MsgRow[]>([]);
   const [chat, setChat] = useState<ChatMeta>({
@@ -563,17 +565,11 @@ export function Chat() {
         )}
 
         {loading ? (
-          <p
-            style={{
-              fontFamily: fonts.ui,
-              fontSize: 13,
-              color: c.warmGray,
-              textAlign: "center",
-              padding: "20px 0",
-            }}
-          >
-            Loading messages…
-          </p>
+          <AppLoadingState
+            message="Loading messages..."
+            detail="Opening this conversation."
+            isDark={isDark}
+          />
         ) : messages.length === 0 ? (
           <p
             style={{

@@ -15,6 +15,7 @@ import {
   Laugh,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+import { AppLoadingState } from "../components/AppLoadingState";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
 
@@ -214,7 +215,8 @@ function GroupMessage({ msg }: { msg: GroupMsg }) {
 export function GroupChat() {
   const navigate = useNavigate();
   const { id: conversationId } = useParams();
-  const { currentUser } = useApp();
+  const { currentUser, resolvedThemeMode } = useApp();
+  const isDark = resolvedThemeMode === "dark";
   const [text, setText] = useState("");
   const [groupMessages, setGroupMessages] = useState<GroupMsg[]>([]);
   const [groupTitle, setGroupTitle] = useState("Group Chat");
@@ -501,17 +503,11 @@ export function GroupChat() {
         )}
 
         {loading ? (
-          <p
-            style={{
-              fontFamily: fonts.ui,
-              fontSize: 13,
-              color: c.warmGray,
-              textAlign: "center",
-              padding: "20px 0",
-            }}
-          >
-            Loading…
-          </p>
+          <AppLoadingState
+            message="Loading messages..."
+            detail="Opening this conversation."
+            isDark={isDark}
+          />
         ) : (
           groupMessages.map((msg) => <GroupMessage key={msg.id} msg={msg} />)
         )}

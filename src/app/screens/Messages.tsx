@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { Search, Edit, ChevronRight } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { TopBar } from "../components/TopBar";
+import { AppLoadingState } from "../components/AppLoadingState";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
 
@@ -145,7 +146,8 @@ function RoleBadge({ role }: { role: string }) {
 
 export function Messages() {
   const navigate = useNavigate();
-  const { currentUser } = useApp();
+  const { resolvedThemeMode } = useApp();
+  const isDark = resolvedThemeMode === "dark";
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
@@ -410,17 +412,11 @@ export function Messages() {
       {/* Conversation List */}
       <div style={{ flex: 1, overflowY: "auto", background: c.creamLight }}>
         {loading ? (
-          <div style={{ padding: "40px 32px", textAlign: "center" }}>
-            <p
-              style={{
-                fontFamily: fonts.ui,
-                fontSize: 14,
-                color: c.warmGray,
-              }}
-            >
-              Loading conversations…
-            </p>
-          </div>
+          <AppLoadingState
+            message="Loading conversations..."
+            detail="Getting your recent messages."
+            isDark={isDark}
+          />
         ) : filtered.length === 0 ? (
           <div style={{ padding: "40px 32px", textAlign: "center" }}>
             <p

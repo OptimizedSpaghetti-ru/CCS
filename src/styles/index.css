@@ -124,6 +124,12 @@ body {
   }
 }
 
+@keyframes ccs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 [data-slot="select-content"][data-state="open"],
 [data-slot="dropdown-menu-content"][data-state="open"],
 [data-slot="dropdown-menu-sub-content"][data-state="open"] {
@@ -167,6 +173,7 @@ select:active:not(:disabled) {
   [data-slot="select-content"][data-state],
   [data-slot="dropdown-menu-content"][data-state],
   [data-slot="dropdown-menu-sub-content"][data-state],
+  [aria-busy="true"] svg,
   select {
     animation: none !important;
     transition-duration: 0.01ms !important;
