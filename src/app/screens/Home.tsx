@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import {
@@ -16,6 +16,46 @@ import {
   AnnouncementDetailSheet,
   type AnnouncementDetail,
 } from "../components/AnnouncementDetailSheet";
+
+/* ─────────────────────────────────────────────────────────────
+   Types
+───────────────────────────────────────────────────────────── */
+
+type HomeAnnouncement = AnnouncementDetail & {
+  time: string;
+  accentType: "urgent" | "warning" | "info";
+};
+
+/* ─────────────────────────────────────────────────────────────
+   Small helpers
+───────────────────────────────────────────────────────────── */
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning,";
+  if (h < 18) return "Good afternoon,";
+  return "Good evening,";
+}
+
+function formatRole(role: unknown): string {
+  if (typeof role !== "string" || !role) return "";
+  if (role === "it_support") return "IT Support";
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   QuickAction button
+───────────────────────────────────────────────────────────── */
 
 function QuickAction({
   icon,
@@ -74,186 +114,183 @@ function QuickAction({
   );
 }
 
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+/* ─────────────────────────────────────────────────────────────
+   Core fetch — completely self-contained, no filters except RLS
+───────────────────────────────────────────────────────────── */
 
-function getGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning,";
-  if (h < 18) return "Good afternoon,";
-  return "Good evening,";
-}
+async function fetchHomeAnnouncements(): Promise<HomeAnnouncement[]> {
+  // Step 1 — try the dedicated announcements table first
+  const { data: annData, error: annErr } = await supabase
+    .from("announcements")
+    .select(
+      "id, title, body, image_url, created_by, created_by_role, category, created_at",
+    )
+    .eq("is_published", true)
+    .order("created_at", { ascending: false })
+    .limit(10);
 
-function formatRole(role: unknown) {
-  if (typeof role !== "string" || !role) return "";
-  if (role === "it_support") return "IT Support";
-  return role.charAt(0).toUpperCase() + role.slice(1);
-}
+  if (annErr) {
+    // Log the real error so it appears in DevTools
+    console.error("[Home:announcements] fetch error →", {
+      code: annErr.code,
+      message: annErr.message,
+      details: (annErr as any).details,
+      hint: (annErr as any).hint,
+    });
 
-function isAssistanceNotification(row: any) {
-  if (isMessageNotification(row)) return false;
-  return (
-    row?.type === "assistance" ||
-    row?.target_role === "it_support" ||
-    [
-      "New assistance request",
-      "Assistance request received",
-      "Assistance request updated",
-      "Assistance request resolved",
-    ].includes(row?.title?.trim?.() ?? "")
-  );
-}
+    // Step 2 — fall back to the notifications table (legacy announcements)
+    const { data: notifData, error: notifErr } = await supabase
+      .from("notifications")
+      .select(
+        "id, title, body, image_url, created_by, type, created_at",
+      )
+      .in("type", ["announcement", "event"])
+      .order("created_at", { ascending: false })
+      .limit(10);
 
-function isMessageNotification(row: any) {
-  return Boolean(
-    row?.type === "message" ||
-      row?.message_id ||
-      (row?.conversation_id && row?.title?.trim?.() === "New Message"),
-  );
-}
+    if (notifErr) {
+      console.error("[Home:notifications-fallback] fetch error →", {
+        code: notifErr.code,
+        message: notifErr.message,
+      });
+      // Throw so the caller can set the error state
+      throw new Error(notifErr.message || "Unable to load announcements.");
+    }
 
-function isAnnouncementRow(row: any) {
-  if (row?.type === "announcement" || row?.type === "event") return true;
-  if (isMessageNotification(row) || isAssistanceNotification(row)) return false;
-  return Boolean(row?.title || row?.body || row?.image_url);
-}
-
-function canSeeAnnouncement(row: any, user: { id: string; role: string }) {
-  if (row.recipient_id && row.recipient_id !== user.id) return false;
-  if (row.recipient_id === user.id) return true;
-  if (user.role === "admin") return true;
-  if (user.role === "faculty" && row.created_by === user.id) return true;
-
-  const target = String(row.target_audience ?? row.target_role ?? "").trim().toLowerCase();
-  if (!target || ["all", "all_roles", "everyone", "public"].includes(target)) {
-    return true;
+    const rows = notifData ?? [];
+    return buildAnnouncementItems(rows, "notifications");
   }
 
-  return target === user.role;
+  const rows = annData ?? [];
+  return buildAnnouncementItems(rows, "announcements");
 }
+
+/** Fetch author display names for a list of user IDs */
+async function fetchAuthorMap(
+  ids: string[],
+): Promise<Map<string, { full_name: string | null; role: string | null }>> {
+  if (ids.length === 0) return new Map();
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, full_name, role")
+    .in("id", ids);
+
+  return new Map(
+    (data ?? []).map((p: any) => [
+      p.id,
+      { full_name: p.full_name ?? null, role: p.role ?? null },
+    ]),
+  );
+}
+
+/** Map raw DB rows → HomeAnnouncement array */
+async function buildAnnouncementItems(
+  rows: any[],
+  source: "announcements" | "notifications",
+): Promise<HomeAnnouncement[]> {
+  if (rows.length === 0) return [];
+
+  // Collect unique author IDs
+  const authorIds = [
+    ...new Set(
+      rows
+        .map((r) => r.created_by)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    ),
+  ];
+
+  const authorMap = await fetchAuthorMap(authorIds);
+
+  return rows.slice(0, 5).map((r): HomeAnnouncement => {
+    const author = r.created_by ? authorMap.get(r.created_by) : undefined;
+
+    const category: string =
+      r.category ||
+      (source === "notifications" && r.type === "event" ? "Event" : "Announcement");
+
+    const accentType: "urgent" | "warning" | "info" =
+      category === "Event" ? "warning" : "urgent";
+
+    return {
+      id: r.id,
+      title: r.title ?? "",
+      body: r.body ?? "",
+      time: timeAgo(r.created_at),
+      createdAt: r.created_at,
+      imageUrl: r.image_url ?? undefined,
+      authorName: author?.full_name?.trim() || "CCS Connect",
+      authorRole: formatRole(author?.role ?? r.created_by_role ?? ""),
+      category,
+      accentType,
+    };
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Home screen
+───────────────────────────────────────────────────────────── */
 
 export function Home() {
   const { currentUser, resolvedThemeMode } = useApp();
   const isDark = resolvedThemeMode === "dark";
   const navigate = useNavigate();
 
-  const [announcements, setAnnouncements] = useState<
-    (AnnouncementDetail & {
-      time: string;
-      type: string;
-    })[]
-  >([]);
+  const [announcements, setAnnouncements] = useState<HomeAnnouncement[]>([]);
   const [selectedAnnouncement, setSelectedAnnouncement] =
     useState<AnnouncementDetail | null>(null);
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
   const [announcementsError, setAnnouncementsError] = useState("");
 
+  // Keep a ref to the latest userId so we don't re-run on stale IDs
+  const fetchedForUser = useRef<string>("");
+
   useEffect(() => {
-    (async () => {
-      setAnnouncementsLoading(true);
-      setAnnouncementsError("");
+    // Don't fetch until we have a real, non-empty user ID
+    // (the auth context starts with an empty FALLBACK_USER)
+    if (!currentUser.id) return;
 
-      try {
-        const { data: announcementRows, error: announcementError } = await supabase
-          .from("announcements")
-          .select("*")
-          .eq("is_published", true)
-          .order("created_at", { ascending: false })
-          .limit(50);
+    // Avoid duplicate fetches for the same user
+    if (fetchedForUser.current === currentUser.id) return;
+    fetchedForUser.current = currentUser.id;
 
-        let rows = announcementRows ?? [];
+    let alive = true;
 
-        if (announcementError) {
-          const { data: fallbackRows, error: fallbackError } = await supabase
-            .from("notifications")
-            .select("*")
-            .in("type", ["announcement", "event"])
-            .order("created_at", { ascending: false })
-            .limit(50);
+    setAnnouncementsLoading(true);
+    setAnnouncementsError("");
 
-          if (fallbackError) throw fallbackError;
-          rows = fallbackRows ?? [];
-        }
-
-        const visible = (rows as any[])
-          .filter(isAnnouncementRow)
-          .filter((n) => canSeeAnnouncement(n, currentUser));
-
-        const authorIds = [
-          ...new Set(
-            visible
-              .map((n: any) => n.created_by)
-              .filter((id: unknown): id is string => typeof id === "string" && id.length > 0),
-          ),
-        ];
-        let authorMap = new Map<
-          string,
-          { full_name: string | null; role: string | null }
-        >();
-
-        if (authorIds.length > 0) {
-          const { data: authors } = await supabase
-            .from("profiles")
-            .select("id, full_name, role")
-            .in("id", authorIds);
-
-          authorMap = new Map(
-            (authors ?? []).map((author: any) => [
-              author.id,
-              { full_name: author.full_name ?? null, role: author.role ?? null },
-            ]),
-          );
-        }
-
-        setAnnouncements(
-          visible.slice(0, 5).map((n: any) => {
-            const author = n.created_by ? authorMap.get(n.created_by) : null;
-            const category =
-              n.category || (n.type === "event" ? "Event" : "Announcement");
-
-            return {
-              id: n.id,
-              title: n.title ?? "",
-              body: n.body ?? "",
-              time: timeAgo(n.created_at),
-              createdAt: n.created_at,
-              imageUrl: n.image_url ?? undefined,
-              authorName: author?.full_name?.trim() || "CCS Connect",
-              authorRole: formatRole(author?.role ?? n.created_by_role),
-              category,
-              type:
-                category === "Announcement"
-                  ? "urgent"
-                  : category === "Event"
-                    ? "warning"
-                    : "info",
-            };
-          }),
-        );
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unable to load announcements.";
+    fetchHomeAnnouncements()
+      .then((items) => {
+        if (!alive) return;
+        setAnnouncements(items);
+        setAnnouncementsError("");
+      })
+      .catch((err: unknown) => {
+        if (!alive) return;
+        const msg =
+          err instanceof Error
+            ? err.message
+            : typeof (err as any)?.message === "string"
+              ? (err as any).message
+              : "Unable to load announcements right now.";
+        console.error("[Home] announcements failed →", err);
         setAnnouncements([]);
-        setAnnouncementsError(message);
-        console.warn("Failed to load home announcements", message, {
-          source: "announcements",
-          role: currentUser.role,
-        });
-      } finally {
-        setAnnouncementsLoading(false);
-      }
-    })();
-  }, [currentUser.id, currentUser.role]);
+        setAnnouncementsError(msg);
+      })
+      .finally(() => {
+        if (alive) setAnnouncementsLoading(false);
+      });
 
+    return () => {
+      alive = false;
+    };
+  // Re-fetch if the signed-in user changes (e.g. after login/logout)
+  }, [currentUser.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ─── Render ─────────────────────────────────────────────── */
   return (
     <div style={{ flex: 1, overflowY: "auto", background: c.creamLight }}>
-      {/* Hero Header */}
+      {/* ── Hero Header ── */}
       <div
         style={{
           background: g.header,
@@ -331,9 +368,9 @@ export function Home() {
                 ? "Administrator"
                 : currentUser.role === "it_support"
                   ? "IT Support"
-                : currentUser.role === "faculty"
-                  ? "Faculty"
-                  : currentUser.identifier}
+                  : currentUser.role === "faculty"
+                    ? "Faculty"
+                    : currentUser.identifier}
             </p>
           </div>
           <button
@@ -384,7 +421,7 @@ export function Home() {
           gap: 20,
         }}
       >
-        {/* Quick Actions */}
+        {/* ── Quick Actions ── */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -451,12 +488,13 @@ export function Home() {
           </div>
         </motion.div>
 
-        {/* Announcements */}
+        {/* ── Announcements ── */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
         >
+          {/* Section header */}
           <div
             style={{
               display: "flex",
@@ -491,16 +529,17 @@ export function Home() {
                 color: c.baseRed,
               }}
             >
-              <span
-                style={{ fontFamily: fonts.ui, fontSize: 12, fontWeight: 500 }}
-              >
+              <span style={{ fontFamily: fonts.ui, fontSize: 12, fontWeight: 500 }}>
                 See all
               </span>
               <ChevronRight size={14} />
             </button>
           </div>
+
+          {/* Body */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {announcementsLoading ? (
+              /* Loading skeleton */
               <p
                 style={{
                   fontFamily: fonts.ui,
@@ -508,11 +547,13 @@ export function Home() {
                   color: c.warmGray,
                   textAlign: "center",
                   padding: 20,
+                  margin: 0,
                 }}
               >
-                Loading announcements...
+                Loading announcements…
               </p>
             ) : announcementsError ? (
+              /* Error state — real message in console, friendly text here */
               <p
                 style={{
                   fontFamily: fonts.ui,
@@ -520,11 +561,13 @@ export function Home() {
                   color: c.warmGray,
                   textAlign: "center",
                   padding: 20,
+                  margin: 0,
                 }}
               >
                 Unable to load announcements right now.
               </p>
             ) : announcements.length === 0 ? (
+              /* Genuinely empty */
               <p
                 style={{
                   fontFamily: fonts.ui,
@@ -532,108 +575,110 @@ export function Home() {
                   color: c.warmGray,
                   textAlign: "center",
                   padding: 20,
+                  margin: 0,
                 }}
               >
                 No announcements yet
               </p>
             ) : (
-              announcements.map((ann) => (
-                <button
-                  className="hover-lift"
-                  key={ann.id}
-                  type="button"
-                  onClick={() => setSelectedAnnouncement(ann)}
-                  style={{
-                    width: "100%",
-                    background: c.white,
-                    borderRadius: 12,
-                    padding: "12px 14px",
-                    boxShadow: shadow.card,
-                    border: "none",
-                    borderLeft: `3px solid ${ann.type === "urgent" ? c.baseRed : ann.type === "warning" ? "#D97706" : "#1D4ED8"}`,
-                    cursor: "pointer",
-                    textAlign: "left",
-                  }}
-                >
-                  <div
+              /* Cards */
+              announcements.map((ann) => {
+                const accent =
+                  ann.accentType === "warning" ? "#D97706" : c.baseRed;
+                return (
+                  <button
+                    className="hover-lift"
+                    key={ann.id}
+                    type="button"
+                    onClick={() => setSelectedAnnouncement(ann)}
                     style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: 10,
+                      width: "100%",
+                      background: c.white,
+                      borderRadius: 12,
+                      padding: "12px 14px",
+                      boxShadow: shadow.card,
+                      border: "none",
+                      borderLeft: `3px solid ${accent}`,
+                      cursor: "pointer",
+                      textAlign: "left",
                     }}
                   >
-                    <Megaphone
-                      size={16}
-                      color={
-                        ann.type === "urgent"
-                          ? c.baseRed
-                          : ann.type === "warning"
-                            ? "#D97706"
-                            : "#1D4ED8"
-                      }
-                      style={{ flexShrink: 0, marginTop: 2 }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <p
-                        style={{
-                          fontFamily: fonts.ui,
-                          fontSize: 13,
-                          fontWeight: 600,
-                          color: c.darkBrown,
-                          margin: 0,
-                        }}
-                      >
-                        {ann.title}
-                      </p>
-                      <p
-                        style={{
-                          fontFamily: fonts.ui,
-                          fontSize: 12,
-                          color: c.warmGray,
-                          margin: "3px 0 0",
-                          lineHeight: 1.4,
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {ann.body}
-                      </p>
-                      {ann.imageUrl && (
-                        <img
-                          src={ann.imageUrl}
-                          alt="announcement pubmat"
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 10,
+                      }}
+                    >
+                      <Megaphone
+                        size={16}
+                        color={accent}
+                        style={{ flexShrink: 0, marginTop: 2 }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <p
                           style={{
-                            width: "100%",
-                            maxHeight: 180,
-                            objectFit: "cover",
-                            borderRadius: 10,
-                            marginTop: 8,
-                            border: "1px solid rgba(139,115,85,0.18)",
+                            fontFamily: fonts.ui,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: c.darkBrown,
+                            margin: 0,
                           }}
-                        />
-                      )}
-                      <p
-                        style={{
-                          fontFamily: fonts.mono,
-                          fontSize: 10,
-                          color: c.warmGrayLight,
-                          margin: "4px 0 0",
-                        }}
-                      >
-                        {ann.time}
-                      </p>
+                        >
+                          {ann.title}
+                        </p>
+                        <p
+                          style={{
+                            fontFamily: fonts.ui,
+                            fontSize: 12,
+                            color: c.warmGray,
+                            margin: "3px 0 0",
+                            lineHeight: 1.4,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {ann.body}
+                        </p>
+                        {ann.imageUrl && (
+                          <img
+                            src={ann.imageUrl}
+                            alt="announcement pubmat"
+                            style={{
+                              width: "100%",
+                              maxHeight: 180,
+                              objectFit: "cover",
+                              borderRadius: 10,
+                              marginTop: 8,
+                              border: "1px solid rgba(139,115,85,0.18)",
+                            }}
+                          />
+                        )}
+                        <p
+                          style={{
+                            fontFamily: fonts.mono,
+                            fontSize: 10,
+                            color: c.warmGrayLight,
+                            margin: "4px 0 0",
+                          }}
+                        >
+                          {ann.time}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))
+                  </button>
+                );
+              })
             )}
           </div>
         </motion.div>
 
         <div style={{ height: 8 }} />
       </div>
+
+      {/* ── Detail sheet ── */}
       <AnnouncementDetailSheet
         announcement={selectedAnnouncement}
         isDark={isDark}
