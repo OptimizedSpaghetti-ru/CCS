@@ -345,7 +345,7 @@ function NotificationsLoading({ isDark }: { isDark: boolean }) {
 
 export function Notifications() {
   const navigate = useNavigate();
-  const { currentUser, resolvedThemeMode } = useApp();
+  const { currentUser, markConversationRead, resolvedThemeMode } = useApp();
   const isDark = resolvedThemeMode === "dark";
   const [activeTab, setActiveTab] = useState("All");
   const [notifs, setNotifs] = useState<Notif[]>([]);
@@ -515,24 +515,42 @@ export function Notifications() {
       }
 
       let messageNotifs: Notif[] = [];
-      const { data: memberships } = await supabase
+      let { data: memberships, error: membershipError } = await supabase
         .from("conversation_members")
-        .select("conversation_id")
+        .select("conversation_id, last_read_at")
         .eq("user_id", currentUser.id);
+      if (membershipError) {
+        const fallback = await supabase
+          .from("conversation_members")
+          .select("conversation_id")
+          .eq("user_id", currentUser.id);
+        memberships = fallback.data;
+      }
 
       const conversationIds = [
         ...new Set((memberships ?? []).map((m: any) => m.conversation_id)),
       ];
+      const readMap = new Map(
+        (memberships ?? []).map((m: any) => [
+          m.conversation_id,
+          m.last_read_at ? new Date(m.last_read_at).getTime() : 0,
+        ]),
+      );
 
       if (conversationIds.length > 0) {
-        const { data: unreadMessages } = await supabase
+        const { data: messageRows } = await supabase
           .from("messages")
-          .select("id, conversation_id, body, sender_id, created_at")
+          .select("id, conversation_id, body, sender_id, created_at, read_at")
           .in("conversation_id", conversationIds)
           .neq("sender_id", currentUser.id)
-          .is("read_at", null)
           .order("created_at", { ascending: false })
           .limit(120);
+
+        const unreadMessages = (messageRows ?? []).filter((msg: any) => {
+          const lastRead = readMap.get(msg.conversation_id) ?? 0;
+          if (lastRead > 0) return new Date(msg.created_at).getTime() > lastRead;
+          return !msg.read_at;
+        });
 
         if (unreadMessages && unreadMessages.length > 0) {
           const unreadConversationIds = [
@@ -678,17 +696,7 @@ export function Notifications() {
     setNotifs((prev) => prev.filter((n) => n.id !== notif.id));
 
     if (notif.type === "message" && notif.conversationId) {
-      const { error } = await supabase
-        .from("messages")
-        .update({ read_at: new Date().toISOString() })
-        .eq("conversation_id", notif.conversationId)
-        .neq("sender_id", currentUser.id)
-        .is("read_at", null);
-
-      if (error) {
-        setNotifs(previous);
-        return;
-      }
+      await markConversationRead(notif.conversationId);
 
       if (notif.source === "message") {
         return;
@@ -749,12 +757,11 @@ export function Notifications() {
     }
 
     if (unreadMessageConversationIds.length > 0) {
-      await supabase
-        .from("messages")
-        .update({ read_at: new Date().toISOString() })
-        .in("conversation_id", unreadMessageConversationIds)
-        .neq("sender_id", currentUser.id)
-        .is("read_at", null);
+      await Promise.all(
+        unreadMessageConversationIds.map((conversationId) =>
+          markConversationRead(conversationId),
+        ),
+      );
     }
   };
 

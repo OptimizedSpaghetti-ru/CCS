@@ -307,7 +307,7 @@ function MessageBubble({
 export function Chat() {
   const navigate = useNavigate();
   const { id: conversationId } = useParams();
-  const { resolvedThemeMode } = useApp();
+  const { markConversationRead, resolvedThemeMode } = useApp();
   const isDark = resolvedThemeMode === "dark";
   const [text, setText] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
@@ -324,18 +324,13 @@ export function Chat() {
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const markConversationRead = useCallback(
+  const handleConversationViewed = useCallback(
     async (userId: string) => {
       if (!conversationId) return;
 
-      await supabase
-        .from("messages")
-        .update({ read_at: new Date().toISOString() })
-        .eq("conversation_id", conversationId)
-        .neq("sender_id", userId)
-        .is("read_at", null);
+      await markConversationRead(conversationId);
     },
-    [conversationId],
+    [conversationId, markConversationRead],
   );
 
   const loadMessages = useCallback(async () => {
@@ -406,11 +401,11 @@ export function Chat() {
         })),
       );
 
-      await markConversationRead(userId);
+      await handleConversationViewed(userId);
     } finally {
       setLoading(false);
     }
-  }, [conversationId, markConversationRead]);
+  }, [conversationId, handleConversationViewed]);
 
   useEffect(() => {
     loadMessages();

@@ -145,7 +145,7 @@ function RoleBadge({ role, isDark }: { role: string; isDark: boolean }) {
 
 export function Messages() {
   const navigate = useNavigate();
-  const { resolvedThemeMode } = useApp();
+  const { markConversationRead, resolvedThemeMode } = useApp();
   const isDark = resolvedThemeMode === "dark";
   const searchSurface = isDark ? "#2A141A" : c.white;
   const mutedSurface = isDark ? "rgba(255,232,217,0.08)" : "rgba(255,240,196,0.15)";
@@ -169,10 +169,17 @@ export function Messages() {
 
     try {
       /* 1. My conversation IDs */
-      const { data: memberships } = await supabase
+      let { data: memberships, error: membershipError } = await supabase
         .from("conversation_members")
-        .select("conversation_id")
+        .select("conversation_id, last_read_at")
         .eq("user_id", userId);
+      if (membershipError) {
+        const fallback = await supabase
+          .from("conversation_members")
+          .select("conversation_id")
+          .eq("user_id", userId);
+        memberships = fallback.data;
+      }
 
       if (!memberships || memberships.length === 0) {
         setConversations([]);
@@ -180,6 +187,12 @@ export function Messages() {
       }
 
       const convIds = memberships.map((m: any) => m.conversation_id);
+      const readMap = new Map(
+        memberships.map((m: any) => [
+          m.conversation_id,
+          m.last_read_at ? new Date(m.last_read_at).getTime() : 0,
+        ]),
+      );
 
       /* 2. Conversations + members' profiles */
       const { data: convos } = await supabase
@@ -212,7 +225,13 @@ export function Messages() {
             created_at: msg.created_at,
           });
         }
-        if (!msg.read_at && msg.sender_id !== userId) {
+        const lastRead = readMap.get(msg.conversation_id) ?? 0;
+        const isUnread =
+          msg.sender_id !== userId &&
+          (lastRead > 0
+            ? new Date(msg.created_at).getTime() > lastRead
+            : !msg.read_at);
+        if (isUnread) {
           unreadMap.set(
             msg.conversation_id,
             (unreadMap.get(msg.conversation_id) ?? 0) + 1,
@@ -294,6 +313,13 @@ export function Messages() {
           loadConversations();
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "conversation_members" },
+        () => {
+          loadConversations();
+        },
+      )
       .subscribe();
 
     return () => {
@@ -316,6 +342,22 @@ export function Messages() {
       search === "" || c.name.toLowerCase().includes(search.toLowerCase());
     return roleMatch && searchMatch;
   });
+
+  const openConversation = (conv: ConversationRow) => {
+    if (conv.unread > 0) {
+      setConversations((prev) =>
+        prev.map((item) =>
+          item.id === conv.id ? { ...item, unread: 0 } : item,
+        ),
+      );
+    }
+    void markConversationRead(conv.id, conv.unread);
+    navigate(
+      conv.role === "group"
+        ? `/app/messages/group/${conv.id}`
+        : `/app/messages/${conv.id}`,
+    );
+  };
 
   return (
     <div
@@ -393,6 +435,7 @@ export function Messages() {
         >
           {filters.map((f) => (
             <button
+              className="hover-press"
               key={f}
               onClick={() => setFilter(f)}
               style={{
@@ -407,7 +450,10 @@ export function Messages() {
                 color: filter === f ? c.cream : c.warmGrayLight,
                 cursor: "pointer",
                 whiteSpace: "nowrap",
+                transform: filter === f ? "translateY(-1px) scale(1.02)" : "scale(1)",
                 boxShadow: filter === f ? shadow.button : "none",
+                transition:
+                  "background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.16s ease",
               }}
             >
               {f}
@@ -437,15 +483,12 @@ export function Messages() {
             </p>
           </div>
         ) : (
-          filtered.map((conv, i) => (
+          <div key={filter} className="notifications-filter-panel">
+          {filtered.map((conv, i) => (
             <button
-              className="hover-row"
+              className="hover-row notifications-filter-item"
               key={conv.id}
-              onClick={() =>
-                conv.role === "group"
-                  ? navigate(`/app/messages/group/${conv.id}`)
-                  : navigate(`/app/messages/${conv.id}`)
-              }
+              onClick={() => openConversation(conv)}
               style={{
                 width: "100%",
                 display: "flex",
@@ -457,6 +500,9 @@ export function Messages() {
                 borderBottom: `1px solid ${rowBorder}`,
                 cursor: "pointer",
                 textAlign: "left",
+                animationDelay: `${Math.min(i, 8) * 24}ms`,
+                transition:
+                  "background-color 0.2s ease, border-color 0.2s ease, transform 0.18s ease, filter 0.2s ease",
               }}
             >
               <Avatar
@@ -544,7 +590,8 @@ export function Messages() {
                 )}
               </div>
             </button>
-          ))
+          ))}
+          </div>
         )}
       </div>
 

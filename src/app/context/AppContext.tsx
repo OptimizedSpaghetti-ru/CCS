@@ -59,6 +59,10 @@ interface AppContextType {
   toasts: ToastData[];
   showToast: (toast: Omit<ToastData, "id">) => void;
   dismissToast: (id: string) => void;
+  markConversationRead: (
+    conversationId: string,
+    optimisticUnreadCount?: number,
+  ) => Promise<void>;
   themePreference: ThemePreference;
   resolvedThemeMode: ThemeMode;
   setThemePreference: (preference: ThemePreference) => void;
@@ -266,20 +270,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
   /* ── Fetch unread counts ─────────────────────────────────── */
   const refreshUnreadCounts = useCallback(async (userId: string) => {
     if (!userId) return;
-    // Unread messages: messages where I'm a member of the conversation but not the sender, and read_at is null
-    const { data: myConvos } = await supabase
+    let { data: myConvos, error: membershipError } = await supabase
       .from("conversation_members")
-      .select("conversation_id")
+      .select("conversation_id, last_read_at")
       .eq("user_id", userId);
+    if (membershipError) {
+      const fallback = await supabase
+        .from("conversation_members")
+        .select("conversation_id")
+        .eq("user_id", userId);
+      myConvos = fallback.data;
+    }
     if (myConvos && myConvos.length > 0) {
       const ids = myConvos.map((r: any) => r.conversation_id);
-      const { count: msgCount } = await supabase
+      const readMap = new Map(
+        myConvos.map((r: any) => [
+          r.conversation_id,
+          r.last_read_at ? new Date(r.last_read_at).getTime() : 0,
+        ]),
+      );
+      const { data: messages } = await supabase
         .from("messages")
-        .select("id", { count: "exact", head: true })
+        .select("conversation_id, sender_id, created_at, read_at")
         .in("conversation_id", ids)
-        .neq("sender_id", userId)
-        .is("read_at", null);
-      setUnreadMessages(msgCount ?? 0);
+        .neq("sender_id", userId);
+      const msgCount = (messages ?? []).filter((msg: any) => {
+        const lastRead = readMap.get(msg.conversation_id) ?? 0;
+        if (lastRead > 0) return new Date(msg.created_at).getTime() > lastRead;
+        return !msg.read_at;
+      }).length;
+      setUnreadMessages(msgCount);
     } else {
       setUnreadMessages(0);
     }
@@ -302,6 +322,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
+
+  const markConversationRead = useCallback(
+    async (conversationId: string, optimisticUnreadCount = 0) => {
+      const userId = session?.user?.id;
+      if (!userId || !conversationId) return;
+
+      if (optimisticUnreadCount > 0) {
+        setUnreadMessages((prev) => Math.max(0, prev - optimisticUnreadCount));
+      }
+
+      const readAt = new Date().toISOString();
+      const { error } = await supabase
+        .from("conversation_members")
+        .update({ last_read_at: readAt })
+        .eq("conversation_id", conversationId)
+        .eq("user_id", userId);
+
+      if (error) {
+        await supabase
+          .from("messages")
+          .update({ read_at: readAt })
+          .eq("conversation_id", conversationId)
+          .neq("sender_id", userId)
+          .is("read_at", null);
+      }
+      await refreshUnreadCounts(userId);
+    },
+    [refreshUnreadCounts, session?.user?.id],
+  );
 
   const hydrateUser = useCallback(async (nextSession: Session | null) => {
     setSession(nextSession);
@@ -364,6 +413,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "messages" },
+        () => {
+          refreshUnreadCounts(uid);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "conversation_members" },
         () => {
           refreshUnreadCounts(uid);
         },
@@ -792,6 +848,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         toasts,
         showToast,
         dismissToast,
+        markConversationRead,
         themePreference,
         resolvedThemeMode,
         setThemePreference,

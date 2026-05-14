@@ -123,7 +123,14 @@ function GroupMessage({ msg, isDark }: { msg: GroupMsg; isDark: boolean }) {
           )}
         </div>
       )}
-      <div style={{ maxWidth: "75%" }}>
+      <div
+        style={{
+          maxWidth: "75%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: isMe ? "flex-end" : "flex-start",
+        }}
+      >
         {!isMe && (
           <p
             style={{
@@ -143,6 +150,8 @@ function GroupMessage({ msg, isDark }: { msg: GroupMsg; isDark: boolean }) {
             borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
             padding: msg.attachment ? 8 : "10px 14px",
             boxShadow: shadow.card,
+            maxWidth: "100%",
+            width: "fit-content",
           }}
         >
           {hasText && (
@@ -154,6 +163,7 @@ function GroupMessage({ msg, isDark }: { msg: GroupMsg; isDark: boolean }) {
                 margin: msg.attachment ? "2px 6px 8px" : 0,
                 lineHeight: 1.5,
                 whiteSpace: "pre-wrap",
+                overflowWrap: "anywhere",
               }}
             >
               {msg.text}
@@ -293,7 +303,7 @@ function GroupMessage({ msg, isDark }: { msg: GroupMsg; isDark: boolean }) {
 export function GroupChat() {
   const navigate = useNavigate();
   const { id: conversationId } = useParams();
-  const { currentUser, resolvedThemeMode } = useApp();
+  const { currentUser, markConversationRead, resolvedThemeMode } = useApp();
   const isDark = resolvedThemeMode === "dark";
   const [text, setText] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
@@ -304,18 +314,13 @@ export function GroupChat() {
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const markConversationRead = useCallback(
+  const handleConversationViewed = useCallback(
     async (userId: string) => {
       if (!conversationId) return;
 
-      await supabase
-        .from("messages")
-        .update({ read_at: new Date().toISOString() })
-        .eq("conversation_id", conversationId)
-        .neq("sender_id", userId)
-        .is("read_at", null);
+      await markConversationRead(conversationId);
     },
-    [conversationId],
+    [conversationId, markConversationRead],
   );
 
   const loadMessages = useCallback(async () => {
@@ -397,9 +402,9 @@ export function GroupChat() {
       }),
     );
 
-    await markConversationRead(userId);
+    await handleConversationViewed(userId);
     setLoading(false);
-  }, [conversationId, currentUser.avatar, currentUser.initials, markConversationRead]);
+  }, [conversationId, currentUser.avatar, currentUser.initials, handleConversationViewed]);
 
   useEffect(() => {
     loadMessages();
