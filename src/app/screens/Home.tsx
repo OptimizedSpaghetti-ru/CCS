@@ -12,6 +12,10 @@ import {
 import { c, g, fonts, shadow } from "../theme";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
+import {
+  AnnouncementDetailSheet,
+  type AnnouncementDetail,
+} from "../components/AnnouncementDetailSheet";
 
 function QuickAction({
   icon,
@@ -86,6 +90,12 @@ function getGreeting() {
   return "Good evening,";
 }
 
+function formatRole(role: unknown) {
+  if (typeof role !== "string" || !role) return "";
+  if (role === "it_support") return "IT Support";
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
 function isAssistanceNotification(row: any) {
   if (isMessageNotification(row)) return false;
   return (
@@ -109,28 +119,30 @@ function isMessageNotification(row: any) {
 }
 
 export function Home() {
-  const { currentUser } = useApp();
+  const { currentUser, resolvedThemeMode } = useApp();
+  const isDark = resolvedThemeMode === "dark";
   const navigate = useNavigate();
 
   const [announcements, setAnnouncements] = useState<
-    {
-      id: string;
-      title: string;
-      body: string;
+    (AnnouncementDetail & {
       time: string;
       type: string;
-      imageUrl?: string;
-    }[]
+    })[]
   >([]);
+  const [selectedAnnouncement, setSelectedAnnouncement] =
+    useState<AnnouncementDetail | null>(null);
 
   useEffect(() => {
     (async () => {
       /* recent notifications shown as announcements */
-      const { data: notifs } = await supabase
+      const { data: notifs, error: notifsError } = await supabase
         .from("notifications")
-        .select("id, title, body, type, image_url, target_role, recipient_id, created_by, created_at, conversation_id, message_id")
+        .select("*")
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(200);
+      if (notifsError) {
+        console.warn("Failed to load home announcements", notifsError.message);
+      }
       if (notifs) {
         const visible = (notifs as any[]).filter((n) => {
           if (isMessageNotification(n) || isAssistanceNotification(n)) {
@@ -156,20 +168,56 @@ export function Home() {
           }
           return true;
         });
+
+        const authorIds = [
+          ...new Set(
+            visible
+              .map((n: any) => n.created_by)
+              .filter((id: unknown): id is string => typeof id === "string" && id.length > 0),
+          ),
+        ];
+        let authorMap = new Map<
+          string,
+          { full_name: string | null; role: string | null }
+        >();
+
+        if (authorIds.length > 0) {
+          const { data: authors } = await supabase
+            .from("profiles")
+            .select("id, full_name, role")
+            .in("id", authorIds);
+
+          authorMap = new Map(
+            (authors ?? []).map((author: any) => [
+              author.id,
+              { full_name: author.full_name ?? null, role: author.role ?? null },
+            ]),
+          );
+        }
+
         setAnnouncements(
-          visible.slice(0, 5).map((n: any) => ({
-            id: n.id,
-            title: n.title ?? "",
-            body: n.body ?? "",
-            time: timeAgo(n.created_at),
-            imageUrl: n.image_url ?? undefined,
-            type:
-              n.type === "announcement"
-                ? "urgent"
-                : n.type === "event"
-                  ? "warning"
-                  : "info",
-          })),
+          visible.slice(0, 5).map((n: any) => {
+            const author = n.created_by ? authorMap.get(n.created_by) : null;
+            const category = n.type === "event" ? "Event" : "Announcement";
+
+            return {
+              id: n.id,
+              title: n.title ?? "",
+              body: n.body ?? "",
+              time: timeAgo(n.created_at),
+              createdAt: n.created_at,
+              imageUrl: n.image_url ?? undefined,
+              authorName: author?.full_name?.trim() || "CCS Connect",
+              authorRole: formatRole(author?.role),
+              category,
+              type:
+                n.type === "announcement"
+                  ? "urgent"
+                  : n.type === "event"
+                    ? "warning"
+                    : "info",
+            };
+          }),
         );
       }
     })();
@@ -438,15 +486,21 @@ export function Home() {
               </p>
             ) : (
               announcements.map((ann) => (
-                <div
+                <button
                   className="hover-lift"
                   key={ann.id}
+                  type="button"
+                  onClick={() => setSelectedAnnouncement(ann)}
                   style={{
+                    width: "100%",
                     background: c.white,
                     borderRadius: 12,
                     padding: "12px 14px",
                     boxShadow: shadow.card,
+                    border: "none",
                     borderLeft: `3px solid ${ann.type === "urgent" ? c.baseRed : ann.type === "warning" ? "#D97706" : "#1D4ED8"}`,
+                    cursor: "pointer",
+                    textAlign: "left",
                   }}
                 >
                   <div
@@ -486,6 +540,10 @@ export function Home() {
                           color: c.warmGray,
                           margin: "3px 0 0",
                           lineHeight: 1.4,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
                         }}
                       >
                         {ann.body}
@@ -516,7 +574,7 @@ export function Home() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -524,6 +582,11 @@ export function Home() {
 
         <div style={{ height: 8 }} />
       </div>
+      <AnnouncementDetailSheet
+        announcement={selectedAnnouncement}
+        isDark={isDark}
+        onClose={() => setSelectedAnnouncement(null)}
+      />
     </div>
   );
 }

@@ -14,6 +14,10 @@ import { c, g, fonts, shadow } from "../theme";
 import { TopBar } from "../components/TopBar";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
+import {
+  AnnouncementDetailSheet,
+  type AnnouncementDetail,
+} from "../components/AnnouncementDetailSheet";
 
 const tabs = ["All", "Messages", "Announcements", "Assistance"];
 
@@ -75,10 +79,12 @@ function getNotificationType(row: any): Notif["type"] {
 function NotifItem({
   notif,
   onDismiss,
+  onOpenAnnouncement,
   isDark,
 }: {
   notif: Notif;
   onDismiss: (notif: Notif) => void;
+  onOpenAnnouncement: (notif: Notif) => void;
   isDark: boolean;
 }) {
   const navigate = useNavigate();
@@ -112,6 +118,10 @@ function NotifItem({
           : "3px solid transparent",
       }}
       onClick={() => {
+        if (notif.type === "announcement" || notif.type === "event") {
+          onOpenAnnouncement(notif);
+          return;
+        }
         if (notif.path) navigate(notif.path);
       }}
     >
@@ -330,6 +340,8 @@ export function Notifications() {
   const [activeTab, setActiveTab] = useState("All");
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedAnnouncement, setSelectedAnnouncement] =
+    useState<AnnouncementDetail | null>(null);
 
   function dayLabel(iso: string) {
     const d = new Date(iso);
@@ -715,6 +727,20 @@ export function Notifications() {
     }
   };
 
+  const openAnnouncement = (notif: Notif) => {
+    const conf = typeConfig[notif.type] ?? typeConfig.announcement;
+    setSelectedAnnouncement({
+      id: notif.id,
+      title: notif.title,
+      body: notif.body,
+      imageUrl: notif.imageUrl,
+      authorName: notif.authorName || "CCS Connect",
+      authorRole: notif.authorRole,
+      createdAt: notif.createdAt,
+      category: conf.label,
+    });
+  };
+
   return (
     <div
       style={{
@@ -865,6 +891,7 @@ export function Notifications() {
                   key={n.id}
                   notif={n}
                   onDismiss={dismiss}
+                  onOpenAnnouncement={openAnnouncement}
                   isDark={isDark}
                 />
               ))}
@@ -872,6 +899,11 @@ export function Notifications() {
           ))
         )}
       </div>
+      <AnnouncementDetailSheet
+        announcement={selectedAnnouncement}
+        isDark={isDark}
+        onClose={() => setSelectedAnnouncement(null)}
+      />
     </div>
   );
 }

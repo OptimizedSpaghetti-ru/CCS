@@ -2,9 +2,6 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
-  Paperclip,
-  Smile,
-  Send,
   Image,
   FileText,
   Circle,
@@ -14,6 +11,7 @@ import {
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { AppLoadingState } from "../components/AppLoadingState";
+import { ChatInputBar } from "../components/ChatInputBar";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
 
@@ -595,87 +593,13 @@ export function Chat() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input Bar */}
-      <div
-        style={{
-          background: c.white,
-          padding: "10px 12px 12px",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          borderTop: "1px solid rgba(139,115,85,0.12)",
-          flexShrink: 0,
-        }}
-      >
-        <button
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: c.warmGray,
-            padding: 4,
-          }}
-        >
-          <Paperclip size={20} />
-        </button>
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            background: c.cream,
-            borderRadius: 24,
-            padding: "0 12px",
-            height: 42,
-          }}
-        >
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            placeholder="Type a message…"
-            style={{
-              flex: 1,
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              fontFamily: fonts.ui,
-              fontSize: 13,
-              color: c.darkBrown,
-            }}
-          />
-          <button
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: c.warmGray,
-              padding: 0,
-            }}
-          >
-            <Smile size={18} />
-          </button>
-        </div>
-        <button
-          onClick={sendMessage}
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: "50%",
-            background: text.trim() ? g.button : "rgba(139,115,85,0.2)",
-            border: "none",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: text.trim() ? "pointer" : "default",
-            transition: "background 0.2s",
-            boxShadow: text.trim() ? shadow.button : "none",
-          }}
-        >
-          <Send size={17} color={text.trim() ? c.cream : c.warmGray} />
-        </button>
-      </div>
+      <ChatInputBar
+        value={text}
+        onChange={setText}
+        onSend={sendMessage}
+        placeholder="Type a message..."
+        isDark={isDark}
+      />
     </div>
   );
 }
