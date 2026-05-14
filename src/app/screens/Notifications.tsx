@@ -48,17 +48,26 @@ const typeConfig = {
   assistance: { icon: Wrench, color: "#059669", label: "Assistance" },
 };
 
+const assistanceNotificationTitles = new Set([
+  "New assistance request",
+  "Assistance request received",
+  "Assistance request updated",
+  "Assistance request resolved",
+]);
+
 function isAssistanceNotification(row: any) {
   if (isMessageNotification(row)) return false;
+  if (
+    row?.announcement_id ||
+    row?.type === "announcement" ||
+    row?.type === "event"
+  ) {
+    return false;
+  }
+
   return (
     row?.type === "assistance" ||
-    row?.target_role === "it_support" ||
-    [
-      "New assistance request",
-      "Assistance request received",
-      "Assistance request updated",
-      "Assistance request resolved",
-    ].includes(row?.title?.trim?.() ?? "")
+    assistanceNotificationTitles.has(row?.title?.trim?.() ?? "")
   );
 }
 

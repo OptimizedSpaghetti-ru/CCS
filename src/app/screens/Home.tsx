@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import {
   MessageSquare,
-  Map,
+  Map as MapShortcutIcon,
   BarChart3,
   ChevronRight,
   Megaphone,
@@ -168,15 +168,17 @@ async function fetchHomeAnnouncements(): Promise<HomeAnnouncement[]> {
 /** Fetch author display names for a list of user IDs */
 async function fetchAuthorMap(
   ids: string[],
-): Promise<Map<string, { full_name: string | null; role: string | null }>> {
-  if (ids.length === 0) return new Map();
+): Promise<
+  globalThis.Map<string, { full_name: string | null; role: string | null }>
+> {
+  if (ids.length === 0) return new globalThis.Map();
 
   const { data } = await supabase
     .from("profiles")
     .select("id, full_name, role")
     .in("id", ids);
 
-  return new Map(
+  return new globalThis.Map(
     (data ?? []).map((p: any) => [
       p.id,
       { full_name: p.full_name ?? null, role: p.role ?? null },
@@ -448,7 +450,7 @@ export function Home() {
               color={c.baseRed}
             />
             <QuickAction
-              icon={<Map size={20} />}
+              icon={<MapShortcutIcon size={20} />}
               label="Navigate"
               path="/app/map"
               color="#1D4ED8"
