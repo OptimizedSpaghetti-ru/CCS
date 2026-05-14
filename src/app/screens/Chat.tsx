@@ -14,6 +14,12 @@ import { AppLoadingState } from "../components/AppLoadingState";
 import { ChatInputBar } from "../components/ChatInputBar";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
+import {
+  formatFileSize,
+  isImageAttachment,
+  type MessageAttachment,
+  uploadMessageAttachment,
+} from "../../lib/messageAttachments";
 
 interface ChatMeta {
   name: string;
@@ -31,6 +37,7 @@ interface MsgRow {
   text: string;
   time: string;
   type?: string;
+  attachment?: MessageAttachment;
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -62,6 +69,7 @@ function MessageBubble({
   otherAvatarUrl?: string;
 }) {
   const isMe = msg.from === "me";
+  const hasText = msg.text.trim().length > 0;
 
   if (msg.type === "file") {
     return (
@@ -193,21 +201,87 @@ function MessageBubble({
           style={{
             background: isMe ? g.sentBubble : c.white,
             borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
-            padding: "10px 14px",
+            padding: msg.attachment ? 8 : "10px 14px",
             boxShadow: shadow.card,
           }}
         >
-          <p
-            style={{
-              fontFamily: fonts.ui,
-              fontSize: 13,
-              color: isMe ? c.cream : c.darkBrown,
-              margin: 0,
-              lineHeight: 1.5,
-            }}
-          >
-            {msg.text}
-          </p>
+          {hasText && (
+            <p
+              style={{
+                fontFamily: fonts.ui,
+                fontSize: 13,
+                color: isMe ? c.cream : c.darkBrown,
+                margin: msg.attachment ? "2px 6px 8px" : 0,
+                lineHeight: 1.5,
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {msg.text}
+            </p>
+          )}
+          {msg.attachment &&
+            (isImageAttachment(msg.attachment.type, msg.attachment.name) ? (
+              <a href={msg.attachment.url} target="_blank" rel="noreferrer">
+                <img
+                  src={msg.attachment.url}
+                  alt={msg.attachment.name}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    maxHeight: 240,
+                    objectFit: "cover",
+                    borderRadius: 12,
+                  }}
+                />
+              </a>
+            ) : (
+              <a
+                className="message-attachment-link"
+                href={msg.attachment.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 9,
+                    padding: "8px 10px",
+                    borderRadius: 12,
+                    background: isMe ? "rgba(255,240,196,0.16)" : c.cream,
+                    border: `1px solid ${isMe ? "rgba(255,240,196,0.24)" : "rgba(139,115,85,0.16)"}`,
+                  }}
+                >
+                  <FileText size={18} color={isMe ? c.cream : c.baseRed} />
+                  <div style={{ minWidth: 0 }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontFamily: fonts.ui,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: isMe ? c.cream : c.darkBrown,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {msg.attachment.name}
+                    </p>
+                    <p
+                      style={{
+                        margin: "2px 0 0",
+                        fontFamily: fonts.mono,
+                        fontSize: 10,
+                        color: isMe ? `${c.cream}B8` : c.warmGray,
+                      }}
+                    >
+                      {formatFileSize(msg.attachment.size)}
+                    </p>
+                  </div>
+                </div>
+              </a>
+            ))}
         </div>
         <p
           style={{
@@ -231,6 +305,8 @@ export function Chat() {
   const { resolvedThemeMode } = useApp();
   const isDark = resolvedThemeMode === "dark";
   const [text, setText] = useState("");
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const [messages, setMessages] = useState<MsgRow[]>([]);
   const [chat, setChat] = useState<ChatMeta>({
     name: "Loading…",
@@ -301,7 +377,7 @@ export function Chat() {
       /* Messages */
       const { data: msgs } = await supabase
         .from("messages")
-        .select("id, body, sender_id, created_at")
+        .select("id, body, sender_id, created_at, attachment_url, attachment_name, attachment_type, attachment_size")
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: true });
 
@@ -309,8 +385,16 @@ export function Chat() {
         (msgs ?? []).map((m: any) => ({
           id: m.id,
           from: m.sender_id === userId ? "me" : "other",
-          text: m.body,
+          text: m.body ?? "",
           time: fmtTime(m.created_at),
+          attachment: m.attachment_url
+            ? {
+                url: m.attachment_url,
+                name: m.attachment_name ?? "Attachment",
+                type: m.attachment_type ?? "application/octet-stream",
+                size: Number(m.attachment_size ?? 0),
+              }
+            : undefined,
         })),
       );
 
@@ -350,21 +434,33 @@ export function Chat() {
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!text.trim() || !conversationId) return;
+    if ((!text.trim() && !attachment) || !conversationId) return;
     const {
       data: { session },
     } = await supabase.auth.getSession();
     if (!session?.user?.id) return;
 
     const body = text.trim();
+    const file = attachment;
     setText("");
+    setAttachment(null);
+    setEmojiOpen(false);
+
+    let uploaded: MessageAttachment | null = null;
+    if (file) {
+      uploaded = await uploadMessageAttachment(file, session.user.id);
+    }
 
     const { data: sentMessage } = await supabase
       .from("messages")
       .insert({
         conversation_id: conversationId,
         sender_id: session.user.id,
-        body,
+        body: body || uploaded?.name || "",
+        attachment_url: uploaded?.url ?? null,
+        attachment_name: uploaded?.name ?? null,
+        attachment_type: uploaded?.type ?? null,
+        attachment_size: uploaded?.size ?? null,
       })
       .select("id")
       .single();
@@ -599,6 +695,10 @@ export function Chat() {
         onSend={sendMessage}
         placeholder="Type a message..."
         isDark={isDark}
+        attachment={attachment}
+        onAttachmentChange={setAttachment}
+        emojiOpen={emojiOpen}
+        onEmojiOpenChange={setEmojiOpen}
       />
     </div>
   );

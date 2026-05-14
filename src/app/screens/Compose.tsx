@@ -1,9 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
-import { X, Search, Paperclip, Image, Calendar, Send } from "lucide-react";
+import { X, Search, Paperclip, Image, Calendar, Send, Smile, FileText } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
+import {
+  formatFileSize,
+  isImageAttachment,
+  uploadMessageAttachment,
+  type MessageAttachment,
+} from "../../lib/messageAttachments";
 
 interface Suggestion {
   id: string;
@@ -19,6 +25,8 @@ const ROLE_COLORS: Record<string, string> = {
   admin: "#374151",
   student: "#059669",
 };
+
+const EMOJIS = ["😀", "😂", "😊", "😍", "👍", "👏", "🙏", "🔥", "✨", "❤️", "🎉", "📌", "✅", "💡", "📚", "🛠️"];
 
 function getInitials(name: string) {
   return name
@@ -48,6 +56,8 @@ export function Compose() {
   const [toSearch, setToSearch] = useState("");
   const [recipients, setRecipients] = useState<Suggestion[]>([]);
   const [body, setBody] = useState("");
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [sending, setSending] = useState(false);
@@ -97,7 +107,7 @@ export function Compose() {
   };
 
   const handleSend = useCallback(async () => {
-    if (recipients.length === 0 || !body.trim() || sending) return;
+    if (recipients.length === 0 || (!body.trim() && !attachment) || sending) return;
     setSending(true);
     try {
       const isGroup = recipients.length > 1;
@@ -168,13 +178,22 @@ export function Compose() {
         await supabase.from("conversation_members").insert(members);
       }
 
+      let uploaded: MessageAttachment | null = null;
+      if (attachment) {
+        uploaded = await uploadMessageAttachment(attachment, currentUser.id);
+      }
+
       /* send first message */
       const { data: sentMessage, error: messageError } = await supabase
         .from("messages")
         .insert({
           conversation_id: convId,
           sender_id: currentUser.id,
-          body: body.trim(),
+          body: body.trim() || uploaded?.name || "",
+          attachment_url: uploaded?.url ?? null,
+          attachment_name: uploaded?.name ?? null,
+          attachment_type: uploaded?.type ?? null,
+          attachment_size: uploaded?.size ?? null,
         })
         .select("id")
         .single();
@@ -202,7 +221,7 @@ export function Compose() {
     } finally {
       setSending(false);
     }
-  }, [recipients, body, sending, currentUser.id, navigate, showToast]);
+  }, [recipients, body, attachment, sending, currentUser.id, navigate, showToast]);
 
   return (
     <div
@@ -526,15 +545,167 @@ export function Compose() {
           flexShrink: 0,
         }}
       >
+        {emojiOpen && (
+          <div
+            className="emoji-picker-panel"
+            style={{
+              background: dropdownSurface,
+              borderColor: fieldBorder,
+              boxShadow: shadow.cardHover,
+              marginBottom: 10,
+            }}
+          >
+            {EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                className="hover-press"
+                onClick={() => setBody((prev) => `${prev}${emoji}`)}
+                style={{
+                  width: 34,
+                  height: 34,
+                  border: "none",
+                  borderRadius: 10,
+                  background: isDark ? "rgba(255,232,217,0.08)" : c.creamLight,
+                  cursor: "pointer",
+                  fontSize: 18,
+                }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+        {attachment && (
+          <div
+            className="message-attachment-preview"
+            style={{
+              background: fieldSurface,
+              borderColor: fieldBorder,
+              marginBottom: 10,
+            }}
+          >
+            {isImageAttachment(attachment.type, attachment.name) ? (
+              <img
+                src={URL.createObjectURL(attachment)}
+                alt=""
+                style={{
+                  width: 42,
+                  height: 42,
+                  objectFit: "cover",
+                  borderRadius: 10,
+                  flexShrink: 0,
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 10,
+                  background: `${c.baseRed}18`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <FileText size={19} color={c.baseRed} />
+              </div>
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontFamily: fonts.ui,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: c.darkBrown,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {attachment.name}
+              </p>
+              <p
+                style={{
+                  margin: "2px 0 0",
+                  fontFamily: fonts.mono,
+                  fontSize: 10,
+                  color: c.warmGray,
+                }}
+              >
+                {formatFileSize(attachment.size)}
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Remove attachment"
+              onClick={() => setAttachment(null)}
+              className="hover-press"
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: "50%",
+                border: "none",
+                background: isDark
+                  ? "rgba(255,232,217,0.1)"
+                  : "rgba(139,115,85,0.12)",
+                color: c.darkBrown,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+            >
+              <X size={15} />
+            </button>
+          </div>
+        )}
         {/* Attachment row */}
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <input
+            id="compose-file-input"
+            type="file"
+            style={{ display: "none" }}
+            onChange={(event) => {
+              setAttachment(event.target.files?.[0] ?? null);
+              event.currentTarget.value = "";
+            }}
+          />
+          <input
+            id="compose-image-input"
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(event) => {
+              setAttachment(event.target.files?.[0] ?? null);
+              event.currentTarget.value = "";
+            }}
+          />
           {[
-            { icon: <Paperclip size={16} />, label: "File" },
-            { icon: <Image size={16} />, label: "Image" },
-            { icon: <Calendar size={16} />, label: "Schedule" },
+            {
+              icon: <Paperclip size={16} />,
+              label: "File",
+              onClick: () => document.getElementById("compose-file-input")?.click(),
+            },
+            {
+              icon: <Image size={16} />,
+              label: "Image",
+              onClick: () => document.getElementById("compose-image-input")?.click(),
+            },
+            {
+              icon: <Smile size={16} />,
+              label: "Emoji",
+              onClick: () => setEmojiOpen((open) => !open),
+            },
+            { icon: <Calendar size={16} />, label: "Schedule", onClick: undefined },
           ].map((a) => (
             <button
               key={a.label}
+              type="button"
+              onClick={a.onClick}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -558,12 +729,12 @@ export function Compose() {
         {/* Send button */}
         <button
           onClick={handleSend}
-          disabled={sending || recipients.length === 0 || !body.trim()}
+          disabled={sending || recipients.length === 0 || (!body.trim() && !attachment)}
           style={{
             width: "100%",
             height: 52,
             background:
-              recipients.length > 0 && body.trim()
+              recipients.length > 0 && (body.trim() || attachment)
                 ? g.button
                 : "rgba(139,115,85,0.2)",
             border: "none",
@@ -573,15 +744,15 @@ export function Compose() {
             justifyContent: "center",
             gap: 8,
             cursor:
-              recipients.length > 0 && body.trim() && !sending
+              recipients.length > 0 && (body.trim() || attachment) && !sending
                 ? "pointer"
                 : "default",
             fontFamily: fonts.ui,
             fontSize: 15,
             fontWeight: 600,
-            color: recipients.length > 0 && body.trim() ? c.cream : c.warmGray,
+            color: recipients.length > 0 && (body.trim() || attachment) ? c.cream : c.warmGray,
             boxShadow:
-              recipients.length > 0 && body.trim() ? shadow.button : "none",
+              recipients.length > 0 && (body.trim() || attachment) ? shadow.button : "none",
             opacity: sending ? 0.6 : 1,
             transition: "all 0.2s",
           }}
