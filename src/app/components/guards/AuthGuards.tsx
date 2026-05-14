@@ -55,6 +55,28 @@ export function AdminGuard() {
   return <Outlet />;
 }
 
+export function StudentGuard() {
+  const { isLoadingAuth, isAuthenticated, isApproved, currentUser } = useApp();
+
+  if (isLoadingAuth) {
+    return null;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isApproved) {
+    return <Navigate to="/pending-approval" replace />;
+  }
+
+  if (currentUser.role !== "student") {
+    return <Navigate to="/app/home" replace />;
+  }
+
+  return <Outlet />;
+}
+
 export function FacultyGuard() {
   const { isLoadingAuth, isAuthenticated, isApproved, currentUser } = useApp();
 
