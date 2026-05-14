@@ -7,7 +7,7 @@ import {
   useMap,
   useMapEvents,
 } from "react-leaflet";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import L from "leaflet";
 import "leaflet-rotate";
 import { Map as MapIcon, Navigation, Radio } from "lucide-react";
@@ -203,7 +203,10 @@ function RightClickRotateControl() {
 
 export function MapView() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<MapTab>("realtime");
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<MapTab>(() =>
+    searchParams.get("view") === "indoor" ? "building" : "realtime",
+  );
   const [userPos, setUserPos] = useState<[number, number] | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const hasAutoCenteredToUser = useRef(false);

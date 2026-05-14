@@ -187,14 +187,14 @@ export function Assistance() {
       {
         title: "New assistance request",
         body: `${currentUser.name} reported: ${form.title.trim()}`,
-        type: "announcement",
+        type: "assistance",
         target_role: "it_support",
         created_by: currentUser.id,
       },
       {
         title: "Assistance request received",
         body: "IT Support has received your request.",
-        type: "announcement",
+        type: "assistance",
         target_role: currentUser.role,
         recipient_id: currentUser.id,
         created_by: currentUser.id,

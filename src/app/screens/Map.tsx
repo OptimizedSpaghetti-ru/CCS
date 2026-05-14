@@ -244,6 +244,10 @@ const MAP_BOUNDS = {
   minY: 35,
   maxY: 570,
 };
+const DEFAULT_MAP_SCALE = 0.42;
+const DEFAULT_MAP_ROTATION = 90;
+const DEFAULT_MAP_TILT = 54;
+const DEFAULT_MAP_POSITION = { x: 0, y: 0 };
 
 const categoryOptions: Array<{ value: RoomCategory; label: string }> = [
   { value: "all", label: "All rooms" },
@@ -1084,10 +1088,10 @@ export function Map() {
     floorId: FloorId;
     roomId: string;
   } | null>(null);
-  const [scale, setScale] = useState(0.58);
-  const [rotation, setRotation] = useState(-8);
-  const [tilt, setTilt] = useState(58);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [scale, setScale] = useState(DEFAULT_MAP_SCALE);
+  const [rotation, setRotation] = useState(DEFAULT_MAP_ROTATION);
+  const [tilt, setTilt] = useState(DEFAULT_MAP_TILT);
+  const [position, setPosition] = useState(DEFAULT_MAP_POSITION);
   const [isGestureTransforming, setIsGestureTransforming] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<NavigationPin>(
     getStoredNavigationPin,
@@ -1121,6 +1125,7 @@ export function Map() {
     timeoutId?: number;
   } | null>(null);
   const suppressSelectRef = useRef(false);
+  const hasManualViewAdjustmentRef = useRef(false);
   const activeRouteStart = routeStartLocation ?? currentLocation;
   const activeFloor = floorConfigs[selectedFloor];
   const rooms = activeFloor.rooms;
@@ -1239,7 +1244,9 @@ export function Map() {
     if (!floorConfigs[selectedFloor].rooms.some((room) => room.id === selectedId)) {
       setSelectedId(floorConfigs[selectedFloor].rooms[0].id);
     }
-    resetView();
+    if (!hasManualViewAdjustmentRef.current) {
+      applyDefaultView();
+    }
   }, [selectedFloor]);
 
   const focusRoom = (floorId: FloorId, roomId: string) => {
@@ -1380,13 +1387,23 @@ export function Map() {
   };
 
   const resetView = () => {
-    setScale(0.58);
-    setRotation(-8);
-    setTilt(58);
-    setPosition({ x: 0, y: 0 });
+    hasManualViewAdjustmentRef.current = false;
+    applyDefaultView();
+  };
+
+  const applyDefaultView = () => {
+    setScale(DEFAULT_MAP_SCALE);
+    setRotation(DEFAULT_MAP_ROTATION);
+    setTilt(DEFAULT_MAP_TILT);
+    setPosition(DEFAULT_MAP_POSITION);
+  };
+
+  const markManualViewAdjustment = () => {
+    hasManualViewAdjustmentRef.current = true;
   };
 
   const focusCurrentLocation = () => {
+    markManualViewAdjustment();
     setSelectedFloor(currentLocation.floorId);
     window.setTimeout(() => {
       setPosition(
@@ -1414,6 +1431,7 @@ export function Map() {
   };
 
   const updatePosition = (deltaX: number, deltaY: number) => {
+    markManualViewAdjustment();
     setPosition((current) =>
       clampPosition(current.x + deltaX, current.y + deltaY),
     );
@@ -1463,6 +1481,7 @@ export function Map() {
       lastX: event.clientX,
       lastY: event.clientY,
     };
+    markManualViewAdjustment();
     setIsGestureTransforming(true);
   };
 
@@ -1490,6 +1509,7 @@ export function Map() {
     const deltaY = event.clientY - mouseRotateRef.current.lastY;
     mouseRotateRef.current.lastX = event.clientX;
     mouseRotateRef.current.lastY = event.clientY;
+    markManualViewAdjustment();
     setRotation((value) => value + deltaX * 0.35);
     setTilt((value) => Math.max(38, Math.min(72, value + deltaY * 0.18)));
   };
@@ -1522,6 +1542,7 @@ export function Map() {
 
     if (event.touches.length !== 2) return;
     event.preventDefault();
+    markManualViewAdjustment();
     mapPanRef.current.active = false;
     touchPinchRef.current = {
       active: true,
@@ -1569,11 +1590,15 @@ export function Map() {
     touchPinchRef.current.lastCenterX = nextCenter.x;
     touchPinchRef.current.lastCenterY = nextCenter.y;
 
-    setScale((value) =>
-      Math.max(0.42, Math.min(1.45, value + distanceDelta * 0.003)),
-    );
+    if (Math.abs(distanceDelta) > 0.5) {
+      markManualViewAdjustment();
+      setScale((value) =>
+        Math.max(DEFAULT_MAP_SCALE, Math.min(1.45, value + distanceDelta * 0.003)),
+      );
+    }
 
     if (Math.abs(angleDelta) > 0.35 && Math.abs(angleDelta) < 24) {
+      markManualViewAdjustment();
       setRotation((value) => value + angleDelta * 0.7);
     }
 
@@ -1586,6 +1611,7 @@ export function Map() {
 
     if (shouldTilt) {
       touchPinchRef.current.tiltPrimed = true;
+      markManualViewAdjustment();
       setTilt((value) => Math.max(38, Math.min(72, value + centerDeltaY * 0.16)));
     }
   };
@@ -1955,10 +1981,22 @@ export function Map() {
               pointerEvents: "none",
             }}
           >
-            <ControlButton label="Zoom in" onClick={() => setScale((value) => Math.min(value + 0.1, 1.45))}>
+            <ControlButton
+              label="Zoom in"
+              onClick={() => {
+                markManualViewAdjustment();
+                setScale((value) => Math.min(value + 0.1, 1.45));
+              }}
+            >
               <Plus size={18} />
             </ControlButton>
-            <ControlButton label="Zoom out" onClick={() => setScale((value) => Math.max(value - 0.1, 0.42))}>
+            <ControlButton
+              label="Zoom out"
+              onClick={() => {
+                markManualViewAdjustment();
+                setScale((value) => Math.max(value - 0.1, DEFAULT_MAP_SCALE));
+              }}
+            >
               <Minus size={18} />
             </ControlButton>
           </div>

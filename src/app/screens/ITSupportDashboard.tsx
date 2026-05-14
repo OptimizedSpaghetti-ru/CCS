@@ -254,7 +254,7 @@ export function ITSupportDashboard() {
       body: remarks.trim()
         ? remarks.trim()
         : `Your request "${selected.title}" is now ${status}.`,
-      type: "announcement",
+      type: "assistance",
       target_role: selected.requester_role,
       recipient_id: selected.requester_id,
       created_by: currentUser.id,

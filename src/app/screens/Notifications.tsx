@@ -32,6 +32,7 @@ interface Notif {
   day: string;
   path?: string;
   conversationId?: string;
+  recipientId?: string | null;
 }
 
 const typeConfig = {
@@ -42,7 +43,32 @@ const typeConfig = {
 };
 
 function isAssistanceNotification(row: any) {
-  return Boolean(row?.recipient_id || row?.target_role === "it_support");
+  if (isMessageNotification(row)) return false;
+  return (
+    row?.type === "assistance" ||
+    row?.target_role === "it_support" ||
+    [
+      "New assistance request",
+      "Assistance request received",
+      "Assistance request updated",
+      "Assistance request resolved",
+    ].includes(row?.title?.trim?.() ?? "")
+  );
+}
+
+function isMessageNotification(row: any) {
+  return Boolean(
+    row?.type === "message" ||
+      row?.message_id ||
+      (row?.conversation_id && row?.title?.trim?.() === "New Message"),
+  );
+}
+
+function getNotificationType(row: any): Notif["type"] {
+  if (isMessageNotification(row)) return "message";
+  if (isAssistanceNotification(row)) return "assistance";
+  if (row?.type === "event") return "event";
+  return "announcement";
 }
 
 function NotifItem({
@@ -307,11 +333,7 @@ export function Notifications() {
 
           return {
             id: n.id,
-            type: isAssistanceNotification(n)
-              ? "assistance"
-              : (["announcement", "event", "message"].includes(n.type)
-                  ? n.type
-                  : "announcement"),
+            type: getNotificationType(n),
             source: "notification",
             title: n.title?.trim() || "Notification",
             body: n.body?.trim() || "Tap to view details.",
@@ -324,10 +346,15 @@ export function Notifications() {
             unread: !statusMap.get(n.id)?.read_at,
             day: dayLabel(n.created_at),
             conversationId: n.conversation_id ?? undefined,
+            recipientId: n.recipient_id ?? null,
             path:
-              n.type === "message" && n.conversation_id
+              isMessageNotification(n) && n.conversation_id
                 ? `/app/messages/${n.conversation_id}`
-                : undefined,
+                : isAssistanceNotification(n)
+                  ? currentUser.role === "it_support"
+                    ? "/app/it-support"
+                    : "/app/assistance"
+                  : undefined,
           };
         });
     }
@@ -494,7 +521,7 @@ export function Notifications() {
     const previous = [...notifs];
     setNotifs((prev) => prev.filter((n) => n.id !== notif.id));
 
-    if (notif.source === "message" && notif.conversationId) {
+    if (notif.type === "message" && notif.conversationId) {
       const { error } = await supabase
         .from("messages")
         .update({ read_at: new Date().toISOString() })
@@ -504,13 +531,18 @@ export function Notifications() {
 
       if (error) {
         setNotifs(previous);
+        return;
       }
-      return;
+
+      if (notif.source === "message") {
+        return;
+      }
     }
 
-    const isAdmin = currentUser.role === "admin";
+    const isAdminAnnouncement =
+      currentUser.role === "admin" && !notif.recipientId;
 
-    if (isAdmin) {
+    if (isAdminAnnouncement) {
       const { error } = await supabase
         .from("notifications")
         .delete()
@@ -542,7 +574,7 @@ export function Notifications() {
     const unreadMessageConversationIds = [
       ...new Set(
         notifs
-          .filter((n) => n.unread && n.source === "message" && n.conversationId)
+          .filter((n) => n.unread && n.type === "message" && n.conversationId)
           .map((n) => n.conversationId as string),
       ),
     ];

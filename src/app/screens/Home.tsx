@@ -5,7 +5,6 @@ import {
   MessageSquare,
   Map,
   BarChart3,
-  BookOpen,
   ChevronRight,
   Megaphone,
   Wrench,
@@ -88,7 +87,25 @@ function getGreeting() {
 }
 
 function isAssistanceNotification(row: any) {
-  return Boolean(row?.recipient_id || row?.target_role === "it_support");
+  if (isMessageNotification(row)) return false;
+  return (
+    row?.type === "assistance" ||
+    row?.target_role === "it_support" ||
+    [
+      "New assistance request",
+      "Assistance request received",
+      "Assistance request updated",
+      "Assistance request resolved",
+    ].includes(row?.title?.trim?.() ?? "")
+  );
+}
+
+function isMessageNotification(row: any) {
+  return Boolean(
+    row?.type === "message" ||
+      row?.message_id ||
+      (row?.conversation_id && row?.title?.trim?.() === "New Message"),
+  );
 }
 
 export function Home() {
@@ -111,15 +128,18 @@ export function Home() {
       /* recent notifications shown as announcements */
       const { data: notifs } = await supabase
         .from("notifications")
-        .select("id, title, body, type, image_url, target_role, recipient_id, created_by, created_at")
+        .select("id, title, body, type, image_url, target_role, recipient_id, created_by, created_at, conversation_id, message_id")
         .order("created_at", { ascending: false })
         .limit(20);
       if (notifs) {
         const visible = (notifs as any[]).filter((n) => {
+          if (isMessageNotification(n) || isAssistanceNotification(n)) {
+            return false;
+          }
           if (n.recipient_id && n.recipient_id !== currentUser.id) return false;
           if (n.recipient_id === currentUser.id) return true;
           if (currentUser.role === "admin") {
-            return !isAssistanceNotification(n);
+            return true;
           }
           if (currentUser.role === "student") {
             return n.target_role === "student" || n.target_role === null;
@@ -326,22 +346,6 @@ export function Home() {
                 label="Analytics"
                 path="/app/admin/analytics"
                 color="#8C1007"
-              />
-            )}
-            {currentUser.role === "student" && (
-              <QuickAction
-                icon={<BookOpen size={20} />}
-                label="Courses"
-                path="/app/profile"
-                color="#059669"
-              />
-            )}
-            {currentUser.role === "admin" && (
-              <QuickAction
-                icon={<BookOpen size={20} />}
-                label="Admin"
-                path="/app/admin"
-                color="#059669"
               />
             )}
             {currentUser.role !== "it_support" && (

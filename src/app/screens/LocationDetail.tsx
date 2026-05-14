@@ -77,6 +77,8 @@ export function LocationDetail() {
     }
   };
 
+  const isSaintBenedictHall = loc?.id === "building-saint-benedict-hall";
+
   const locationImageCandidates = loc
     ? [
         `/location-images/${loc.id}.jpg`,
@@ -322,6 +324,11 @@ export function LocationDetail() {
             : "No coordinates available"}
         </button>
         <button
+          onClick={() => {
+            if (isSaintBenedictHall) {
+              navigate("/app/map?view=indoor");
+            }
+          }}
           style={{
             width: "100%",
             height: 46,
@@ -336,12 +343,12 @@ export function LocationDetail() {
             fontSize: 15,
             fontWeight: 600,
             color: c.baseRed,
-            cursor: "pointer",
+            cursor: isSaintBenedictHall ? "pointer" : "default",
             marginBottom: 16,
           }}
         >
-          <Share2 size={18} />
-          Share Location
+          {isSaintBenedictHall ? <Building2 size={18} /> : <Share2 size={18} />}
+          {isSaintBenedictHall ? "Go Inside" : "Share Location"}
         </button>
       </div>
     </div>
