@@ -34,6 +34,7 @@ interface GroupMsg {
   role: string;
   text: string;
   time: string;
+  createdAt: string;
   attachment?: MessageAttachment;
   reactions: Record<string, number>;
   replies: number;
@@ -53,6 +54,81 @@ function fmtTime(iso: string) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function dateKey(iso: string) {
+  return new Date(iso).toDateString();
+}
+
+function dateLabel(iso: string) {
+  const date = new Date(iso);
+  const now = new Date();
+  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round(
+    (startOfToday.getTime() - startOfDate.getTime()) / 86_400_000,
+  );
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays > 1 && diffDays < 7) {
+    return date.toLocaleDateString("en-US", { weekday: "long" });
+  }
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
+  });
+}
+
+function DateSeparator({ label, isDark }: { label: string; isDark: boolean }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        margin: "8px 0 14px",
+      }}
+    >
+      <div
+        style={{
+          flex: 1,
+          height: 1,
+          background: isDark
+            ? "rgba(255,232,217,0.14)"
+            : "rgba(139,115,85,0.2)",
+        }}
+      />
+      <div
+        style={{
+          background: isDark ? "#241118" : c.cream,
+          borderRadius: 20,
+          padding: "3px 12px",
+          border: `1px solid ${isDark ? "rgba(255,232,217,0.16)" : "rgba(139,115,85,0.15)"}`,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: fonts.ui,
+            fontSize: 11,
+            color: isDark ? "rgba(255,232,217,0.76)" : c.warmGray,
+          }}
+        >
+          {label}
+        </span>
+      </div>
+      <div
+        style={{
+          flex: 1,
+          height: 1,
+          background: isDark
+            ? "rgba(255,232,217,0.14)"
+            : "rgba(139,115,85,0.2)",
+        }}
+      />
+    </div>
+  );
 }
 
 const MEMBER_COLORS = [
@@ -388,6 +464,7 @@ export function GroupChat() {
           role: info.role,
           text: m.body ?? "",
           time: fmtTime(m.created_at),
+          createdAt: m.created_at,
           attachment: m.attachment_url
             ? {
                 url: m.attachment_url,
@@ -572,7 +649,7 @@ export function GroupChat() {
         }}
       >
         {/* Date divider */}
-        {groupMessages.length > 0 && (
+        {false && groupMessages.length > 0 && (
           <div
             style={{
               display: "flex",
@@ -627,9 +704,20 @@ export function GroupChat() {
             isDark={isDark}
           />
         ) : (
-          groupMessages.map((msg) => (
-            <GroupMessage key={msg.id} msg={msg} isDark={isDark} />
-          ))
+          groupMessages.map((msg, index) => {
+            const showSeparator =
+              index === 0 ||
+              dateKey(msg.createdAt) !==
+                dateKey(groupMessages[index - 1].createdAt);
+            return (
+              <div key={msg.id}>
+                {showSeparator && (
+                  <DateSeparator label={dateLabel(msg.createdAt)} isDark={isDark} />
+                )}
+                <GroupMessage msg={msg} isDark={isDark} />
+              </div>
+            );
+          })
         )}
         <div ref={bottomRef} />
       </div>

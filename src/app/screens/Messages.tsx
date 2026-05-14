@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
-import { Search, Edit, ChevronRight } from "lucide-react";
+import { Search, Edit, CheckCircle } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { TopBar } from "../components/TopBar";
 import { AppLoadingState } from "../components/AppLoadingState";
@@ -145,7 +145,11 @@ function RoleBadge({ role, isDark }: { role: string; isDark: boolean }) {
 
 export function Messages() {
   const navigate = useNavigate();
-  const { markConversationRead, resolvedThemeMode } = useApp();
+  const {
+    markAllConversationsRead,
+    markConversationRead,
+    resolvedThemeMode,
+  } = useApp();
   const isDark = resolvedThemeMode === "dark";
   const searchSurface = isDark ? "#2A141A" : c.white;
   const mutedSurface = isDark ? "rgba(255,232,217,0.08)" : "rgba(255,240,196,0.15)";
@@ -159,6 +163,7 @@ export function Messages() {
   const [search, setSearch] = useState("");
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [readAllDone, setReadAllDone] = useState(false);
 
   const loadConversations = useCallback(async () => {
     const {
@@ -359,6 +364,14 @@ export function Messages() {
     );
   };
 
+  const markAllRead = async () => {
+    if (!conversations.some((conv) => conv.unread > 0)) return;
+    setConversations((prev) => prev.map((conv) => ({ ...conv, unread: 0 })));
+    setReadAllDone(true);
+    await markAllConversationsRead();
+    window.setTimeout(() => setReadAllDone(false), 1400);
+  };
+
   return (
     <div
       style={{
@@ -372,23 +385,53 @@ export function Messages() {
       <TopBar
         title="Messages"
         rightContent={
-          <button
-            onClick={() => navigate("/app/messages/compose")}
-            style={{
-              background: g.button,
-              border: "none",
-              borderRadius: 10,
-              width: 36,
-              height: 36,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              boxShadow: shadow.button,
-            }}
-          >
-            <Edit size={16} color={c.cream} />
-          </button>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <button
+              className="hover-press"
+              onClick={markAllRead}
+              disabled={!conversations.some((conv) => conv.unread > 0)}
+              style={{
+                background: readAllDone
+                  ? "rgba(34,197,94,0.22)"
+                  : "rgba(255,240,196,0.12)",
+                border: `1px solid ${readAllDone ? "rgba(34,197,94,0.42)" : "rgba(255,240,196,0.16)"}`,
+                borderRadius: 999,
+                padding: "7px 10px",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                color: c.cream,
+                cursor: conversations.some((conv) => conv.unread > 0)
+                  ? "pointer"
+                  : "default",
+                opacity: conversations.some((conv) => conv.unread > 0) ? 1 : 0.55,
+                transition:
+                  "background 0.2s ease, border-color 0.2s ease, transform 0.16s ease, opacity 0.2s ease",
+              }}
+            >
+              <CheckCircle size={14} />
+              <span style={{ fontFamily: fonts.ui, fontSize: 12 }}>
+                {readAllDone ? "Done" : "Read all"}
+              </span>
+            </button>
+            <button
+              onClick={() => navigate("/app/messages/compose")}
+              style={{
+                background: g.button,
+                border: "none",
+                borderRadius: 10,
+                width: 36,
+                height: 36,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                boxShadow: shadow.button,
+              }}
+            >
+              <Edit size={16} color={c.cream} />
+            </button>
+          </div>
         }
       />
 

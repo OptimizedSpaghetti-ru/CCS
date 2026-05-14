@@ -345,11 +345,17 @@ function NotificationsLoading({ isDark }: { isDark: boolean }) {
 
 export function Notifications() {
   const navigate = useNavigate();
-  const { currentUser, markConversationRead, resolvedThemeMode } = useApp();
+  const {
+    currentUser,
+    markConversationRead,
+    markNotificationsRead,
+    resolvedThemeMode,
+  } = useApp();
   const isDark = resolvedThemeMode === "dark";
   const [activeTab, setActiveTab] = useState("All");
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
+  const [readAllDone, setReadAllDone] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] =
     useState<AnnouncementDetail | null>(null);
 
@@ -746,14 +752,7 @@ export function Notifications() {
     setNotifs((prev) => prev.map((n) => ({ ...n, unread: false })));
 
     if (unreadNotifIds.length > 0) {
-      const rows = unreadNotifIds.map((nid) => ({
-        notification_id: nid,
-        user_id: currentUser.id,
-        read_at: new Date().toISOString(),
-      }));
-      await supabase
-        .from("notification_status")
-        .upsert(rows, { onConflict: "notification_id,user_id" });
+      await markNotificationsRead(unreadNotifIds);
     }
 
     if (unreadMessageConversationIds.length > 0) {
@@ -763,6 +762,8 @@ export function Notifications() {
         ),
       );
     }
+    setReadAllDone(true);
+    window.setTimeout(() => setReadAllDone(false), 1400);
   };
 
   const openAnnouncement = async (notif: Notif) => {
@@ -824,19 +825,25 @@ export function Notifications() {
               className="hover-press"
               onClick={markAllRead}
               style={{
-                background: "none",
-                border: "none",
+                background: readAllDone ? "rgba(34,197,94,0.22)" : "none",
+                border: readAllDone
+                  ? "1px solid rgba(34,197,94,0.42)"
+                  : "1px solid transparent",
+                borderRadius: 999,
+                padding: "4px 8px",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 gap: 4,
                 color: c.cream,
                 opacity: 0.85,
+                transition:
+                  "background 0.2s ease, border-color 0.2s ease, transform 0.16s ease",
               }}
             >
               <CheckCircle size={14} />
               <span style={{ fontFamily: fonts.ui, fontSize: 12 }}>
-                Read all
+                {readAllDone ? "Done" : "Read all"}
               </span>
             </button>
             <button

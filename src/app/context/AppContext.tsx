@@ -63,6 +63,8 @@ interface AppContextType {
     conversationId: string,
     optimisticUnreadCount?: number,
   ) => Promise<void>;
+  markAllConversationsRead: () => Promise<void>;
+  markNotificationsRead: (notificationIds: string[]) => Promise<void>;
   themePreference: ThemePreference;
   resolvedThemeMode: ThemeMode;
   setThemePreference: (preference: ThemePreference) => void;
@@ -303,13 +305,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } else {
       setUnreadMessages(0);
     }
-    // Unread notifications: notifications for this user (or role-broadcast) without a read row in notification_status
-    const { count: notifCount } = await supabase
-      .rpc("count_unread_notifications", { p_user_id: userId })
-      .maybeSingle()
-      .then((res) => ({ count: (res.data as any) ?? 0 }));
-    setUnreadNotifications(typeof notifCount === "number" ? notifCount : 0);
-  }, []);
+    const { data: notificationRows } = await supabase
+      .from("notifications")
+      .select("id, recipient_id, target_role, created_by");
+    const visibleRows = (notificationRows ?? []).filter((row: any) => {
+      if (row.recipient_id && row.recipient_id !== userId) return false;
+      if (row.recipient_id === userId) return true;
+      if (currentUser.role === "admin") return true;
+      if (currentUser.role === "student") {
+        return row.target_role === "student" || row.target_role === null;
+      }
+      if (currentUser.role === "faculty") {
+        return (
+          row.target_role === "faculty" ||
+          row.target_role === null ||
+          row.created_by === userId
+        );
+      }
+      if (currentUser.role === "it_support") {
+        return row.target_role === "it_support" || row.target_role === null;
+      }
+      return true;
+    });
+    const notificationIds = visibleRows.map((row: any) => row.id);
+    if (notificationIds.length === 0) {
+      setUnreadNotifications(0);
+      return;
+    }
+    const { data: statuses } = await supabase
+      .from("notification_status")
+      .select("notification_id, read_at, dismissed_at")
+      .eq("user_id", userId)
+      .in("notification_id", notificationIds);
+    const statusMap = new Map(
+      (statuses ?? []).map((status: any) => [status.notification_id, status]),
+    );
+    setUnreadNotifications(
+      visibleRows.filter((row: any) => {
+        const status = statusMap.get(row.id);
+        return !status?.dismissed_at && !status?.read_at;
+      }).length,
+    );
+  }, [currentUser.role]);
 
   const showToast = useCallback((toast: Omit<ToastData, "id">) => {
     const id = Date.now().toString();
@@ -333,13 +370,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       const readAt = new Date().toISOString();
-      const { error } = await supabase
+      const { data: updatedRows, error } = await supabase
         .from("conversation_members")
         .update({ last_read_at: readAt })
         .eq("conversation_id", conversationId)
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .select("conversation_id");
 
-      if (error) {
+      if (error || !updatedRows || updatedRows.length === 0) {
         await supabase
           .from("messages")
           .update({ read_at: readAt })
@@ -347,6 +385,61 @@ export function AppProvider({ children }: { children: ReactNode }) {
           .neq("sender_id", userId)
           .is("read_at", null);
       }
+      await refreshUnreadCounts(userId);
+    },
+    [refreshUnreadCounts, session?.user?.id],
+  );
+
+  const markAllConversationsRead = useCallback(async () => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    setUnreadMessages(0);
+    const readAt = new Date().toISOString();
+    const { data: updatedRows, error } = await supabase
+      .from("conversation_members")
+      .update({ last_read_at: readAt })
+      .eq("user_id", userId)
+      .select("conversation_id");
+
+    if (error || !updatedRows || updatedRows.length === 0) {
+      const { data: memberships } = await supabase
+        .from("conversation_members")
+        .select("conversation_id")
+        .eq("user_id", userId);
+      const conversationIds = (memberships ?? []).map(
+        (row: any) => row.conversation_id,
+      );
+      if (conversationIds.length > 0) {
+        await supabase
+          .from("messages")
+          .update({ read_at: readAt })
+          .in("conversation_id", conversationIds)
+          .neq("sender_id", userId)
+          .is("read_at", null);
+      }
+    }
+
+    await refreshUnreadCounts(userId);
+  }, [refreshUnreadCounts, session?.user?.id]);
+
+  const markNotificationsRead = useCallback(
+    async (notificationIds: string[]) => {
+      const userId = session?.user?.id;
+      if (!userId || notificationIds.length === 0) return;
+
+      setUnreadNotifications((prev) =>
+        Math.max(0, prev - notificationIds.length),
+      );
+      const readAt = new Date().toISOString();
+      const rows = notificationIds.map((notificationId) => ({
+        notification_id: notificationId,
+        user_id: userId,
+        read_at: readAt,
+      }));
+      await supabase
+        .from("notification_status")
+        .upsert(rows, { onConflict: "notification_id,user_id" });
       await refreshUnreadCounts(userId);
     },
     [refreshUnreadCounts, session?.user?.id],
@@ -849,6 +942,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         showToast,
         dismissToast,
         markConversationRead,
+        markAllConversationsRead,
+        markNotificationsRead,
         themePreference,
         resolvedThemeMode,
         setThemePreference,
