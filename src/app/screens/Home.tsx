@@ -118,6 +118,26 @@ function isMessageNotification(row: any) {
   );
 }
 
+function isAnnouncementRow(row: any) {
+  if (row?.type === "announcement" || row?.type === "event") return true;
+  if (isMessageNotification(row) || isAssistanceNotification(row)) return false;
+  return Boolean(row?.title || row?.body || row?.image_url);
+}
+
+function canSeeAnnouncement(row: any, user: { id: string; role: string }) {
+  if (row.recipient_id && row.recipient_id !== user.id) return false;
+  if (row.recipient_id === user.id) return true;
+  if (user.role === "admin") return true;
+  if (user.role === "faculty" && row.created_by === user.id) return true;
+
+  const target = String(row.target_role ?? "").trim().toLowerCase();
+  if (!target || ["all", "all_roles", "everyone", "public"].includes(target)) {
+    return true;
+  }
+
+  return target === user.role;
+}
+
 export function Home() {
   const { currentUser, resolvedThemeMode } = useApp();
   const isDark = resolvedThemeMode === "dark";
@@ -131,43 +151,38 @@ export function Home() {
   >([]);
   const [selectedAnnouncement, setSelectedAnnouncement] =
     useState<AnnouncementDetail | null>(null);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(true);
+  const [announcementsError, setAnnouncementsError] = useState("");
 
   useEffect(() => {
     (async () => {
-      /* recent notifications shown as announcements */
-      const { data: notifs, error: notifsError } = await supabase
-        .from("notifications")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (notifsError) {
-        console.warn("Failed to load home announcements", notifsError.message);
-      }
-      if (notifs) {
-        const visible = (notifs as any[]).filter((n) => {
-          if (isMessageNotification(n) || isAssistanceNotification(n)) {
-            return false;
-          }
-          if (n.recipient_id && n.recipient_id !== currentUser.id) return false;
-          if (n.recipient_id === currentUser.id) return true;
-          if (currentUser.role === "admin") {
-            return true;
-          }
-          if (currentUser.role === "student") {
-            return n.target_role === "student" || n.target_role === null;
-          }
-          if (currentUser.role === "faculty") {
-            return (
-              n.target_role === "faculty" ||
-              n.target_role === null ||
-              n.created_by === currentUser.id
-            );
-          }
-          if (currentUser.role === "it_support") {
-            return n.target_role === "it_support" || n.target_role === null;
-          }
-          return true;
-        });
+      setAnnouncementsLoading(true);
+      setAnnouncementsError("");
+
+      try {
+        const { data: typedRows, error: typedError } = await supabase
+          .from("notifications")
+          .select("*")
+          .in("type", ["announcement", "event"])
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        let rows = typedRows ?? [];
+
+        if (typedError) {
+          const { data: fallbackRows, error: fallbackError } = await supabase
+            .from("notifications")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(200);
+
+          if (fallbackError) throw fallbackError;
+          rows = fallbackRows ?? [];
+        }
+
+        const visible = (rows as any[])
+          .filter(isAnnouncementRow)
+          .filter((n) => canSeeAnnouncement(n, currentUser));
 
         const authorIds = [
           ...new Set(
@@ -219,6 +234,17 @@ export function Home() {
             };
           }),
         );
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unable to load announcements.";
+        setAnnouncements([]);
+        setAnnouncementsError(message);
+        console.warn("Failed to load home announcements", message, {
+          source: "notifications",
+          role: currentUser.role,
+        });
+      } finally {
+        setAnnouncementsLoading(false);
       }
     })();
   }, [currentUser.id, currentUser.role]);
@@ -472,7 +498,31 @@ export function Home() {
             </button>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {announcements.length === 0 ? (
+            {announcementsLoading ? (
+              <p
+                style={{
+                  fontFamily: fonts.ui,
+                  fontSize: 12,
+                  color: c.warmGray,
+                  textAlign: "center",
+                  padding: 20,
+                }}
+              >
+                Loading announcements...
+              </p>
+            ) : announcementsError ? (
+              <p
+                style={{
+                  fontFamily: fonts.ui,
+                  fontSize: 12,
+                  color: c.warmGray,
+                  textAlign: "center",
+                  padding: 20,
+                }}
+              >
+                Unable to load announcements right now.
+              </p>
+            ) : announcements.length === 0 ? (
               <p
                 style={{
                   fontFamily: fonts.ui,
