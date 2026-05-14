@@ -10,6 +10,11 @@ import {
   uploadMessageAttachment,
   type MessageAttachment,
 } from "../../lib/messageAttachments";
+import {
+  MESSAGE_ROLE_COLORS,
+  normalizeMessageRole,
+  roleLabel,
+} from "../utils/messageRoles";
 
 interface Suggestion {
   id: string;
@@ -19,12 +24,6 @@ interface Suggestion {
   initials: string;
   color: string;
 }
-
-const ROLE_COLORS: Record<string, string> = {
-  faculty: "#8C1007",
-  admin: "#374151",
-  student: "#059669",
-};
 
 const EMOJIS = ["😀", "😂", "😊", "😍", "👍", "👏", "🙏", "🔥", "✨", "❤️", "🎉", "📌", "✅", "💡", "📚", "🛠️"];
 
@@ -50,6 +49,10 @@ export function Compose() {
   const fieldBorder = isDark
     ? "rgba(255,232,217,0.34)"
     : "rgba(139,115,85,0.2)";
+  const primaryText = c.darkBrown;
+  const secondaryText = isDark ? "rgba(255,232,217,0.74)" : c.warmGray;
+  const chipSurface = isDark ? "rgba(143,39,52,0.28)" : `${c.baseRed}18`;
+  const chipBorder = isDark ? "rgba(255,232,217,0.18)" : `${c.baseRed}30`;
   const placeholderColor = isDark
     ? "rgba(255,232,217,0.72)"
     : "rgba(45,27,14,0.55)";
@@ -78,14 +81,23 @@ export function Compose() {
         .limit(10);
       if (data) {
         setSuggestions(
-          data.map((p: any) => ({
-            id: p.id,
-            name: p.full_name ?? "User",
-            role: p.role ?? "student",
-            department: p.department ?? "",
-            initials: getInitials(p.full_name ?? "U"),
-            color: ROLE_COLORS[p.role] ?? "#059669",
-          })),
+          data.map((p: any) => {
+            const role = normalizeMessageRole(p.role);
+            const department =
+              typeof p.department === "string" && p.department.trim()
+                ? p.department
+                : role === "admin" || role === "faculty" || role === "it_support"
+                  ? "College of Computer Studies"
+                  : "";
+            return {
+              id: p.id,
+              name: p.full_name ?? "User",
+              role,
+              department,
+              initials: getInitials(p.full_name ?? "U"),
+              color: MESSAGE_ROLE_COLORS[role],
+            };
+          }),
         );
       }
     }, 300);
@@ -294,7 +306,7 @@ export function Compose() {
             style={{
               fontFamily: fonts.ui,
               fontSize: 13,
-              color: c.warmGray,
+              color: secondaryText,
               fontWeight: 600,
               flexShrink: 0,
             }}
@@ -309,8 +321,8 @@ export function Compose() {
                 display: "flex",
                 alignItems: "center",
                 gap: 5,
-                background: `${c.baseRed}18`,
-                border: `1px solid ${c.baseRed}30`,
+                background: chipSurface,
+                border: `1px solid ${chipBorder}`,
                 borderRadius: 20,
                 padding: "3px 8px 3px 4px",
               }}
@@ -342,7 +354,7 @@ export function Compose() {
                   fontFamily: fonts.ui,
                   fontSize: 12,
                   fontWeight: 500,
-                  color: c.darkBrown,
+                  color: primaryText,
                 }}
               >
                 {r.name.split(" ")[0]}
@@ -355,7 +367,7 @@ export function Compose() {
                   cursor: "pointer",
                   padding: 0,
                   display: "flex",
-                  color: c.warmGray,
+                  color: secondaryText,
                 }}
               >
                 <X size={12} />
@@ -372,7 +384,7 @@ export function Compose() {
             }}
             onFocus={() => setShowSuggestions(true)}
             placeholder={
-              recipients.length === 0 ? "Search students or faculty…" : ""
+              recipients.length === 0 ? "Search people or roles..." : ""
             }
             style={{
               flex: 1,
@@ -382,7 +394,7 @@ export function Compose() {
               outline: "none",
               fontFamily: fonts.ui,
               fontSize: 13,
-              color: c.darkBrown,
+              color: primaryText,
               ["--auth-placeholder-color" as string]: placeholderColor,
             }}
           />
@@ -456,7 +468,7 @@ export function Compose() {
                       fontFamily: fonts.ui,
                       fontSize: 13,
                       fontWeight: 600,
-                      color: c.darkBrown,
+                      color: primaryText,
                       margin: 0,
                     }}
                   >
@@ -466,17 +478,11 @@ export function Compose() {
                     style={{
                       fontFamily: fonts.ui,
                       fontSize: 11,
-                      color: c.warmGray,
+                      color: secondaryText,
                       margin: 0,
                     }}
                   >
-                    {s.role === "faculty"
-                      ? "Faculty"
-                      : s.role === "admin"
-                        ? "Admin"
-                        : s.role === "group"
-                          ? "Group"
-                          : "Student"}
+                    {roleLabel(s.role)}
                     {s.department ? ` · ${s.department}` : ""}
                   </p>
                 </div>
@@ -504,7 +510,7 @@ export function Compose() {
             outline: "none",
             fontFamily: fonts.ui,
             fontSize: 13,
-            color: c.darkBrown,
+            color: primaryText,
             boxSizing: "border-box",
             ["--auth-placeholder-color" as string]: placeholderColor,
           }}
@@ -528,7 +534,7 @@ export function Compose() {
             outline: "none",
             fontFamily: fonts.ui,
             fontSize: 14,
-            color: c.darkBrown,
+            color: primaryText,
             resize: "none",
             lineHeight: 1.6,
             boxSizing: "border-box",
@@ -620,7 +626,7 @@ export function Compose() {
                   fontFamily: fonts.ui,
                   fontSize: 12,
                   fontWeight: 700,
-                  color: c.darkBrown,
+                  color: primaryText,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -633,7 +639,7 @@ export function Compose() {
                   margin: "2px 0 0",
                   fontFamily: fonts.mono,
                   fontSize: 10,
-                  color: c.warmGray,
+                  color: secondaryText,
                 }}
               >
                 {formatFileSize(attachment.size)}
@@ -652,7 +658,7 @@ export function Compose() {
                 background: isDark
                   ? "rgba(255,232,217,0.1)"
                   : "rgba(139,115,85,0.12)",
-                color: c.darkBrown,
+                color: primaryText,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -716,7 +722,7 @@ export function Compose() {
                 cursor: "pointer",
                 fontFamily: fonts.ui,
                 fontSize: 12,
-                color: c.warmGray,
+                color: secondaryText,
               }}
             >
               {a.icon}

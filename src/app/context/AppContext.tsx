@@ -22,6 +22,7 @@ import {
   type ThemeMode,
   type ThemePreference,
 } from "../theme";
+import { normalizeMessageRole } from "../utils/messageRoles";
 
 declare global {
   interface Window {
@@ -123,14 +124,7 @@ function getInitials(name: string) {
 function normalizeRole(
   value: unknown,
 ): "student" | "faculty" | "admin" | "it_support" {
-  if (
-    value === "admin" ||
-    value === "faculty" ||
-    value === "it_support"
-  ) {
-    return value;
-  }
-  return "student";
+  return normalizeMessageRole(value);
 }
 
 function normalizeStatus(value: unknown): "pending" | "approved" | "rejected" {

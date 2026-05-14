@@ -8,12 +8,18 @@ import {
   BookOpen,
   GraduationCap,
   ShieldCheck,
+  Wrench,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { AppLoadingState } from "../components/AppLoadingState";
 import { ChatInputBar } from "../components/ChatInputBar";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
+import {
+  MESSAGE_ROLE_COLORS,
+  normalizeMessageRole,
+  roleLabel,
+} from "../utils/messageRoles";
 import {
   formatFileSize,
   isImageAttachment,
@@ -40,13 +46,6 @@ interface MsgRow {
   attachment?: MessageAttachment;
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  admin: "#7C3AED",
-  faculty: c.darkRed,
-  student: "#059669",
-  group: "#1D4ED8",
-};
-
 function getInitials(name: string) {
   const parts = name.split(" ").filter(Boolean).slice(0, 2);
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
@@ -63,13 +62,19 @@ function MessageBubble({
   msg,
   otherInitials,
   otherAvatarUrl,
+  isDark,
 }: {
   msg: MsgRow;
   otherInitials: string;
   otherAvatarUrl?: string;
+  isDark: boolean;
 }) {
   const isMe = msg.from === "me";
   const hasText = msg.text.trim().length > 0;
+  const attachmentSurface = isDark ? "#2B161D" : c.cream;
+  const attachmentBorder = isDark
+    ? "rgba(255,232,217,0.16)"
+    : "rgba(139,115,85,0.15)";
 
   if (msg.type === "file") {
     return (
@@ -101,13 +106,13 @@ function MessageBubble({
             </p>
             <div
               style={{
-                background: isMe ? "rgba(255,240,196,0.2)" : `${c.cream}`,
+                background: isMe ? "rgba(255,240,196,0.2)" : attachmentSurface,
                 borderRadius: 10,
                 padding: "8px 12px",
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                border: `1px solid ${isMe ? "rgba(255,240,196,0.3)" : "rgba(139,115,85,0.15)"}`,
+                border: `1px solid ${isMe ? "rgba(255,240,196,0.3)" : attachmentBorder}`,
               }}
             >
               <FileText size={18} color={isMe ? c.cream : c.baseRed} />
@@ -248,8 +253,8 @@ function MessageBubble({
                     gap: 9,
                     padding: "8px 10px",
                     borderRadius: 12,
-                    background: isMe ? "rgba(255,240,196,0.16)" : c.cream,
-                    border: `1px solid ${isMe ? "rgba(255,240,196,0.24)" : "rgba(139,115,85,0.16)"}`,
+                    background: isMe ? "rgba(255,240,196,0.16)" : attachmentSurface,
+                    border: `1px solid ${isMe ? "rgba(255,240,196,0.24)" : attachmentBorder}`,
                   }}
                 >
                   <FileText size={18} color={isMe ? c.cream : c.baseRed} />
@@ -312,7 +317,7 @@ export function Chat() {
     name: "Loading…",
     role: "student",
     initials: "..",
-    color: ROLE_COLORS.student,
+    color: MESSAGE_ROLE_COLORS.student,
     online: false,
     otherUserId: undefined,
   });
@@ -360,12 +365,15 @@ export function Chat() {
         const name = conv.is_group
           ? conv.title || "Group Chat"
           : other?.full_name || "User";
-        const role = conv.is_group ? "group" : (other?.role ?? "student");
+        const role = conv.is_group ? "group" : normalizeMessageRole(other?.role);
         setChat({
           name,
           role,
           initials: conv.is_group ? "GR" : getInitials(name),
-          color: ROLE_COLORS[role] || ROLE_COLORS.student,
+          color:
+            role === "group"
+              ? MESSAGE_ROLE_COLORS.group
+              : MESSAGE_ROLE_COLORS[role],
           online: Boolean(
             other?.show_online_status !== false && other?.is_online,
           ),
@@ -581,14 +589,12 @@ export function Chat() {
               <ShieldCheck size={11} />
             ) : chat.role === "faculty" ? (
               <BookOpen size={11} />
+            ) : chat.role === "it_support" ? (
+              <Wrench size={11} />
             ) : (
               <GraduationCap size={11} />
             )}
-            {chat.role === "admin"
-              ? "Admin"
-              : chat.role === "faculty"
-                ? "Faculty"
-                : "Student"}
+            {roleLabel(chat.role)}
           </p>
         </div>
       </div>
@@ -616,21 +622,27 @@ export function Chat() {
             }}
           >
             <div
-              style={{ flex: 1, height: 1, background: "rgba(139,115,85,0.2)" }}
+              style={{
+                flex: 1,
+                height: 1,
+                background: isDark
+                  ? "rgba(255,232,217,0.14)"
+                  : "rgba(139,115,85,0.2)",
+              }}
             />
             <div
               style={{
-                background: c.cream,
+                background: isDark ? "#241118" : c.cream,
                 borderRadius: 20,
                 padding: "3px 12px",
-                border: "1px solid rgba(139,115,85,0.15)",
+                border: `1px solid ${isDark ? "rgba(255,232,217,0.16)" : "rgba(139,115,85,0.15)"}`,
               }}
             >
               <span
                 style={{
                   fontFamily: fonts.ui,
                   fontSize: 11,
-                  color: c.warmGray,
+                  color: isDark ? "rgba(255,232,217,0.76)" : c.warmGray,
                 }}
               >
                 {(() => {
@@ -653,7 +665,13 @@ export function Chat() {
               </span>
             </div>
             <div
-              style={{ flex: 1, height: 1, background: "rgba(139,115,85,0.2)" }}
+              style={{
+                flex: 1,
+                height: 1,
+                background: isDark
+                  ? "rgba(255,232,217,0.14)"
+                  : "rgba(139,115,85,0.2)",
+              }}
             />
           </div>
         )}
@@ -683,6 +701,7 @@ export function Chat() {
               msg={msg}
               otherInitials={chat.initials}
               otherAvatarUrl={chat.avatarUrl}
+              isDark={isDark}
             />
           ))
         )}

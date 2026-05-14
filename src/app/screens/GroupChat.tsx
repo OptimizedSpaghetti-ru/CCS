@@ -17,6 +17,7 @@ import { AppLoadingState } from "../components/AppLoadingState";
 import { ChatInputBar } from "../components/ChatInputBar";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
+import { normalizeMessageRole } from "../utils/messageRoles";
 import {
   formatFileSize,
   isImageAttachment,
@@ -63,9 +64,13 @@ const MEMBER_COLORS = [
   "#374151",
 ];
 
-function GroupMessage({ msg }: { msg: GroupMsg }) {
+function GroupMessage({ msg, isDark }: { msg: GroupMsg; isDark: boolean }) {
   const isMe = msg.from === "Me";
   const hasText = msg.text.trim().length > 0;
+  const attachmentSurface = isDark ? "#2B161D" : c.cream;
+  const attachmentBorder = isDark
+    ? "rgba(255,232,217,0.16)"
+    : "rgba(139,115,85,0.16)";
   const reactionIcons = {
     like: <ThumbsUp size={11} color={c.warmGray} />,
     support: <Heart size={11} color={c.warmGray} />,
@@ -183,8 +188,8 @@ function GroupMessage({ msg }: { msg: GroupMsg }) {
                     gap: 9,
                     padding: "8px 10px",
                     borderRadius: 12,
-                    background: isMe ? "rgba(255,240,196,0.16)" : c.cream,
-                    border: `1px solid ${isMe ? "rgba(255,240,196,0.24)" : "rgba(139,115,85,0.16)"}`,
+                    background: isMe ? "rgba(255,240,196,0.16)" : attachmentSurface,
+                    border: `1px solid ${isMe ? "rgba(255,240,196,0.24)" : attachmentBorder}`,
                   }}
                 >
                   <FileText size={18} color={isMe ? c.cream : c.baseRed} />
@@ -344,7 +349,7 @@ export function GroupChat() {
       const p = m.profiles;
       nameMap.set(m.user_id, {
         name: m.user_id === userId ? "Me" : p?.full_name || "User",
-        role: p?.role || "student",
+        role: normalizeMessageRole(p?.role),
         avatarUrl: p?.avatar_url ?? undefined,
       });
     }
@@ -572,28 +577,40 @@ export function GroupChat() {
             }}
           >
             <div
-              style={{ flex: 1, height: 1, background: "rgba(139,115,85,0.2)" }}
+              style={{
+                flex: 1,
+                height: 1,
+                background: isDark
+                  ? "rgba(255,232,217,0.14)"
+                  : "rgba(139,115,85,0.2)",
+              }}
             />
             <div
               style={{
-                background: c.cream,
+                background: isDark ? "#241118" : c.cream,
                 borderRadius: 20,
                 padding: "3px 12px",
-                border: "1px solid rgba(139,115,85,0.15)",
+                border: `1px solid ${isDark ? "rgba(255,232,217,0.16)" : "rgba(139,115,85,0.15)"}`,
               }}
             >
               <span
                 style={{
                   fontFamily: fonts.ui,
                   fontSize: 11,
-                  color: c.warmGray,
+                  color: isDark ? "rgba(255,232,217,0.76)" : c.warmGray,
                 }}
               >
                 Today
               </span>
             </div>
             <div
-              style={{ flex: 1, height: 1, background: "rgba(139,115,85,0.2)" }}
+              style={{
+                flex: 1,
+                height: 1,
+                background: isDark
+                  ? "rgba(255,232,217,0.14)"
+                  : "rgba(139,115,85,0.2)",
+              }}
             />
           </div>
         )}
@@ -605,7 +622,9 @@ export function GroupChat() {
             isDark={isDark}
           />
         ) : (
-          groupMessages.map((msg) => <GroupMessage key={msg.id} msg={msg} />)
+          groupMessages.map((msg) => (
+            <GroupMessage key={msg.id} msg={msg} isDark={isDark} />
+          ))
         )}
         <div ref={bottomRef} />
       </div>

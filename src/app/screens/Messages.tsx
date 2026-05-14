@@ -6,12 +6,18 @@ import { TopBar } from "../components/TopBar";
 import { AppLoadingState } from "../components/AppLoadingState";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
+import {
+  MESSAGE_ROLE_COLORS,
+  normalizeMessageRole,
+  roleLabel,
+  type ConversationRole,
+} from "../utils/messageRoles";
 
 /* ---------- types ---------- */
 interface ConversationRow {
   id: string;
   name: string;
-  role: "student" | "faculty" | "admin" | "group";
+  role: ConversationRole;
   preview: string;
   time: string;
   unread: number;
@@ -21,14 +27,7 @@ interface ConversationRow {
   color: string;
 }
 
-const filters = ["All", "Students", "Faculty", "Groups"];
-
-const ROLE_COLORS: Record<string, string> = {
-  admin: "#7C3AED",
-  faculty: c.darkRed,
-  student: "#059669",
-  group: "#1D4ED8",
-};
+const filters = ["All", "Students", "Faculty", "IT Support", "Groups"];
 
 function getInitials(name: string) {
   const parts = name.split(" ").filter(Boolean).slice(0, 2);
@@ -119,13 +118,12 @@ function Avatar({
   );
 }
 
-function RoleBadge({ role }: { role: string }) {
+function RoleBadge({ role, isDark }: { role: string; isDark: boolean }) {
   if (role === "group") return null;
-  const isAdmin = role === "admin";
-  const isFaculty = role === "faculty";
-  const label = isAdmin ? "Admin" : isFaculty ? "Faculty" : "Student";
-  const bg = isAdmin ? "#7C3AED20" : isFaculty ? `${c.baseRed}20` : "#3B528020";
-  const color = isAdmin ? "#7C3AED" : isFaculty ? c.baseRed : "#3B5280";
+  const normalized = normalizeMessageRole(role);
+  const tone = MESSAGE_ROLE_COLORS[normalized];
+  const bg = isDark ? `${tone}40` : `${tone}18`;
+  const color = isDark ? c.cream : tone;
   return (
     <span
       style={{
@@ -134,12 +132,13 @@ function RoleBadge({ role }: { role: string }) {
         fontWeight: 600,
         background: bg,
         color,
+        border: `1px solid ${isDark ? `${tone}70` : `${tone}24`}`,
         borderRadius: 20,
         padding: "1px 5px",
         marginLeft: 4,
       }}
     >
-      {label}
+      {roleLabel(normalized)}
     </span>
   );
 }
@@ -148,6 +147,14 @@ export function Messages() {
   const navigate = useNavigate();
   const { resolvedThemeMode } = useApp();
   const isDark = resolvedThemeMode === "dark";
+  const searchSurface = isDark ? "#2A141A" : c.white;
+  const mutedSurface = isDark ? "rgba(255,232,217,0.08)" : "rgba(255,240,196,0.15)";
+  const listSurface = c.creamLight;
+  const rowSurface = isDark ? "#1F0F14" : c.white;
+  const unreadSurface = isDark ? "#2A141A" : c.cream;
+  const rowBorder = isDark ? "rgba(255,232,217,0.12)" : "rgba(139,115,85,0.1)";
+  const primaryText = c.darkBrown;
+  const secondaryText = isDark ? "rgba(255,232,217,0.74)" : c.warmGray;
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
@@ -222,20 +229,17 @@ export function Messages() {
 
         let name = conv.title || "Conversation";
         let role: ConversationRow["role"] = "student";
-        let color = ROLE_COLORS.student;
+        let color = MESSAGE_ROLE_COLORS.student;
 
         if (conv.is_group) {
           name = conv.title || "Group Chat";
           role = "group";
-          color = ROLE_COLORS.group;
+          color = MESSAGE_ROLE_COLORS.group;
         } else if (otherMembers.length > 0) {
           const other = otherMembers[0];
           name = other?.full_name || "User";
-          const r = other?.role ?? "student";
-          role = (
-            r === "faculty" || r === "admin" ? r : "student"
-          ) as ConversationRow["role"];
-          color = ROLE_COLORS[role] || ROLE_COLORS.student;
+          role = normalizeMessageRole(other?.role);
+          color = MESSAGE_ROLE_COLORS[role];
         }
 
         const latest = latestMap.get(conv.id);
@@ -305,7 +309,9 @@ export function Messages() {
           ? c.role === "student"
           : filter === "Faculty"
             ? c.role === "faculty"
-            : c.role === "group";
+            : filter === "IT Support"
+              ? c.role === "it_support"
+              : c.role === "group";
     const searchMatch =
       search === "" || c.name.toLowerCase().includes(search.toLowerCase());
     return roleMatch && searchMatch;
@@ -351,7 +357,8 @@ export function Messages() {
             display: "flex",
             alignItems: "center",
             gap: 10,
-            background: c.white,
+            background: searchSurface,
+            border: `1px solid ${isDark ? "rgba(255,232,217,0.16)" : "transparent"}`,
             borderRadius: 24,
             padding: "0 14px",
             height: 40,
@@ -370,7 +377,7 @@ export function Messages() {
               outline: "none",
               fontFamily: fonts.ui,
               fontSize: 13,
-              color: c.darkBrown,
+              color: primaryText,
             }}
           />
         </div>
@@ -389,7 +396,7 @@ export function Messages() {
               key={f}
               onClick={() => setFilter(f)}
               style={{
-                background: filter === f ? g.button : "rgba(255,240,196,0.15)",
+                background: filter === f ? g.button : mutedSurface,
                 border:
                   filter === f ? "none" : "1px solid rgba(255,240,196,0.2)",
                 borderRadius: 20,
@@ -410,7 +417,7 @@ export function Messages() {
       </div>
 
       {/* Conversation List */}
-      <div style={{ flex: 1, overflowY: "auto", background: c.creamLight }}>
+      <div style={{ flex: 1, overflowY: "auto", background: listSurface }}>
         {loading ? (
           <AppLoadingState
             message="Loading conversations..."
@@ -432,6 +439,7 @@ export function Messages() {
         ) : (
           filtered.map((conv, i) => (
             <button
+              className="hover-row"
               key={conv.id}
               onClick={() =>
                 conv.role === "group"
@@ -444,9 +452,9 @@ export function Messages() {
                 alignItems: "center",
                 gap: 12,
                 padding: "12px 16px",
-                background: conv.unread > 0 ? c.cream : c.white,
+                background: conv.unread > 0 ? unreadSurface : rowSurface,
                 border: "none",
-                borderBottom: `1px solid rgba(139,115,85,0.1)`,
+                borderBottom: `1px solid ${rowBorder}`,
                 cursor: "pointer",
                 textAlign: "left",
               }}
@@ -470,18 +478,18 @@ export function Messages() {
                       fontFamily: fonts.ui,
                       fontSize: 14,
                       fontWeight: conv.unread > 0 ? 700 : 500,
-                      color: c.darkBrown,
+                      color: primaryText,
                     }}
                   >
                     {conv.name}
                   </span>
-                  <RoleBadge role={conv.role} />
+                  <RoleBadge role={conv.role} isDark={isDark} />
                 </div>
                 <p
                   style={{
                     fontFamily: fonts.ui,
                     fontSize: 12,
-                    color: conv.unread > 0 ? c.darkBrown : c.warmGray,
+                    color: conv.unread > 0 ? primaryText : secondaryText,
                     fontWeight: conv.unread > 0 ? 500 : 400,
                     margin: 0,
                     overflow: "hidden",
@@ -505,7 +513,7 @@ export function Messages() {
                   style={{
                     fontFamily: fonts.mono,
                     fontSize: 10,
-                    color: c.warmGray,
+                    color: secondaryText,
                   }}
                 >
                   {conv.time}
