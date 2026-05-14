@@ -21,6 +21,7 @@ interface ConversationRow {
   preview: string;
   time: string;
   unread: number;
+  activityAt: string;
   online: boolean;
   initials: string;
   avatarUrl?: string;
@@ -174,17 +175,10 @@ export function Messages() {
 
     try {
       /* 1. My conversation IDs */
-      let { data: memberships, error: membershipError } = await supabase
+      const { data: memberships } = await supabase
         .from("conversation_members")
-        .select("conversation_id, last_read_at")
+        .select("conversation_id")
         .eq("user_id", userId);
-      if (membershipError) {
-        const fallback = await supabase
-          .from("conversation_members")
-          .select("conversation_id")
-          .eq("user_id", userId);
-        memberships = fallback.data;
-      }
 
       if (!memberships || memberships.length === 0) {
         setConversations([]);
@@ -192,8 +186,13 @@ export function Messages() {
       }
 
       const convIds = memberships.map((m: any) => m.conversation_id);
+      const { data: reads } = await supabase
+        .from("conversation_reads")
+        .select("conversation_id, last_read_at")
+        .eq("user_id", userId)
+        .in("conversation_id", convIds);
       const readMap = new Map(
-        memberships.map((m: any) => [
+        (reads ?? []).map((m: any) => [
           m.conversation_id,
           m.last_read_at ? new Date(m.last_read_at).getTime() : 0,
         ]),
@@ -203,7 +202,7 @@ export function Messages() {
       const { data: convos } = await supabase
         .from("conversations")
         .select(
-          `id, title, is_group, updated_at,
+          `id, title, is_group, created_at, updated_at,
            conversation_members ( user_id, profiles:user_id ( id, full_name, role, show_online_status, is_online, avatar_url ) )`,
         )
         .in("id", convIds)
@@ -233,9 +232,7 @@ export function Messages() {
         const lastRead = readMap.get(msg.conversation_id) ?? 0;
         const isUnread =
           msg.sender_id !== userId &&
-          (lastRead > 0
-            ? new Date(msg.created_at).getTime() > lastRead
-            : !msg.read_at);
+          new Date(msg.created_at).getTime() > lastRead;
         if (isUnread) {
           unreadMap.set(
             msg.conversation_id,
@@ -268,6 +265,8 @@ export function Messages() {
 
         const latest = latestMap.get(conv.id);
         const unread = unreadMap.get(conv.id) ?? 0;
+        const activityAt =
+          latest?.created_at ?? conv.updated_at ?? conv.created_at ?? "";
 
         return {
           id: conv.id,
@@ -276,6 +275,7 @@ export function Messages() {
           preview: latest?.body ?? "No messages yet",
           time: latest ? timeAgo(latest.created_at) : "",
           unread,
+          activityAt,
           online: Boolean(
             otherMembers[0]?.show_online_status !== false &&
             otherMembers[0]?.is_online,
@@ -286,7 +286,13 @@ export function Messages() {
         };
       });
 
-      setConversations(rows);
+      setConversations(
+        rows.sort(
+          (a, b) =>
+            new Date(b.activityAt || 0).getTime() -
+            new Date(a.activityAt || 0).getTime(),
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -321,6 +327,13 @@ export function Messages() {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "conversation_members" },
+        () => {
+          loadConversations();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "conversation_reads" },
         () => {
           loadConversations();
         },

@@ -521,23 +521,24 @@ export function Notifications() {
       }
 
       let messageNotifs: Notif[] = [];
-      let { data: memberships, error: membershipError } = await supabase
+      const { data: memberships } = await supabase
         .from("conversation_members")
-        .select("conversation_id, last_read_at")
+        .select("conversation_id")
         .eq("user_id", currentUser.id);
-      if (membershipError) {
-        const fallback = await supabase
-          .from("conversation_members")
-          .select("conversation_id")
-          .eq("user_id", currentUser.id);
-        memberships = fallback.data;
-      }
 
       const conversationIds = [
         ...new Set((memberships ?? []).map((m: any) => m.conversation_id)),
       ];
+      const { data: reads } =
+        conversationIds.length > 0
+          ? await supabase
+              .from("conversation_reads")
+              .select("conversation_id, last_read_at")
+              .eq("user_id", currentUser.id)
+              .in("conversation_id", conversationIds)
+          : { data: [] as any[] };
       const readMap = new Map(
-        (memberships ?? []).map((m: any) => [
+        (reads ?? []).map((m: any) => [
           m.conversation_id,
           m.last_read_at ? new Date(m.last_read_at).getTime() : 0,
         ]),
@@ -554,8 +555,7 @@ export function Notifications() {
 
         const unreadMessages = (messageRows ?? []).filter((msg: any) => {
           const lastRead = readMap.get(msg.conversation_id) ?? 0;
-          if (lastRead > 0) return new Date(msg.created_at).getTime() > lastRead;
-          return !msg.read_at;
+          return new Date(msg.created_at).getTime() > lastRead;
         });
 
         if (unreadMessages && unreadMessages.length > 0) {

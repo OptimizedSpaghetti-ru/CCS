@@ -272,21 +272,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   /* ── Fetch unread counts ─────────────────────────────────── */
   const refreshUnreadCounts = useCallback(async (userId: string) => {
     if (!userId) return;
-    let { data: myConvos, error: membershipError } = await supabase
+    const { data: myConvos } = await supabase
       .from("conversation_members")
-      .select("conversation_id, last_read_at")
+      .select("conversation_id")
       .eq("user_id", userId);
-    if (membershipError) {
-      const fallback = await supabase
-        .from("conversation_members")
-        .select("conversation_id")
-        .eq("user_id", userId);
-      myConvos = fallback.data;
-    }
     if (myConvos && myConvos.length > 0) {
       const ids = myConvos.map((r: any) => r.conversation_id);
+      const { data: reads } = await supabase
+        .from("conversation_reads")
+        .select("conversation_id, last_read_at")
+        .eq("user_id", userId)
+        .in("conversation_id", ids);
       const readMap = new Map(
-        myConvos.map((r: any) => [
+        (reads ?? []).map((r: any) => [
           r.conversation_id,
           r.last_read_at ? new Date(r.last_read_at).getTime() : 0,
         ]),
@@ -298,8 +296,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .neq("sender_id", userId);
       const msgCount = (messages ?? []).filter((msg: any) => {
         const lastRead = readMap.get(msg.conversation_id) ?? 0;
-        if (lastRead > 0) return new Date(msg.created_at).getTime() > lastRead;
-        return !msg.read_at;
+        return new Date(msg.created_at).getTime() > lastRead;
       }).length;
       setUnreadMessages(msgCount);
     } else {
@@ -370,21 +367,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       const readAt = new Date().toISOString();
-      const { data: updatedRows, error } = await supabase
-        .from("conversation_members")
-        .update({ last_read_at: readAt })
-        .eq("conversation_id", conversationId)
-        .eq("user_id", userId)
-        .select("conversation_id");
-
-      if (error || !updatedRows || updatedRows.length === 0) {
-        await supabase
-          .from("messages")
-          .update({ read_at: readAt })
-          .eq("conversation_id", conversationId)
-          .neq("sender_id", userId)
-          .is("read_at", null);
-      }
+      await supabase.from("conversation_reads").upsert(
+        {
+          conversation_id: conversationId,
+          user_id: userId,
+          last_read_at: readAt,
+          updated_at: readAt,
+        },
+        { onConflict: "conversation_id,user_id" },
+      );
       await refreshUnreadCounts(userId);
     },
     [refreshUnreadCounts, session?.user?.id],
@@ -396,28 +387,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setUnreadMessages(0);
     const readAt = new Date().toISOString();
-    const { data: updatedRows, error } = await supabase
+    const { data: memberships } = await supabase
       .from("conversation_members")
-      .update({ last_read_at: readAt })
-      .eq("user_id", userId)
-      .select("conversation_id");
-
-    if (error || !updatedRows || updatedRows.length === 0) {
-      const { data: memberships } = await supabase
-        .from("conversation_members")
-        .select("conversation_id")
-        .eq("user_id", userId);
-      const conversationIds = (memberships ?? []).map(
-        (row: any) => row.conversation_id,
-      );
-      if (conversationIds.length > 0) {
-        await supabase
-          .from("messages")
-          .update({ read_at: readAt })
-          .in("conversation_id", conversationIds)
-          .neq("sender_id", userId)
-          .is("read_at", null);
-      }
+      .select("conversation_id")
+      .eq("user_id", userId);
+    const rows = (memberships ?? []).map((row: any) => ({
+      conversation_id: row.conversation_id,
+      user_id: userId,
+      last_read_at: readAt,
+      updated_at: readAt,
+    }));
+    if (rows.length > 0) {
+      await supabase
+        .from("conversation_reads")
+        .upsert(rows, { onConflict: "conversation_id,user_id" });
     }
 
     await refreshUnreadCounts(userId);
@@ -513,6 +496,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "conversation_members" },
+        () => {
+          refreshUnreadCounts(uid);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "conversation_reads" },
         () => {
           refreshUnreadCounts(uid);
         },
