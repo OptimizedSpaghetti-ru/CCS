@@ -186,53 +186,6 @@ export function Splash() {
         }}
       />
 
-      {/* Top badges */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, duration: 0.6 }}
-        style={{ display: "flex", gap: 8, alignItems: "center" }}
-      >
-        <div
-          style={{
-            background: "rgba(255,240,196,0.15)",
-            border: "1px solid rgba(255,240,196,0.25)",
-            borderRadius: 20,
-            padding: "4px 12px",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: fonts.ui,
-              fontSize: 11,
-              color: c.cream,
-              letterSpacing: 0.5,
-            }}
-          >
-            OLFU — CCS
-          </span>
-        </div>
-        <div
-          style={{
-            background: "rgba(255,240,196,0.15)",
-            border: "1px solid rgba(255,240,196,0.25)",
-            borderRadius: 20,
-            padding: "4px 12px",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: fonts.ui,
-              fontSize: 11,
-              color: c.cream,
-              letterSpacing: 0.5,
-            }}
-          >
-            Valenzuela Campus
-          </span>
-        </div>
-      </motion.div>
-
       {/* Logo + Title */}
       <motion.div
         initial={{ opacity: 0, scale: 0.85 }}
@@ -374,7 +327,7 @@ export function Splash() {
             margin: "4px 0 0",
           }}
         >
-          Our Lady of Fatima University · CCS Department
+          Our Lady of Fatima University · College of Computer Studies
         </p>
       </motion.div>
     </div>

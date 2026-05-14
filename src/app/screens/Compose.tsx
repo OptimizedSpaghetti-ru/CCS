@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
-import { X, Search, Paperclip, Image, Calendar, Send, Smile, FileText } from "lucide-react";
+import { X, Search, Paperclip, Image, Send, Smile, FileText } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
@@ -700,7 +700,6 @@ export function Compose() {
               label: "Emoji",
               onClick: () => setEmojiOpen((open) => !open),
             },
-            { icon: <Calendar size={16} />, label: "Schedule", onClick: undefined },
           ].map((a) => (
             <button
               key={a.label}
