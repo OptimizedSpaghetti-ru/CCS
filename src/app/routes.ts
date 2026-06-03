@@ -25,13 +25,11 @@ import { AdminAnalytics } from "./screens/AdminAnalytics";
 import { FacultyAnnouncements } from "./screens/FacultyAnnouncements";
 import { Assistance } from "./screens/Assistance";
 import { ITSupportDashboard } from "./screens/ITSupportDashboard";
-import { GWAComputation } from "./screens/GWAComputation";
 import {
   ApprovedGuard,
   AdminGuard,
   FacultyGuard,
   ITSupportGuard,
-  StudentGuard,
 } from "./components/guards/AuthGuards";
 
 export const router = createBrowserRouter([
@@ -97,16 +95,6 @@ export const router = createBrowserRouter([
               {
                 path: "announcements",
                 Component: FacultyAnnouncements,
-              },
-            ],
-          },
-          {
-            path: "student",
-            Component: StudentGuard,
-            children: [
-              {
-                path: "gwa-computation",
-                Component: GWAComputation,
               },
             ],
           },

@@ -5,7 +5,6 @@ import {
   MessageSquare,
   Map as MapShortcutIcon,
   BarChart3,
-  Calculator,
   ChevronRight,
   Megaphone,
   Wrench,
@@ -456,14 +455,6 @@ export function Home() {
               path="/app/map"
               color="#1D4ED8"
             />
-            {currentUser.role === "student" && (
-              <QuickAction
-                icon={<Calculator size={20} />}
-                label="GWA Calculator"
-                path="/app/student/gwa-computation"
-                color="#8C1007"
-              />
-            )}
             {currentUser.role === "admin" && (
               <QuickAction
                 icon={<BarChart3 size={20} />}
