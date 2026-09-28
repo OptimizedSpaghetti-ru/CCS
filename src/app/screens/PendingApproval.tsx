@@ -217,8 +217,8 @@ export function PendingApproval() {
               lineHeight: 1.4,
             }}
           >
-            Please check your inbox to confirm your email address. You will be
-            notified once your account has been approved by the administrator.
+            Your registration documents have been submitted. An administrator will
+            review your application before your account is activated.
           </p>
         </div>
 

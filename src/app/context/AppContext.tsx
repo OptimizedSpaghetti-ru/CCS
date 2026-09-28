@@ -8,7 +8,6 @@ import {
 import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
-import { sendWelcomeEmail } from "../../lib/emailService";
 import {
   initializeMobileNotifications,
   isMobileNotificationsSupported,
@@ -671,6 +670,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) {
+      const lowerErr = error.message.toLowerCase();
+      if (lowerErr.includes("email not confirmed")) {
+        return {
+          error:
+            "This account was created while email confirmation was active. Run the confirm script in Supabase SQL Editor to activate all existing accounts.",
+        };
+      }
       return { error: error.message };
     }
 
@@ -790,10 +796,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
 
         if (error) {
-          if (error.message.toLowerCase().includes("rate limit")) {
+          const lowerMsg = error.message.toLowerCase();
+          if (lowerMsg.includes("rate limit")) {
             return {
               error:
                 "Too many sign-up attempts. Please wait a few minutes before trying again.",
+            };
+          }
+          if (
+            lowerMsg.includes("database error saving new user") ||
+            lowerMsg.includes("already registered") ||
+            (error as any).status === 500
+          ) {
+            return {
+              error:
+                "This Student ID or Email address is already registered in the system. If this is your account, please log in or use Forgot Password.",
             };
           }
           return { error: error.message };
@@ -874,14 +891,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
           }
 
-          /* ── Trigger transactional welcome email via backend (when native confirm email is off) ── */
+          /* ── Sign out after creating profile and documents so user waits for admin approval ── */
           if (data.session) {
-            sendWelcomeEmail({
-              email,
-              name: `${payload.firstName} ${payload.lastName}`.trim(),
-            }).catch((emailErr) => {
-              console.warn("[signUp:welcome-email] Notice:", emailErr);
-            });
             await supabase.auth.signOut();
           }
         }
