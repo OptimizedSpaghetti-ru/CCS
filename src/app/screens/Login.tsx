@@ -115,10 +115,17 @@ export function Login() {
     setForgotSubmitting(true);
     try {
       const configuredUrl = import.meta.env.VITE_PUBLIC_APP_URL;
-      const appOrigin =
-        configuredUrl && configuredUrl.trim() !== ""
-          ? configuredUrl.trim().replace(/\/$/, "")
-          : window.location.origin;
+      let appOrigin = window.location.origin;
+
+      if (import.meta.env.DEV) {
+        // In local development, always redirect to local dev server so local testing works
+        appOrigin = window.location.origin;
+      } else if (configuredUrl && configuredUrl.trim() !== "") {
+        appOrigin = configuredUrl.trim();
+      }
+
+      // Ensure no trailing slashes or doubled /reset-password
+      appOrigin = appOrigin.replace(/\/reset-password\/?$/i, "").replace(/\/$/, "");
       const redirectTo = `${appOrigin}/reset-password`;
 
       await supabase.auth.resetPasswordForEmail(emailTrimmed, {

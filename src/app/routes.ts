@@ -55,6 +55,14 @@ export const router = createBrowserRouter([
     Component: ResetPassword,
   },
   {
+    path: "/reset-password/*",
+    Component: ResetPassword,
+  },
+  {
+    path: "/reset-password/reset-password",
+    Component: ResetPassword,
+  },
+  {
     path: "/app",
     Component: ApprovedGuard,
     children: [
@@ -106,5 +114,9 @@ export const router = createBrowserRouter([
         ],
       },
     ],
+  },
+  {
+    path: "*",
+    Component: Splash,
   },
 ]);

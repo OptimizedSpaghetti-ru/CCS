@@ -84,6 +84,14 @@ export function Splash() {
   const showLoadingScreen = isLoadingAuth || isAuthenticated;
 
   useEffect(() => {
+    // If arriving with a password recovery token (e.g. from an email redirect), forward immediately to /reset-password
+    const hash = window.location.hash;
+    const search = window.location.search;
+    if (hash.includes("type=recovery") || search.includes("type=recovery") || search.includes("code=")) {
+      navigate(`/reset-password${search}${hash}`, { replace: true });
+      return;
+    }
+
     if (isLoadingAuth) return;
 
     if (isAuthenticated && isApproved) {
