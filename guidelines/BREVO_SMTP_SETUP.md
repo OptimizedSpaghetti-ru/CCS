@@ -43,63 +43,113 @@ Supabase handles token generation, rate limiting, and 1-hour expiration automati
 
 ```html
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Reset Your Password - CCS Connect</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your Password — CCS Connect</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #FFFBEF; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #FFFBEF; padding: 40px 16px;">
+<body style="margin: 0; padding: 0; background-color: #F8F5EE; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #2A141A;">
+
+  <!-- Outer Canvas -->
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F8F5EE; padding: 48px 16px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" style="max-width: 540px; background-color: #FFFFFF; border-radius: 16px; border: 1px solid rgba(140, 16, 7, 0.12); box-shadow: 0 4px 20px rgba(74, 21, 28, 0.06); overflow: hidden;" cellspacing="0" cellpadding="0">
+        
+        <!-- Main Card Container (540px) -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 540px; background-color: #FFFFFF; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(74, 21, 28, 0.08); border: 1px solid rgba(140, 16, 7, 0.1);">
           
-          <!-- Header with School Branding -->
+          <!-- Header Banner -->
           <tr>
-            <td style="background: linear-gradient(135deg, #8C1007 0%, #4A151C 100%); padding: 32px 28px; text-align: center;">
-              <h1 style="margin: 0; color: #FFF0C4; font-size: 24px; font-weight: 700; letter-spacing: 0.5px;">CCS CONNECT</h1>
-              <p style="margin: 6px 0 0; color: rgba(255, 240, 196, 0.85); font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">Our Lady of Fatima University</p>
+            <td style="background: linear-gradient(135deg, #8C1007 0%, #5E0B05 100%); padding: 36px 32px 32px; text-align: center;">
+              
+              <!-- Badge -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin-bottom: 12px;">
+                <tr>
+                  <td style="background: rgba(255, 240, 196, 0.15); border: 1px solid rgba(255, 240, 196, 0.3); border-radius: 20px; padding: 4px 14px;">
+                    <span style="color: #FFF0C4; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">College of Computer Studies</span>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Main Title -->
+              <h1 style="margin: 0; color: #FFF0C4; font-size: 26px; font-weight: 800; letter-spacing: 0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                CCS CONNECT
+              </h1>
+              <p style="margin: 6px 0 0; color: rgba(255, 240, 196, 0.85); font-size: 13px; font-weight: 500; letter-spacing: 0.8px;">
+                Our Lady of Fatima University
+              </p>
             </td>
           </tr>
 
-          <!-- Body -->
+          <!-- Content Body -->
           <tr>
-            <td style="padding: 36px 32px; color: #2A141A;">
-              <h2 style="margin: 0 0 16px; font-size: 20px; font-weight: 600; color: #8C1007;">Password Reset Request</h2>
-              <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.6; color: #4B4540;">
-                We received a request to reset the password for your CCS Connect account. Click the button below to set a new password:
+            <td style="padding: 36px 36px 28px;">
+              
+              <!-- Greeting & Headline -->
+              <h2 style="margin: 0 0 14px; font-size: 20px; font-weight: 700; color: #8C1007;">
+                Reset Your Password
+              </h2>
+              <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #4B4540;">
+                Hello,
+              </p>
+              <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #4B4540;">
+                We received a request to reset the password for your <strong>CCS Connect</strong> portal account. Click the button below to choose a new password:
               </p>
 
               <!-- CTA Button -->
-              <table role="presentation" cellspacing="0" cellpadding="0" style="margin: 28px 0;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 28px auto;">
                 <tr>
-                  <td align="center" style="border-radius: 10px; background: linear-gradient(135deg, #8C1007 0%, #6E0D05 100%);">
-                    <a href="{{ .ConfirmationURL }}" target="_blank" style="display: inline-block; padding: 14px 32px; color: #FFF0C4; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 10px;">
-                      Reset My Password
+                  <td align="center" style="border-radius: 12px; background: linear-gradient(135deg, #8C1007 0%, #6E0D05 100%); box-shadow: 0 4px 14px rgba(140, 16, 7, 0.35);">
+                    <a href="{{ .ConfirmationURL }}" target="_blank" style="display: inline-block; padding: 15px 36px; color: #FFF0C4; font-size: 15px; font-weight: 700; text-decoration: none; border-radius: 12px; letter-spacing: 0.3px;">
+                      Reset Password
                     </a>
                   </td>
                 </tr>
               </table>
 
-              <p style="margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: #78716C;">
-                This link will expire in <strong>1 hour</strong>. If you did not request this password reset, please ignore this message. Your password will remain unchanged.
+              <!-- Security Notice Callout Box -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #FFFBEF; border-left: 4px solid #D97706; border-radius: 8px; margin: 24px 0;">
+                <tr>
+                  <td style="padding: 14px 18px;">
+                    <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #78350F;">
+                      <strong>Security Notice:</strong> This link is valid for <strong>1 hour</strong>. If you did not make this request, you can safely disregard this email—your account and password remain secure.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Fallback Plain URL Box -->
+              <p style="margin: 24px 0 6px; font-size: 12px; color: #8C827A; line-height: 1.5;">
+                Button not working? Copy and paste the link below into your web browser:
               </p>
+              <div style="background-color: #F8F5EE; border: 1px solid rgba(140, 16, 7, 0.12); border-radius: 8px; padding: 10px 14px; word-break: break-all;">
+                <a href="{{ .ConfirmationURL }}" style="font-size: 12px; color: #8C1007; text-decoration: underline; line-height: 1.4;">
+                  {{ .ConfirmationURL }}
+                </a>
+              </div>
+
             </td>
           </tr>
 
           <!-- Footer -->
           <tr>
-            <td style="background-color: #FFF8E7; padding: 20px 32px; text-align: center; border-top: 1px solid rgba(140, 16, 7, 0.08);">
-              <p style="margin: 0; font-size: 12px; color: #78716C;">
+            <td style="background-color: #F8F5EE; padding: 24px 36px; text-align: center; border-top: 1px solid rgba(140, 16, 7, 0.08);">
+              <p style="margin: 0 0 6px; font-size: 12px; font-weight: 600; color: #5C544E;">
                 College of Computer Studies · Our Lady of Fatima University
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #9C948C; line-height: 1.4;">
+                This is an automated system email from CCS Connect. Please do not reply directly to this message.
               </p>
             </td>
           </tr>
 
         </table>
+
       </td>
     </tr>
   </table>
+
 </body>
 </html>
 ```
