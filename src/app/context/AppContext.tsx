@@ -8,6 +8,7 @@ import {
 import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
+import { sendWelcomeEmail } from "../../lib/emailService";
 import {
   initializeMobileNotifications,
   isMobileNotificationsSupported,
@@ -872,6 +873,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
               return { error: docsInsertError.message };
             }
           }
+
+          /* ── Trigger transactional welcome email via backend ── */
+          sendWelcomeEmail({
+            email,
+            name: `${payload.firstName} ${payload.lastName}`.trim(),
+          }).catch((emailErr) => {
+            console.warn("[signUp:welcome-email] Failed to send welcome email:", emailErr);
+          });
 
           await supabase.auth.signOut();
         }

@@ -3,6 +3,7 @@ import { AppLayout } from "./components/AppLayout";
 import { Splash } from "./screens/Splash";
 import { Login } from "./screens/Login";
 import { Register } from "./screens/Register";
+import { ResetPassword } from "./screens/ResetPassword";
 import { Home } from "./screens/Home";
 import { Messages } from "./screens/Messages";
 import { Chat } from "./screens/Chat";
@@ -48,6 +49,10 @@ export const router = createBrowserRouter([
   {
     path: "/pending-approval",
     Component: PendingApproval,
+  },
+  {
+    path: "/reset-password",
+    Component: ResetPassword,
   },
   {
     path: "/app",
