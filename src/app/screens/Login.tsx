@@ -114,7 +114,11 @@ export function Login() {
 
     setForgotSubmitting(true);
     try {
-      const appOrigin = window.location.origin;
+      const configuredUrl = import.meta.env.VITE_PUBLIC_APP_URL;
+      const appOrigin =
+        configuredUrl && configuredUrl.trim() !== ""
+          ? configuredUrl.trim().replace(/\/$/, "")
+          : window.location.origin;
       const redirectTo = `${appOrigin}/reset-password`;
 
       await supabase.auth.resetPasswordForEmail(emailTrimmed, {

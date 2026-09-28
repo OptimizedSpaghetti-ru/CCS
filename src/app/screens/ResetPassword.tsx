@@ -44,48 +44,105 @@ export function ResetPassword() {
   useEffect(() => {
     let mounted = true;
 
-    // Check if there is an active session or a recovery event
     const checkRecoverySession = async () => {
-      // 1. Check current session
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
-
-      if (data.session) {
-        setIsSessionValid(true);
-        setIsVerifying(false);
-        return;
-      }
-
-      // 2. Listen for PASSWORD_RECOVERY event
-      const { data: authListener } = supabase.auth.onAuthStateChange(
-        (event, session) => {
-          if (!mounted) return;
-          if (event === "PASSWORD_RECOVERY" || session) {
+      try {
+        // 1. Check if session is already established
+        const { data: existingSessionData } = await supabase.auth.getSession();
+        if (existingSessionData.session) {
+          if (mounted) {
             setIsSessionValid(true);
             setIsVerifying(false);
           }
-        },
-      );
+          return;
+        }
 
-      // Check hash params directly (e.g. #access_token=...&type=recovery)
-      const hash = window.location.hash;
-      if (hash.includes("type=recovery") || hash.includes("access_token=")) {
-        setIsSessionValid(true);
-        setIsVerifying(false);
-        return;
-      }
+        // 2. Check query params (e.g. ?code=... for PKCE or ?token_hash=... for OTP)
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get("code");
+        const tokenHash = urlParams.get("token_hash");
+        const type = urlParams.get("type");
 
-      // Timeout fallback
-      const timer = setTimeout(() => {
+        if (code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (!error && data.session) {
+            if (mounted) {
+              setIsSessionValid(true);
+              setIsVerifying(false);
+            }
+            return;
+          }
+        }
+
+        if (tokenHash && (type === "recovery" || !type)) {
+          const { data, error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: "recovery",
+          });
+          if (!error && data.session) {
+            if (mounted) {
+              setIsSessionValid(true);
+              setIsVerifying(false);
+            }
+            return;
+          }
+        }
+
+        // 3. Check hash params (e.g. #access_token=...&refresh_token=...&type=recovery)
+        const rawHash = window.location.hash.startsWith("#")
+          ? window.location.hash.substring(1)
+          : window.location.hash;
+        const hashParams = new URLSearchParams(rawHash);
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token") || "";
+
+        if (accessToken) {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (!error && data.session) {
+            if (mounted) {
+              setIsSessionValid(true);
+              setIsVerifying(false);
+            }
+            return;
+          }
+        }
+
+        // 4. Listen for auth state change (e.g. PASSWORD_RECOVERY or SIGNED_IN event)
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+            if (!mounted) return;
+            if (event === "PASSWORD_RECOVERY" || (session && event === "SIGNED_IN")) {
+              setIsSessionValid(true);
+              setIsVerifying(false);
+            }
+          },
+        );
+
+        // Fallback timer: wait up to 1.8 seconds for async auth initialization
+        const timer = setTimeout(async () => {
+          if (!mounted) return;
+          const { data: finalCheck } = await supabase.auth.getSession();
+          if (finalCheck.session) {
+            setIsSessionValid(true);
+          } else {
+            setIsSessionValid(false);
+          }
+          setIsVerifying(false);
+        }, 1800);
+
+        return () => {
+          authListener.subscription.unsubscribe();
+          clearTimeout(timer);
+        };
+      } catch (err) {
+        console.warn("[ResetPassword] Recovery session check error:", err);
         if (mounted) {
+          setIsSessionValid(false);
           setIsVerifying(false);
         }
-      }, 1800);
-
-      return () => {
-        authListener.subscription.unsubscribe();
-        clearTimeout(timer);
-      };
+      }
     };
 
     checkRecoverySession();
@@ -116,13 +173,40 @@ export function ResetPassword() {
     }
 
     setIsSubmitting(true);
+
+    // Double-check session is active before updating password
+    const { data: sessionCheck } = await supabase.auth.getSession();
+    if (!sessionCheck.session) {
+      // Attempt recovery from hash params if still present
+      const rawHash = window.location.hash.startsWith("#")
+        ? window.location.hash.substring(1)
+        : window.location.hash;
+      const hashParams = new URLSearchParams(rawHash);
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token") || "";
+
+      if (accessToken) {
+        await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+      }
+    }
+
     const { error } = await supabase.auth.updateUser({
       password: password,
     });
 
     if (error) {
       setIsSubmitting(false);
-      setErrorMessage(error.message || "Failed to update password. Link may have expired.");
+      const lowerErr = error.message.toLowerCase();
+      if (lowerErr.includes("session missing") || lowerErr.includes("not authenticated")) {
+        setErrorMessage(
+          "Your reset session has expired or is invalid. Please request a new password reset link from the login page.",
+        );
+      } else {
+        setErrorMessage(error.message || "Failed to update password. Link may have expired.");
+      }
       return;
     }
 
