@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { User, Lock, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import type { ReactNode } from "react";
 import { useApp } from "../context/AppContext";
@@ -181,7 +181,7 @@ export function Login() {
           transition={{ duration: 0.4 }}
           style={{ display: "flex", flexDirection: "column", gap: 16 }}
         >
-          {/* Email/ID */}
+          {/* Email */}
           <div>
             <label
               style={{
@@ -195,11 +195,12 @@ export function Login() {
                 letterSpacing: 0.5,
               }}
             >
-              Email or Student ID
+              Email
             </label>
             <InputField
-              icon={<User size={18} />}
-              placeholder="e.g. 01230001234 or email"
+              icon={<Mail size={18} />}
+              placeholder="Enter your email"
+              type="email"
               value={email}
               onChange={setEmail}
               fieldSurface={fieldSurface}
