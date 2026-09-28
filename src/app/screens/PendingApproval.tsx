@@ -217,8 +217,8 @@ export function PendingApproval() {
               lineHeight: 1.4,
             }}
           >
-            You will be notified once your account has been approved. Please
-            check back later.
+            Please check your inbox to confirm your email address. You will be
+            notified once your account has been approved by the administrator.
           </p>
         </div>
 

@@ -874,15 +874,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
           }
 
-          /* ── Trigger transactional welcome email via backend ── */
-          sendWelcomeEmail({
-            email,
-            name: `${payload.firstName} ${payload.lastName}`.trim(),
-          }).catch((emailErr) => {
-            console.warn("[signUp:welcome-email] Failed to send welcome email:", emailErr);
-          });
-
-          await supabase.auth.signOut();
+          /* ── Trigger transactional welcome email via backend (when native confirm email is off) ── */
+          if (data.session) {
+            sendWelcomeEmail({
+              email,
+              name: `${payload.firstName} ${payload.lastName}`.trim(),
+            }).catch((emailErr) => {
+              console.warn("[signUp:welcome-email] Notice:", emailErr);
+            });
+            await supabase.auth.signOut();
+          }
         }
 
         setIsNewSignUp(true);

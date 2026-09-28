@@ -61,3 +61,86 @@ BREVO_FROM_NAME=CCS Connect — OLFU
 
 > [!IMPORTANT]
 > Never prefix these variables with `VITE_`. They must remain server-side only to ensure secrets are never bundled into the browser or Android Capacitor application.
+
+---
+
+### 4. Signup Confirmation & Welcome Email
+
+#### Does sign-up email work automatically?
+**Yes.** As soon as a user submits the 2-step registration in the app, the system automatically triggers the transactional welcome email (`sendWelcomeEmail`) via Brevo to their registered email address.
+
+#### Should you enable "Confirm sign up" (Email Confirmation) in Supabase?
+
+> [!WARNING]
+> **Recommended: Keep "Confirm email" DISABLED (OFF) in Supabase Auth.**
+> 
+> **Why?**
+> The application uses a 2-step registration process where students immediately upload their **Registration Card** and **1x1 photo** to Supabase Storage:
+> - Storage RLS requires an authenticated session (`auth.uid() = user_id`).
+> - When "Confirm email" is **OFF**, Supabase issues an active session upon sign-up, allowing the app to upload the student's documents and create the profile row before logging them out (`signOut`) to await admin approval.
+> - If "Confirm email" is **ON**, Supabase returns a `null` session until the user clicks the email link, which blocks document uploads to Storage during registration.
+>
+> Your system's verification is already secured by the **Admin Approval** workflow (accounts remain in `pending` status and cannot log in until an administrator verifies the uploaded documents).
+
+---
+
+### 5. Supabase "Confirm Signup" Email Template (If Enabled)
+
+If you still choose to enable **Confirm email** in Supabase under **Authentication → Providers → Email → Confirm email**:
+
+Under **Authentication → Email Templates → Confirm signup**, set the template:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Confirm Your Email - CCS Connect</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FFFBEF; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #FFFBEF; padding: 30px 10px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 580px; background-color: #FFFFFF; border-radius: 14px; overflow: hidden; border: 1px solid rgba(139,115,85,0.18); box-shadow: 0 4px 20px rgba(62,7,3,0.06);">
+          <tr>
+            <td style="background: linear-gradient(135deg, #660B05 0%, #8C1007 100%); padding: 30px 24px; text-align: center;">
+              <h1 style="color: #FFF0C4; font-size: 26px; margin: 0; font-family: Georgia, serif; font-weight: 700;">CCS Connect</h1>
+              <p style="color: rgba(255, 240, 196, 0.85); font-size: 13px; margin: 6px 0 0; text-transform: uppercase; letter-spacing: 1px;">Our Lady of Fatima University</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 32px 28px;">
+              <h2 style="color: #2D1B0E; font-size: 20px; margin: 0 0 14px;">Confirm Your Email Address</h2>
+              <p style="color: #6B5D52; font-size: 14px; line-height: 1.6; margin: 0 0 20px;">
+                Thank you for registering with <strong>CCS Connect</strong>. Please confirm your email address by clicking the button below:
+              </p>
+              
+              <div style="text-align: center; margin: 28px 0;">
+                <a href="{{ .ConfirmationURL }}" style="background: linear-gradient(135deg, #660B05 0%, #8C1007 100%); color: #FFF0C4; padding: 14px 32px; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 10px; display: inline-block;">Confirm Email Address</a>
+              </div>
+
+              <p style="color: #6B5D52; font-size: 13px; line-height: 1.5; margin: 0 0 16px;">
+                Once confirmed, your account will be placed into the verification queue for administrator approval.
+              </p>
+
+              <div style="border-top: 1px solid rgba(139,115,85,0.15); padding-top: 16px; margin-top: 20px;">
+                <p style="color: #8B7355; font-size: 12px; line-height: 1.5; margin: 0;">
+                  If you did not sign up for a CCS Connect account, you can safely ignore this email.
+                </p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #F8F4EA; padding: 16px 24px; text-align: center; border-top: 1px solid rgba(139,115,85,0.12);">
+              <p style="margin: 0; font-size: 11px; color: #8B7355;">
+                &copy; Our Lady of Fatima University · College of Computer Studies
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+```
