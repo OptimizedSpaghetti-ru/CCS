@@ -54,8 +54,6 @@ type ProfileAnalyticsRow = {
   role: Role | null;
   status: "pending" | "approved" | "rejected" | null;
   created_at: string | null;
-  is_online?: boolean | null;
-  show_online_status?: boolean | null;
 };
 
 type NotificationAnalyticsRow = {
@@ -436,7 +434,7 @@ export function AdminAnalytics() {
     const [profilesResult, notificationsResult, messagesResult, assistanceResult] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, role, status, created_at, is_online, show_online_status")
+        .select("id, role, status, created_at")
         .order("created_at", { ascending: true }),
       supabase
         .from("notifications")
@@ -565,17 +563,6 @@ export function AdminAnalytics() {
       itSupport: filtered.profiles.filter((profile) => profile.role === "it_support").length,
     }),
     [filtered.profiles],
-  );
-
-  const activeUsers = useMemo(
-    () =>
-      data.profiles.filter(
-        (profile) =>
-          profile.status === "approved" &&
-          profile.is_online === true &&
-          profile.show_online_status !== false,
-      ).length,
-    [data.profiles],
   );
 
   const activitySeries = useMemo(() => {
@@ -713,7 +700,6 @@ export function AdminAnalytics() {
       ["Metric", "Value"],
       ["Total Registered Users", data.profiles.length],
       ["Registered Users in Filter", filtered.profiles.length],
-      ["Active Approved Users", activeUsers],
       ["Student Accounts", roleCounts.student],
       ["Faculty Accounts", roleCounts.faculty],
       ["Admin Accounts", roleCounts.admin],

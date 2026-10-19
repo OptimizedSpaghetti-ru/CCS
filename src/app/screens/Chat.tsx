@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Image,
   FileText,
-  Circle,
   BookOpen,
   GraduationCap,
   ShieldCheck,
@@ -32,7 +31,6 @@ interface ChatMeta {
   role: string;
   initials: string;
   color: string;
-  online: boolean;
   otherUserId?: string;
   avatarUrl?: string;
 }
@@ -394,7 +392,6 @@ export function Chat() {
     role: "student",
     initials: "..",
     color: MESSAGE_ROLE_COLORS.student,
-    online: false,
     otherUserId: undefined,
   });
   const [loading, setLoading] = useState(true);
@@ -423,7 +420,7 @@ export function Chat() {
         .from("conversations")
         .select(
           `id, title, is_group,
-           conversation_members ( user_id, profiles:user_id ( id, full_name, role, show_online_status, is_online, avatar_url ) )`,
+           conversation_members ( user_id, profiles:user_id ( id, full_name, role, avatar_url ) )`,
         )
         .eq("id", conversationId)
         .maybeSingle();
@@ -445,9 +442,6 @@ export function Chat() {
             role === "group"
               ? MESSAGE_ROLE_COLORS.group
               : MESSAGE_ROLE_COLORS[role],
-          online: Boolean(
-            other?.show_online_status !== false && other?.is_online,
-          ),
           otherUserId: other?.id,
           avatarUrl: other?.avatar_url ?? undefined,
         });
@@ -612,20 +606,6 @@ export function Chat() {
               {chat.initials}
             </span>
           </div>
-          {chat.online && (
-            <div
-              style={{
-                position: "absolute",
-                bottom: 0,
-                right: 0,
-                width: 9,
-                height: 9,
-                borderRadius: "50%",
-                background: "#22C55E",
-                border: `2px solid ${c.darkestRed}`,
-              }}
-            />
-          )}
         </div>
         <div style={{ flex: 1 }}>
           <p
@@ -650,13 +630,6 @@ export function Chat() {
               gap: 6,
             }}
           >
-            {chat.online ? (
-              <Circle size={8} fill="#22C55E" color="#22C55E" />
-            ) : (
-              <Circle size={8} color={c.warmGrayLight} />
-            )}
-            {chat.online ? "Active now" : "Offline"}
-            <span style={{ opacity: 0.7 }}>·</span>
             {chat.role === "admin" ? (
               <ShieldCheck size={11} />
             ) : chat.role === "faculty" ? (

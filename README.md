@@ -53,7 +53,6 @@ Authentication features include:
 - Profile hydration from Supabase profile records.
 - Role-based application routing.
 - Profile editing and account settings.
-- Online status and profile visibility preferences.
 
 ### User Roles
 
@@ -85,7 +84,6 @@ Implemented messaging capabilities include:
 - Group chat conversations.
 - Conversation member management during compose flows.
 - Real-time message list refresh through Supabase channels.
-- Online status indicators based on profile presence data.
 - Message notification creation through a Supabase RPC workflow.
 - Admin messaging support through the same conversation infrastructure.
 

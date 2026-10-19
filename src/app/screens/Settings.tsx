@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -14,7 +14,6 @@ import {
   SlidersHorizontal,
   Palette,
   Shield,
-  Circle,
   Smartphone,
   FileText,
   Lock,
@@ -181,43 +180,6 @@ export function Settings() {
   });
   const toggle = (k: keyof typeof s) => () =>
     setS((prev) => ({ ...prev, [k]: !prev[k] }));
-
-  /* ── Active Status (persisted to profiles.show_online_status) ── */
-  const [activeStatus, setActiveStatus] = useState(true);
-  const [activeStatusLoading, setActiveStatusLoading] = useState(true);
-
-  useEffect(() => {
-    if (!currentUser.id) return;
-    supabase
-      .from("profiles")
-      .select("show_online_status")
-      .eq("id", currentUser.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data && typeof data.show_online_status === "boolean") {
-          setActiveStatus(data.show_online_status);
-        }
-        setActiveStatusLoading(false);
-      });
-  }, [currentUser.id]);
-
-  const toggleActiveStatus = async () => {
-    const next = !activeStatus;
-    setActiveStatus(next);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ show_online_status: next })
-      .eq("id", currentUser.id);
-    if (error) {
-      setActiveStatus(!next); // revert on failure
-      showToast({
-        type: "error",
-        title: "Update failed",
-        preview: error.message,
-        time: "now",
-      });
-    }
-  };
 
   const [deleteModal, setDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -481,21 +443,6 @@ export function Settings() {
                 </span>
                 <ChevronDown size={14} color={c.warmGray} />
               </div>
-            }
-          />
-          <SettingRow
-            icon={<Circle size={16} fill="#22C55E" color="#22C55E" />}
-            label="Active Status"
-            sublabel={
-              activeStatusLoading
-                ? "Loading…"
-                : activeStatus
-                  ? "Visible to others"
-                  : "Hidden from others"
-            }
-            iconColor="#22C55E"
-            rightEl={
-              <Toggle value={activeStatus} onChange={toggleActiveStatus} />
             }
           />
         </SectionCard>

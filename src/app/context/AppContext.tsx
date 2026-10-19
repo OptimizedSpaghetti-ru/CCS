@@ -438,11 +438,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      await supabase
-        .from("profiles")
-        .update({ is_online: true })
-        .eq("id", nextSession.user.id);
-
       const profile = await fetchProfile(nextSession.user.id);
       setCurrentUser(mapUserFromSession(nextSession, profile));
     } catch (error) {

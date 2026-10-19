@@ -168,7 +168,7 @@ export const g = new Proxy({} as GradientTokens, {
 }) as GradientTokens;
 
 export const fonts = {
-  display: "'Playfair Display', Georgia, serif",
+  display: "'Space Grotesk', system-ui, sans-serif",
   ui: "'DM Sans', system-ui, sans-serif",
   mono: "'JetBrains Mono', monospace",
 };

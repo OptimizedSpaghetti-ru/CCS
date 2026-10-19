@@ -490,16 +490,6 @@ export function Security() {
                   Current
                 </span>
               </div>
-              <p
-                style={{
-                  fontFamily: fonts.ui,
-                  fontSize: 11,
-                  color: c.warmGray,
-                  margin: "2px 0 0",
-                }}
-              >
-                Active now
-              </p>
             </div>
           </div>
         </div>

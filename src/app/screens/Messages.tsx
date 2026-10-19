@@ -22,7 +22,6 @@ interface ConversationRow {
   time: string;
   unread: number;
   activityAt: string;
-  online: boolean;
   initials: string;
   avatarUrl?: string;
   color: string;
@@ -55,13 +54,11 @@ function Avatar({
   color,
   avatarUrl,
   size = 44,
-  online,
 }: {
   initials: string;
   color: string;
   avatarUrl?: string;
   size?: number;
-  online?: boolean;
 }) {
   return (
     <div style={{ position: "relative", flexShrink: 0 }}>
@@ -101,20 +98,6 @@ function Avatar({
           </span>
         )}
       </div>
-      {online && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: 1,
-            right: 1,
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: "#22C55E",
-            border: `2px solid ${c.white}`,
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -203,7 +186,7 @@ export function Messages() {
         .from("conversations")
         .select(
           `id, title, is_group, created_at, updated_at,
-           conversation_members ( user_id, profiles:user_id ( id, full_name, role, show_online_status, is_online, avatar_url ) )`,
+           conversation_members ( user_id, profiles:user_id ( id, full_name, role, avatar_url ) )`,
         )
         .in("id", convIds)
         .order("updated_at", { ascending: false });
@@ -276,10 +259,6 @@ export function Messages() {
           time: latest ? timeAgo(latest.created_at) : "",
           unread,
           activityAt,
-          online: Boolean(
-            otherMembers[0]?.show_online_status !== false &&
-            otherMembers[0]?.is_online,
-          ),
           initials: conv.is_group ? "GR" : getInitials(name),
           avatarUrl: conv.is_group ? undefined : otherMembers[0]?.avatar_url,
           color,
@@ -565,7 +544,6 @@ export function Messages() {
                 initials={conv.initials}
                 color={conv.color}
                 avatarUrl={conv.avatarUrl}
-                online={conv.online}
               />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
