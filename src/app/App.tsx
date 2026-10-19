@@ -1,8 +1,51 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { RouterProvider } from "react-router";
 import { router } from "./routes";
 import { AppProvider, useApp } from "./context/AppContext";
+import { VideoSplashScreen } from "./components/VideoSplashScreen";
+
+function AppStartup() {
+  const { isLoadingAuth, isAuthenticated, isApproved } = useApp();
+  const [playbackComplete, setPlaybackComplete] = useState(false);
+  const [destinationReady, setDestinationReady] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
+  const navigationStarted = useRef(false);
+  const finishPlayback = useCallback(() => setPlaybackComplete(true), []);
+  const dismissSplash = useCallback(() => setShowSplash(false), []);
+
+  useEffect(() => {
+    if (!playbackComplete || isLoadingAuth || navigationStarted.current) return;
+    navigationStarted.current = true;
+    const { pathname, search, hash } = window.location;
+    // Preserve recovery/email callbacks and their tokens for the existing flow.
+    const isAuthCallback = pathname.startsWith("/reset-password") ||
+      /(?:[?#&])(?:type=recovery|code=|access_token=|error=)/.test(search + hash);
+    if (isAuthCallback) {
+      setDestinationReady(true);
+      return;
+    }
+    const destination = isAuthenticated
+      ? (isApproved ? "/app/home" : "/pending-approval")
+      : "/";
+    void router.navigate(destination, { replace: true }).then(() => {
+      setDestinationReady(true);
+    });
+  }, [playbackComplete, isLoadingAuth, isAuthenticated, isApproved]);
+
+  return (
+    <>
+      {destinationReady && <AppShell />}
+      {showSplash && (
+        <VideoSplashScreen
+          readyToReveal={destinationReady}
+          onPlaybackComplete={finishPlayback}
+          onDismiss={dismissSplash}
+        />
+      )}
+    </>
+  );
+}
 
 function AppShell() {
   const { themePreference, refreshAppData } = useApp();
@@ -122,7 +165,7 @@ function AppShell() {
 export default function App() {
   return (
     <AppProvider>
-      <AppShell />
+      <AppStartup />
     </AppProvider>
   );
 }

@@ -225,7 +225,7 @@ export function Login() {
               margin: 0,
             }}
           >
-            Welcome Back
+            Hello, User!
           </h1>
           <p
             style={{

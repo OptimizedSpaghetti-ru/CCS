@@ -7,10 +7,16 @@
     <link rel="preload" href="/fonts/dm-sans/DMSans-Variable.ttf" as="font" type="font/ttf" crossorigin />
     <link rel="icon" type="image/x-icon" href="/favicon/favicon.ico" />
     <title>CCS Connect Mobile App</title>
+    <link rel="preload" href="/videos/ccs-connect-splash-poster.jpg" as="image" />
+    <style>
+      html, body { margin: 0; background: #501814; }
+      #startup-poster { position: fixed; inset: 0; z-index: 2147483647;
+        background: #501814 url('/videos/ccs-connect-splash-poster.jpg') center / cover no-repeat; }
+    </style>
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root"><div id="startup-poster" aria-hidden="true"></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

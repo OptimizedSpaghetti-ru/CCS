@@ -4,6 +4,7 @@ const config: CapacitorConfig = {
   appId: "com.ccs.connect",
   appName: "CCS Connect",
   webDir: "dist",
+  backgroundColor: "#501814",
   bundledWebRuntime: false,
   plugins: {
     LocalNotifications: {
