@@ -344,7 +344,7 @@ export function Profile() {
               </p>
               <p
                 style={{
-                  fontFamily: fonts.mono,
+                  fontFamily: fonts.ui,
                   fontSize: 11,
                   color: `${c.warmGrayLight}80`,
                   margin: "3px 0 0",

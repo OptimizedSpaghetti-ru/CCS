@@ -500,7 +500,7 @@ export function Assistance() {
                     </div>
                   )}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
-                    <span style={{ fontFamily: fonts.mono, fontSize: 10, color: c.warmGray }}>
+                    <span style={{ fontFamily: fonts.ui, fontSize: 10, color: c.warmGray }}>
                       {formatDate(request.created_at)}
                     </span>
                     {request.status === "Resolved" ? (

@@ -591,7 +591,7 @@ export function Messages() {
               >
                 <span
                   style={{
-                    fontFamily: fonts.mono,
+                    fontFamily: fonts.ui,
                     fontSize: 10,
                     color: secondaryText,
                   }}

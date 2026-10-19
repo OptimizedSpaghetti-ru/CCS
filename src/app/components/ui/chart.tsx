@@ -4,6 +4,7 @@ import * as React from "react";
 import * as RechartsPrimitive from "recharts";
 
 import { cn } from "./utils";
+import { fonts } from "../../theme";
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const;
@@ -233,7 +234,7 @@ function ChartTooltipContent({
                       </span>
                     </div>
                     {item.value && (
-                      <span className="text-foreground font-mono font-medium tabular-nums">
+                      <span className="text-foreground font-medium tabular-nums" style={{ fontFamily: fonts.ui }}>
                         {item.value.toLocaleString()}
                       </span>
                     )}

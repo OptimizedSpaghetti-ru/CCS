@@ -205,7 +205,7 @@ function NotifItem({
             {conf.label}
           </span>
           <span
-            style={{ fontFamily: fonts.mono, fontSize: 10, color: c.warmGray }}
+            style={{ fontFamily: fonts.ui, fontSize: 10, color: c.warmGray }}
           >
             {notif.time}
             {authorMeta ? ` | ${authorMeta}` : ""}

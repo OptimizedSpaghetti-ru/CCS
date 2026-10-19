@@ -297,7 +297,7 @@ function GroupMessage({ msg, isDark }: { msg: GroupMsg; isDark: boolean }) {
                     <p
                       style={{
                         margin: "2px 0 0",
-                        fontFamily: fonts.mono,
+                        fontFamily: fonts.ui,
                         fontSize: 10,
                         color: isMe ? `${c.cream}B8` : c.warmGray,
                       }}
@@ -366,7 +366,7 @@ function GroupMessage({ msg, isDark }: { msg: GroupMsg; isDark: boolean }) {
             </button>
           )}
           <span
-            style={{ fontFamily: fonts.mono, fontSize: 10, color: c.warmGray }}
+            style={{ fontFamily: fonts.ui, fontSize: 10, color: c.warmGray }}
           >
             {msg.time}
           </span>

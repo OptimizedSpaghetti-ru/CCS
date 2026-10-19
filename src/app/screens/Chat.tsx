@@ -217,7 +217,7 @@ function MessageBubble({
           </div>
           <p
             style={{
-              fontFamily: fonts.mono,
+              fontFamily: fonts.ui,
               fontSize: 10,
               color: c.warmGray,
               margin: "3px 0 0",
@@ -350,7 +350,7 @@ function MessageBubble({
                     <p
                       style={{
                         margin: "2px 0 0",
-                        fontFamily: fonts.mono,
+                        fontFamily: fonts.ui,
                         fontSize: 10,
                         color: isMe ? `${c.cream}B8` : c.warmGray,
                       }}
@@ -364,7 +364,7 @@ function MessageBubble({
         </div>
         <p
           style={{
-            fontFamily: fonts.mono,
+            fontFamily: fonts.ui,
             fontSize: 10,
             color: c.warmGray,
             margin: "3px 0 0",

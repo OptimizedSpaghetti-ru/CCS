@@ -110,7 +110,7 @@ function ToastItem({ toast }: { toast: ToastData }) {
           }}
         >
           <span
-            style={{ fontFamily: fonts.mono, fontSize: 10, color: c.warmGray }}
+            style={{ fontFamily: fonts.ui, fontSize: 10, color: c.warmGray }}
           >
             {toast.time}
           </span>

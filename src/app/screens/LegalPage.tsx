@@ -209,7 +209,7 @@ function LegalContent({
                     color: "#8C1007",
                     display: "grid",
                     placeItems: "center",
-                    fontFamily: fonts.mono,
+                    fontFamily: fonts.ui,
                     fontSize: 11,
                     fontWeight: 900,
                     flexShrink: 0,

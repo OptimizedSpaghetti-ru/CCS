@@ -1532,7 +1532,7 @@ export function AdminDashboard() {
                         </p>
                         <p
                           style={{
-                            fontFamily: fonts.mono,
+                            fontFamily: fonts.ui,
                             fontSize: 10,
                             color: c.warmGrayLight,
                             margin: 0,
@@ -1667,7 +1667,7 @@ export function AdminDashboard() {
                             <p
                               style={{
                                 margin: "2px 0 0",
-                                fontFamily: fonts.mono,
+                                fontFamily: fonts.ui,
                                 fontSize: 11,
                                 color: c.warmGray,
                                 overflow: "hidden",
@@ -2104,7 +2104,7 @@ export function AdminDashboard() {
                                   <p
                                     style={{
                                       margin: "1px 0 0",
-                                      fontFamily: fonts.mono,
+                                      fontFamily: fonts.ui,
                                       fontSize: 10,
                                       color: c.warmGrayLight,
                                     }}
@@ -2117,7 +2117,7 @@ export function AdminDashboard() {
                                 style={{
                                   flex: 2,
                                   margin: 0,
-                                  fontFamily: fonts.mono,
+                                  fontFamily: fonts.ui,
                                   fontSize: 11,
                                   color: c.warmGray,
                                   overflow: "hidden",
@@ -2176,7 +2176,7 @@ export function AdminDashboard() {
                                 style={{
                                   flex: 1,
                                   margin: 0,
-                                  fontFamily: fonts.mono,
+                                  fontFamily: fonts.ui,
                                   fontSize: 10,
                                   color: c.warmGrayLight,
                                 }}
@@ -3506,7 +3506,7 @@ export function AdminDashboard() {
                               <p
                                 style={{
                                   margin: "2px 0 0",
-                                  fontFamily: fonts.mono,
+                                  fontFamily: fonts.ui,
                                   fontSize: 10,
                                   color: c.warmGrayLight,
                                 }}

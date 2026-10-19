@@ -458,7 +458,7 @@ export function Settings() {
             rightEl={
               <span
                 style={{
-                  fontFamily: fonts.mono,
+                  fontFamily: fonts.ui,
                   fontSize: 12,
                   color: c.warmGray,
                 }}

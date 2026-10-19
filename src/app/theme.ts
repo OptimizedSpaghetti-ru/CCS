@@ -170,7 +170,6 @@ export const g = new Proxy({} as GradientTokens, {
 export const fonts = {
   display: "'Space Grotesk', system-ui, sans-serif",
   ui: "'DM Sans', system-ui, sans-serif",
-  mono: "'JetBrains Mono', monospace",
 };
 
 export const shadow = new Proxy({} as ShadowTokens, {

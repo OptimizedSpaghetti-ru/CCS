@@ -360,7 +360,7 @@ export function Home() {
             </h1>
             <p
               style={{
-                fontFamily: fonts.mono,
+                fontFamily: fonts.ui,
                 fontSize: 11,
                 color: `${c.warmGrayLight}90`,
                 margin: 0,
@@ -660,7 +660,7 @@ export function Home() {
                         )}
                         <p
                           style={{
-                            fontFamily: fonts.mono,
+                            fontFamily: fonts.ui,
                             fontSize: 10,
                             color: c.warmGrayLight,
                             margin: "4px 0 0",

@@ -1122,7 +1122,7 @@ export function AdminAnalytics() {
                       </span>
                       <span
                         style={{
-                          fontFamily: fonts.mono,
+                          fontFamily: fonts.ui,
                           fontSize: 12,
                           fontWeight: 900,
                           color: palette.red,
@@ -1299,7 +1299,7 @@ function StatCard({
       <p
         style={{
           margin: 0,
-          fontFamily: fonts.mono,
+          fontFamily: fonts.ui,
           fontSize: 24,
           fontWeight: 800,
           color: c.darkBrown,
@@ -1357,7 +1357,7 @@ function ActivityChip({
       <p
         style={{
           margin: 0,
-          fontFamily: fonts.mono,
+          fontFamily: fonts.ui,
           fontSize: 13,
           fontWeight: 900,
           color,

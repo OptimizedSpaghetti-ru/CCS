@@ -1,10 +1,25 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap');
-
 /* Shared, bundled display face for web and offline Capacitor WebView use. */
 @font-face {
   font-family: 'Space Grotesk';
   src: url('/fonts/space-grotesk/SpaceGrotesk-Variable.ttf') format('truetype');
   font-style: normal;
   font-weight: 300 700;
+  font-display: swap;
+}
+
+/* Bundled UI face, including italics, available without a network connection. */
+@font-face {
+  font-family: 'DM Sans';
+  src: url('/fonts/dm-sans/DMSans-Variable.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 1000;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  src: url('/fonts/dm-sans/DMSans-Italic-Variable.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 100 1000;
   font-display: swap;
 }

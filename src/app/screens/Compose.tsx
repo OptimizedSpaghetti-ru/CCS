@@ -637,7 +637,7 @@ export function Compose() {
               <p
                 style={{
                   margin: "2px 0 0",
-                  fontFamily: fonts.mono,
+                  fontFamily: fonts.ui,
                   fontSize: 10,
                   color: secondaryText,
                 }}

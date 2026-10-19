@@ -185,7 +185,7 @@ export function PendingApproval() {
             />
             <p
               style={{
-                fontFamily: fonts.mono,
+                fontFamily: fonts.ui,
                 fontSize: 12,
                 margin: 0,
                 color: c.darkBrown,

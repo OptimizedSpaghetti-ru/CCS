@@ -786,7 +786,7 @@ export function FacultyAnnouncements() {
                       </div>
                       <p
                         style={{
-                          fontFamily: fonts.mono,
+                          fontFamily: fonts.ui,
                           fontSize: 10,
                           color: c.warmGrayLight,
                           margin: 0,
