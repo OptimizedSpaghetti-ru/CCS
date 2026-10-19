@@ -1,0 +1,7 @@
+.startup-splash { position: fixed; inset: 0; z-index: 2147483647; background: #50131c; opacity: 1; transition: opacity 250ms ease-out; overflow: hidden; touch-action: none; }
+.startup-splash-fading { opacity: 0; }
+.startup-static { background: linear-gradient(180deg, #50131c, #3c0c10 45%, #270605); }
+.startup-recovery { position: absolute; bottom: max(32px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(88%, 380px); padding: 16px; color: #fff4ef; background: #2b090e; text-align: center; font-family: 'DM Sans', system-ui, sans-serif; line-height: 1.5; }
+.startup-recovery p { margin: 0 0 12px; }
+.startup-recovery button { border: 1px solid #e9b9ae; border-radius: 6px; padding: 10px 18px; background: #fff0e9; color: #3c0c10; font: inherit; cursor: pointer; }
+.startup-recovery button:focus-visible { outline: 2px solid #fff0e9; outline-offset: 4px; }

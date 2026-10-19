@@ -49,6 +49,7 @@ export interface ToastData {
 
 interface AppContextType {
   isLoadingAuth: boolean;
+  authInitializationError: string | null;
   isAuthenticated: boolean;
   isApproved: boolean;
   isNewSignUp: boolean;
@@ -232,6 +233,7 @@ function mapUserFromSession(
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [authInitializationError, setAuthInitializationError] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] =
     useState<AppContextType["currentUser"]>(FALLBACK_USER);
@@ -451,11 +453,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     const bootstrap = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
-      await hydrateUser(data.session);
-      if (mounted) {
-        setIsLoadingAuth(false);
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (!mounted) return;
+        await hydrateUser(data.session);
+      } catch (error) {
+        if (mounted) {
+          // Never sign out or erase persistent storage because initialization failed.
+          setAuthInitializationError(getErrorMessage(error, "Failed to restore session."));
+        }
+      } finally {
+        if (mounted) setIsLoadingAuth(false);
       }
     };
 
@@ -937,6 +946,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         isLoadingAuth,
+        authInitializationError,
         isAuthenticated: Boolean(session?.user),
         isApproved: currentUser.status === "approved",
         isNewSignUp,

@@ -1,4 +1,6 @@
-# Video splash startup
+# Previous video splash startup (historical)
+
+This implementation has been replaced by the code-based splash. See [ANIMATED_SPLASH.md](./ANIMATED_SPLASH.md) for the current startup flow and checks. The player and its old verification script described below have been removed; the MP4 and poster remain unmodified for preview comparison. The following notes record the previous implementation.
 
 `AppStartup` mounts once inside `AppProvider`, outside the router and its refresh/theme remounts. Supabase session and profile initialization run while `VideoSplashScreen` plays the bundled MP4. The original MP4 is copied without re-encoding; the JPEG poster is its first frame.
 

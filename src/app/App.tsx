@@ -3,19 +3,20 @@ import { Capacitor } from "@capacitor/core";
 import { RouterProvider } from "react-router";
 import { router } from "./routes";
 import { AppProvider, useApp } from "./context/AppContext";
-import { VideoSplashScreen } from "./components/VideoSplashScreen";
+import { StartupSplashScreen } from "./components/StartupSplashScreen";
 
 function AppStartup() {
-  const { isLoadingAuth, isAuthenticated, isApproved } = useApp();
+  const { isLoadingAuth, isAuthenticated, isApproved, authInitializationError } = useApp();
   const [playbackComplete, setPlaybackComplete] = useState(false);
   const [destinationReady, setDestinationReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
   const navigationStarted = useRef(false);
   const finishPlayback = useCallback(() => setPlaybackComplete(true), []);
   const dismissSplash = useCallback(() => setShowSplash(false), []);
 
   useEffect(() => {
-    if (!playbackComplete || isLoadingAuth || navigationStarted.current) return;
+    if (!playbackComplete || isLoadingAuth || authInitializationError || navigationStarted.current) return;
     navigationStarted.current = true;
     const { pathname, search, hash } = window.location;
     // Preserve recovery/email callbacks and their tokens for the existing flow.
@@ -30,17 +31,20 @@ function AppStartup() {
       : "/";
     void router.navigate(destination, { replace: true }).then(() => {
       setDestinationReady(true);
+    }).catch(() => {
+      setNavigationError("Unable to open the application.");
     });
-  }, [playbackComplete, isLoadingAuth, isAuthenticated, isApproved]);
+  }, [playbackComplete, isLoadingAuth, isAuthenticated, isApproved, authInitializationError]);
 
   return (
     <>
       {destinationReady && <AppShell />}
       {showSplash && (
-        <VideoSplashScreen
+        <StartupSplashScreen
           readyToReveal={destinationReady}
           onPlaybackComplete={finishPlayback}
           onDismiss={dismissSplash}
+          initializationError={authInitializationError || navigationError}
         />
       )}
     </>

@@ -7,16 +7,19 @@
     <link rel="preload" href="/fonts/dm-sans/DMSans-Variable.ttf" as="font" type="font/ttf" crossorigin />
     <link rel="icon" type="image/x-icon" href="/favicon/favicon.ico" />
     <title>CCS Connect Mobile App</title>
-    <link rel="preload" href="/videos/ccs-connect-splash-poster.jpg" as="image" />
+    <link rel="preload" href="/branding/school-logo.png" as="image" />
     <style>
-      html, body { margin: 0; background: #501814; }
-      #startup-poster { position: fixed; inset: 0; z-index: 2147483647;
-        background: #501814 url('/videos/ccs-connect-splash-poster.jpg') center / cover no-repeat; }
+      html, body { margin: 0; background: #50131c; }
+      #startup-artwork { position: fixed; inset: 0; z-index: 2147483647; overflow: hidden;
+        background: linear-gradient(180deg, #50131c, #3c0c10 45%, #270605); }
+      #startup-artwork .startup-plane { position: absolute; left: 50%; top: 50%;
+        width: max(100vw, 56.25vh); height: max(100vh, 177.777778vw); transform: translate(-50%, -50%); }
+      #startup-artwork img { position: absolute; left: 50%; top: 45.625%; width: 41.666667%; height: auto; transform: translate(-50%, -50%); }
     </style>
   </head>
 
   <body>
-    <div id="root"><div id="startup-poster" aria-hidden="true"></div></div>
+    <div id="root"><div id="startup-artwork" aria-hidden="true"><div class="startup-plane"><img src="/branding/school-logo.png" alt="" /></div></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
