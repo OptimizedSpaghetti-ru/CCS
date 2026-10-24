@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Capacitor } from "@capacitor/core";
 import { RouterProvider } from "react-router";
 import { router } from "./routes";
 import { AppProvider, useApp } from "./context/AppContext";
 import { StartupSplashScreen } from "./components/StartupSplashScreen";
+import { OfflineBoundary } from './components/OfflineBoundary';
+import { connectivity } from '../lib/connectivity';
 
 function AppStartup() {
+  const { offline } = useSyncExternalStore(connectivity.subscribe, connectivity.getSnapshot);
   const { isLoadingAuth, isAuthenticated, isApproved, authInitializationError } = useApp();
   const [playbackComplete, setPlaybackComplete] = useState(false);
   const [destinationReady, setDestinationReady] = useState(false);
@@ -16,7 +19,7 @@ function AppStartup() {
   const dismissSplash = useCallback(() => setShowSplash(false), []);
 
   useEffect(() => {
-    if (!playbackComplete || isLoadingAuth || authInitializationError || navigationStarted.current) return;
+    if (!playbackComplete || isLoadingAuth || authInitializationError || navigationStarted.current || offline) return;
     navigationStarted.current = true;
     const { pathname, search, hash } = window.location;
     // Preserve recovery/email callbacks and their tokens for the existing flow.
@@ -27,14 +30,14 @@ function AppStartup() {
       return;
     }
     const destination = isAuthenticated
-      ? (isApproved ? "/app/home" : "/pending-approval")
-      : "/";
+      ? (isApproved ? (pathname.startsWith('/app/') ? pathname + search + hash : "/app/home") : "/pending-approval")
+      : (['/login', '/register'].includes(pathname) ? pathname + search + hash : "/");
     void router.navigate(destination, { replace: true }).then(() => {
       setDestinationReady(true);
     }).catch(() => {
       setNavigationError("Unable to open the application.");
     });
-  }, [playbackComplete, isLoadingAuth, isAuthenticated, isApproved, authInitializationError]);
+  }, [playbackComplete, isLoadingAuth, isAuthenticated, isApproved, authInitializationError, offline]);
 
   return (
     <>
@@ -168,8 +171,10 @@ function AppShell() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppStartup />
-    </AppProvider>
+    <OfflineBoundary>
+      <AppProvider>
+        <AppStartup />
+      </AppProvider>
+    </OfflineBoundary>
   );
 }

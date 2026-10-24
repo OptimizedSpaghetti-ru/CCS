@@ -8,6 +8,7 @@ import {
 import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
+import { connectivity } from '../../lib/connectivity';
 import {
   initializeMobileNotifications,
   isMobileNotificationsSupported,
@@ -451,33 +452,61 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let running = false;
+    let retryAfterRecovery = false;
+    let needsBootstrap = true;
+    let wasOffline = connectivity.isOffline();
+    const controller = new AbortController();
 
     const bootstrap = async () => {
+      if (running) return;
+      running = true;
       try {
+        await connectivity.waitUntilOnline(controller.signal);
+        if (!mounted) return;
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
         if (!mounted) return;
         await hydrateUser(data.session);
+        needsBootstrap = false;
+        if (mounted) setAuthInitializationError(null);
       } catch (error) {
         if (mounted) {
           // Never sign out or erase persistent storage because initialization failed.
           setAuthInitializationError(getErrorMessage(error, "Failed to restore session."));
         }
       } finally {
+        running = false;
         if (mounted) setIsLoadingAuth(false);
+        if (mounted && retryAfterRecovery && needsBootstrap && !connectivity.isOffline()) {
+          retryAfterRecovery = false;
+          void bootstrap();
+        }
       }
     };
 
     bootstrap();
+    const unsubscribeConnectivity = connectivity.subscribe(() => {
+      const offline = connectivity.isOffline();
+      if (wasOffline && !offline && needsBootstrap) {
+        if (running) retryAfterRecovery = true;
+        else void bootstrap();
+      }
+      wasOffline = offline;
+    });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      // Bootstrap already hydrates INITIAL_SESSION; avoid a duplicate profile request.
+      if (_event === 'INITIAL_SESSION') return;
       hydrateUser(nextSession);
     });
 
     return () => {
       mounted = false;
+      controller.abort();
+      unsubscribeConnectivity();
       subscription.unsubscribe();
     };
   }, [hydrateUser]);

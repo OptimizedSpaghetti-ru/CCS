@@ -22,7 +22,7 @@ try {
     assert.equal(await page.locator(splashSelector).count(), 0);
     await page.reload();
     await page.locator(splashSelector).waitFor();
-    await page.waitForURL(baseURL);
+    await page.waitForURL(new URL('/login', baseURL).href);
     await page.locator(splashSelector).waitFor({ state: 'detached' });
     assert.deepEqual(mediaRequests, []);
     console.log(`PASS ${viewport.width}px: vector startup, no neon/video requests, welcome, navigation/resume without replay, reload replays`);

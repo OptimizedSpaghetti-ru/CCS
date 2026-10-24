@@ -1,6 +1,8 @@
 import { Capacitor } from "@capacitor/core";
 import { Preferences } from "@capacitor/preferences";
 import { createClient, type SupportedStorage } from "@supabase/supabase-js";
+import { connectivity } from './connectivity';
+import { createConnectedFetch } from './connectedFetch';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -66,6 +68,7 @@ const nativeStorage: SupportedStorage = {
 };
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  global: { fetch: createConnectedFetch(connectivity) },
   auth: {
     storageKey: "ccs-connect-auth",
     storage: isNativePlatform ? nativeStorage : webStorage,
