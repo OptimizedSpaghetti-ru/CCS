@@ -14,7 +14,6 @@ import {
   SlidersHorizontal,
   Palette,
   Shield,
-  Smartphone,
   FileText,
   Lock,
   LogOut,
@@ -450,23 +449,6 @@ export function Settings() {
         {/* About */}
         <SectionLabel text="About" />
         <SectionCard>
-          <SettingRow
-            icon={<Smartphone size={18} />}
-            label="App Version"
-            sublabel="v1.0.0 (Build 2024.02)"
-            iconColor={isDark ? c.cream : c.baseRed}
-            rightEl={
-              <span
-                style={{
-                  fontFamily: fonts.ui,
-                  fontSize: 12,
-                  color: c.warmGray,
-                }}
-              >
-                Latest
-              </span>
-            }
-          />
           <div
             onClick={() => navigate("/app/settings/terms")}
             style={{ cursor: "pointer" }}
