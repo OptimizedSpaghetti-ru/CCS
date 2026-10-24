@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router";
 import { ShieldCheck, LogOut, Mail, Clock, Loader } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
 import { useApp } from "../context/AppContext";
+import { consumeFloorCheckpoint } from "../../lib/floor-checkpoints";
 
 export function PendingApproval() {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export function PendingApproval() {
     if (!isAuthenticated) return;
 
     if (currentUser.status === "approved") {
-      navigate("/app/home", { replace: true });
+      navigate(consumeFloorCheckpoint() ?? "/app/home", { replace: true });
       return;
     }
 

@@ -6,11 +6,13 @@ import {
   Navigation,
   PauseCircle,
   PlayCircle,
+  QrCode,
   Volume2,
   Search,
   X,
 } from "lucide-react";
 import { c, fonts, shadow } from "../theme";
+import type { FloorId } from "../../lib/floor-checkpoints";
 
 declare global {
   interface Window {
@@ -49,8 +51,6 @@ type Room = {
   type: RoomType;
   h3d: number;
 };
-
-type FloorId = "1st" | "2nd" | "3rd" | "4th" | "5th";
 
 type FloorConfig = {
   id: FloorId;
@@ -1042,8 +1042,13 @@ function IsoRoom({
   );
 }
 
-export function Map() {
-  const [selectedFloor, setSelectedFloor] = useState<FloorId>("1st");
+export function Map({ checkpointFloor = null, checkpointVersion = 0, onScanFloor, scanButtonRef }: {
+  checkpointFloor?: FloorId | null;
+  checkpointVersion?: number;
+  onScanFloor?: () => void;
+  scanButtonRef?: React.Ref<HTMLButtonElement>;
+}) {
+  const [selectedFloor, setSelectedFloor] = useState<FloorId>(checkpointFloor ?? "1st");
   const [selectedId, setSelectedId] = useState("entrance");
   const [activeCategory, setActiveCategory] = useState<RoomCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1356,6 +1361,20 @@ export function Map() {
     setPosition(DEFAULT_MAP_POSITION);
   };
 
+  useEffect(() => {
+    if (!checkpointFloor) return;
+    setSelectedFloor(checkpointFloor);
+    setSelectedId(floorConfigs[checkpointFloor].rooms[0].id);
+    setSearchQuery("");
+    setActiveCategory("all");
+    clearNavigation();
+    hasManualViewAdjustmentRef.current = false;
+    applyDefaultView();
+    // Checkpoints identify a floor, so keep the stored location pin untouched.
+  }, [checkpointFloor, checkpointVersion]);
+
+  useEffect(() => () => stopVoiceGuidance(), []);
+
   const markManualViewAdjustment = () => {
     hasManualViewAdjustmentRef.current = true;
   };
@@ -1600,6 +1619,10 @@ export function Map() {
           -webkit-tap-highlight-color: transparent;
         }
 
+        .ccs-indoor-scan { background: #FFFBEF; }
+        .ccs-indoor-scan:hover { background: #FFF0C4; }
+        .ccs-indoor-scan:focus-visible { outline: 3px solid #8C1007; outline-offset: 3px; }
+
         .ccs-indoor-select {
           width: 100%;
           min-height: 46px;
@@ -1665,7 +1688,7 @@ export function Map() {
         style={{
           width: "100%",
           minHeight: "100%",
-          padding: "58px 12px 18px",
+          padding: "72px 12px 18px",
           display: "flex",
           flexDirection: "column",
           gap: 12,
@@ -1862,18 +1885,22 @@ export function Map() {
             boxShadow: "0 12px 24px rgba(62, 7, 3, 0.12)",
           }}
         >
-          <p
-            style={{
-              margin: "0 0 7px",
-              color: "#8C1007",
-              fontSize: 10,
-              fontWeight: 900,
-              letterSpacing: 0.8,
-              textTransform: "uppercase",
-            }}
-          >
-            Choose Building Level
-          </p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+            <p style={{ margin: 0, color: "#8C1007", fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
+              Choose Building Level
+            </p>
+            {onScanFloor && <button
+              ref={scanButtonRef}
+              type="button"
+              className="ccs-indoor-scan"
+              onClick={onScanFloor}
+              aria-haspopup="dialog"
+              style={{ minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 10px", border: "1px solid rgba(102, 11, 5, 0.2)", borderRadius: 10, color: "#660B05", fontSize: 12, fontWeight: 750, cursor: "pointer", touchAction: "manipulation" }}
+            >
+              <QrCode size={16} aria-hidden="true" />
+              Scan Floor QR
+            </button>}
+          </div>
           <div
             role="group"
             aria-label="Choose floor"

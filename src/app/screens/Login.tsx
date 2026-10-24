@@ -6,6 +6,7 @@ import { c, g, fonts, shadow } from "../theme";
 import type { ReactNode } from "react";
 import { useApp } from "../context/AppContext";
 import { supabase } from "../../lib/supabase";
+import { consumeFloorCheckpoint } from "../../lib/floor-checkpoints";
 
 function InputField({
   icon,
@@ -172,7 +173,7 @@ export function Login() {
       return;
     }
 
-    navigate(result.role === "it_support" ? "/app/it-support" : "/app/home", {
+    navigate(consumeFloorCheckpoint() ?? (result.role === "it_support" ? "/app/it-support" : "/app/home"), {
       replace: true,
     });
   };

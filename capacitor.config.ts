@@ -7,6 +7,9 @@ const config: CapacitorConfig = {
   backgroundColor: "#50131c",
   bundledWebRuntime: false,
   plugins: {
+    App: {
+      disableBackButtonHandler: true,
+    },
     LocalNotifications: {
       smallIcon: "ic_stat_ccs_connect",
       iconColor: "#8C1007",

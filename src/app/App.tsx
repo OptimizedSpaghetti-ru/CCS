@@ -6,6 +6,7 @@ import { AppProvider, useApp } from "./context/AppContext";
 import { StartupSplashScreen } from "./components/StartupSplashScreen";
 import { OfflineBoundary } from './components/OfflineBoundary';
 import { connectivity } from '../lib/connectivity';
+import { consumeFloorCheckpoint, floorFromSearch, rememberFloorCheckpoint } from '../lib/floor-checkpoints';
 
 function AppStartup() {
   const { offline } = useSyncExternalStore(connectivity.subscribe, connectivity.getSnapshot);
@@ -29,9 +30,12 @@ function AppStartup() {
       setDestinationReady(true);
       return;
     }
+    const incomingFloor = pathname === "/app/map" ? floorFromSearch(search) : null;
+    if (incomingFloor && (!isAuthenticated || !isApproved)) rememberFloorCheckpoint(search);
+    const pendingFloor = isAuthenticated && isApproved ? consumeFloorCheckpoint() : null;
     const destination = isAuthenticated
-      ? (isApproved ? (pathname.startsWith('/app/') ? pathname + search + hash : "/app/home") : "/pending-approval")
-      : (['/login', '/register'].includes(pathname) ? pathname + search + hash : "/");
+      ? (isApproved ? (pathname.startsWith('/app/') ? pathname + search + hash : pendingFloor ?? "/app/home") : "/pending-approval")
+      : (incomingFloor ? "/login" : ['/login', '/register'].includes(pathname) ? pathname + search + hash : "/");
     void router.navigate(destination, { replace: true }).then(() => {
       setDestinationReady(true);
     }).catch(() => {

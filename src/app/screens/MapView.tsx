@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MapContainer,
   Marker,
@@ -14,6 +14,8 @@ import { Map as MapIcon, Navigation, Radio } from "lucide-react";
 import { c, fonts, g, shadow } from "../theme";
 import { campusLocations } from "../../data/campusLocations";
 import { Map } from "./Map";
+import { FloorQrScanner } from "../components/FloorQrScanner";
+import { FLOOR_CHECKPOINTS, floorFromSearch, floorMapPath, type FloorId } from "../../lib/floor-checkpoints";
 
 interface MapLocation {
   id: string;
@@ -203,10 +205,28 @@ function RightClickRotateControl() {
 
 export function MapView() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedFloor = floorFromSearch(searchParams.toString());
   const [activeTab, setActiveTab] = useState<MapTab>(() =>
-    searchParams.get("view") === "indoor" ? "building" : "realtime",
+    requestedFloor || searchParams.get("view") === "indoor" ? "building" : "realtime",
   );
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const scannerButton = useRef<HTMLButtonElement>(null);
+  const [checkpointVersion, setCheckpointVersion] = useState(0);
+  const [floorMessage, setFloorMessage] = useState("");
+  const applyCheckpoint = useCallback((floor: FloorId) => {
+    setScannerOpen(false);
+    setSearchParams(floorMapPath(floor).split("?")[1], { replace: true });
+    setActiveTab("building");
+    setCheckpointVersion(value => value + 1);
+    setFloorMessage(`Showing ${FLOOR_CHECKPOINTS.find(item => item.id === floor)!.label}.`);
+  }, [setSearchParams]);
+  useEffect(() => { if (requestedFloor) setActiveTab("building"); }, [requestedFloor]);
+  useEffect(() => {
+    if (!floorMessage) return;
+    const timer = window.setTimeout(() => setFloorMessage(""), 4000);
+    return () => window.clearTimeout(timer);
+  }, [floorMessage, checkpointVersion]);
   const [userPos, setUserPos] = useState<[number, number] | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const hasAutoCenteredToUser = useRef(false);
@@ -262,6 +282,7 @@ export function MapView() {
     flex: 1,
     border: "none",
     borderRadius: 10,
+    minHeight: 44,
     padding: "8px 0",
     fontFamily: fonts.ui,
     fontSize: 12,
@@ -314,6 +335,9 @@ export function MapView() {
           Indoor Map
         </button>
       </div>
+
+      {scannerOpen && <FloorQrScanner onFloor={applyCheckpoint} onClose={() => setScannerOpen(false)} onManual={() => { setScannerOpen(false); setActiveTab("building"); }} onReturnFocus={() => scannerButton.current?.focus()} />}
+      {floorMessage && <p role="status" aria-live="polite" style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", zIndex: 1100, margin: 0, padding: "10px 16px", borderRadius: 10, background: c.darkBrown, color: c.creamLight, fontFamily: fonts.ui, fontSize: 14, pointerEvents: "none", whiteSpace: "nowrap" }}>{floorMessage}</p>}
 
       {activeTab === "realtime" ? (
         <div style={{ position: "absolute", inset: 0, zIndex: 1 }}>
@@ -402,7 +426,7 @@ export function MapView() {
           </MapContainer>
         </div>
       ) : (
-        <Map />
+        <Map checkpointFloor={requestedFloor} checkpointVersion={checkpointVersion} onScanFloor={() => setScannerOpen(true)} scanButtonRef={scannerButton} />
       )}
     </div>
   );
