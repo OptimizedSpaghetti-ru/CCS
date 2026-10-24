@@ -3,15 +3,12 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   ChevronDown,
   LocateFixed,
-  Minus,
   Navigation,
   PauseCircle,
   PlayCircle,
-  Plus,
   Volume2,
   Search,
   X,
-  Undo2,
 } from "lucide-react";
 import { c, fonts, shadow } from "../theme";
 
@@ -652,40 +649,6 @@ function shade(hex: string, percent: number) {
   return `#${(0x1000000 + red * 0x10000 + green * 0x100 + blue)
     .toString(16)
     .slice(1)}`;
-}
-
-function ControlButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      style={{
-        width: 42,
-        height: 42,
-        borderRadius: 12,
-        border: "1px solid rgba(102, 11, 5, 0.16)",
-        background: "#FFFBEF",
-        color: c.baseRed,
-        display: "grid",
-        placeItems: "center",
-        boxShadow: "0 8px 18px rgba(62, 7, 3, 0.11)",
-        touchAction: "manipulation",
-        pointerEvents: "auto",
-      }}
-    >
-      {children}
-    </button>
-  );
 }
 
 function NavigationMarker({
@@ -1386,11 +1349,6 @@ export function Map() {
     }
   };
 
-  const resetView = () => {
-    hasManualViewAdjustmentRef.current = false;
-    applyDefaultView();
-  };
-
   const applyDefaultView = () => {
     setScale(DEFAULT_MAP_SCALE);
     setRotation(DEFAULT_MAP_ROTATION);
@@ -1400,19 +1358,6 @@ export function Map() {
 
   const markManualViewAdjustment = () => {
     hasManualViewAdjustmentRef.current = true;
-  };
-
-  const focusCurrentLocation = () => {
-    markManualViewAdjustment();
-    setSelectedFloor(currentLocation.floorId);
-    window.setTimeout(() => {
-      setPosition(
-        clampPosition(
-          (560 - currentLocation.x) * scale,
-          (310 - currentLocation.y) * scale,
-        ),
-      );
-    }, 0);
   };
 
   const clampPosition = (x: number, y: number) => {
@@ -1672,14 +1617,27 @@ export function Map() {
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
         }
 
-        .ccs-indoor-floor-select {
-          min-height: 54px;
-          border-color: rgba(255, 240, 196, 0.26);
-          background: linear-gradient(135deg, #3E0703 0%, #660B05 48%, #8C1007 100%);
+        .ccs-indoor-map .ccs-indoor-floor-button {
+          min-width: 0;
+          min-height: 44px;
+          border: 1px solid rgba(102, 11, 5, 0.16);
+          border-radius: 12px;
+          background: #FFFBEF;
+          color: #660B05;
+          font-size: 14px;
+          font-weight: 800;
+          cursor: pointer;
+          touch-action: manipulation;
+        }
+
+        .ccs-indoor-floor-button[aria-pressed="true"] {
+          background: #660B05;
           color: #FFF0C4;
-          font-size: 15px;
-          letter-spacing: 0.1px;
-          box-shadow: 0 14px 28px rgba(62, 7, 3, 0.22);
+        }
+
+        .ccs-indoor-floor-button:focus-visible {
+          outline: 2px solid #8C1007;
+          outline-offset: 2px;
         }
 
         .ccs-indoor-select option {
@@ -1916,30 +1874,27 @@ export function Map() {
           >
             Choose Building Level
           </p>
-          <div style={{ position: "relative" }}>
-            <select
-              className="ccs-indoor-select ccs-indoor-floor-select"
-              value={selectedFloor}
-              onChange={(event) => setSelectedFloor(event.target.value as FloorId)}
-              aria-label="Choose floor"
-            >
-              {floorOptions.map((floor, index) => (
-                <option key={floor.id} value={floor.id}>
-                  Level {String(index + 1).padStart(2, "0")} - {floor.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={20}
-              color="#FFF0C4"
-              style={{
-                position: "absolute",
-                right: 13,
-                top: "50%",
-                transform: "translateY(-50%)",
-                pointerEvents: "none",
-              }}
-            />
+          <div
+            role="group"
+            aria-label="Choose floor"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+              gap: 6,
+            }}
+          >
+            {floorOptions.map((floor, index) => (
+              <button
+                key={floor.id}
+                type="button"
+                className="ccs-indoor-floor-button"
+                aria-label={floor.label}
+                aria-pressed={selectedFloor === floor.id}
+                onClick={() => setSelectedFloor(floor.id)}
+              >
+                {index + 1}F
+              </button>
+            ))}
           </div>
         </section>
 
@@ -1968,58 +1923,6 @@ export function Map() {
             touchAction: "none",
           }}
         >
-          <div
-            style={{
-              position: "absolute",
-              left: 10,
-              top: 10,
-              zIndex: 5,
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-              maxWidth: "calc(100% - 20px)",
-              pointerEvents: "none",
-            }}
-          >
-            <ControlButton
-              label="Zoom in"
-              onClick={() => {
-                markManualViewAdjustment();
-                setScale((value) => Math.min(value + 0.1, 1.45));
-              }}
-            >
-              <Plus size={18} />
-            </ControlButton>
-            <ControlButton
-              label="Zoom out"
-              onClick={() => {
-                markManualViewAdjustment();
-                setScale((value) => Math.max(value - 0.1, DEFAULT_MAP_SCALE));
-              }}
-            >
-              <Minus size={18} />
-            </ControlButton>
-          </div>
-
-          <div
-            style={{
-              position: "absolute",
-              right: 10,
-              bottom: 10,
-              zIndex: 5,
-              display: "flex",
-              gap: 8,
-              pointerEvents: "none",
-            }}
-          >
-            <ControlButton label="Center blue pin" onClick={focusCurrentLocation}>
-              <LocateFixed size={18} />
-            </ControlButton>
-            <ControlButton label="Reset view" onClick={resetView}>
-              <Undo2 size={18} />
-            </ControlButton>
-          </div>
-
           <div
             style={{
               position: "absolute",
