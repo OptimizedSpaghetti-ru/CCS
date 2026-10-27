@@ -40,7 +40,7 @@ const faqs = [
   {
     question: "Why am I not receiving notifications?",
     answer:
-      "Check Notification Settings, confirm mobile permissions are enabled, and make sure your account is approved and signed in on the device.",
+      "Check the notification toggles in Settings, confirm mobile permissions are enabled, and make sure your account is approved and signed in on the device.",
   },
   {
     question: "How do I use the indoor map?",

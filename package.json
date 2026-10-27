@@ -32,7 +32,9 @@
     "test:room-qr": "node --experimental-strip-types --test scripts/test-room-checkpoints.mjs scripts/test-floor-checkpoints.mjs",
     "verify:room-qr": "node scripts/verify-floor-qr.mjs",
     "verify:room-qr-assets": "node scripts/verify-floor-qr-assets.mjs",
-    "verify:android-room-qr": "node scripts/verify-android-floor-qr.mjs"
+    "verify:android-room-qr": "node scripts/verify-android-floor-qr.mjs",
+    "verify:map-rooms": "node scripts/verify-indoor-room-interactions.mjs",
+    "verify:android-map-rooms": "node scripts/verify-android-room-interactions.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",

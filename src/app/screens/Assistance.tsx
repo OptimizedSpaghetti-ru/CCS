@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   Camera,
@@ -8,12 +8,12 @@ import {
   MapPin,
   Plus,
   Send,
-  Wrench,
 } from "lucide-react";
 import { TopBar } from "../components/TopBar";
 import { c, fonts, g, shadow } from "../theme";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
+import { indoorFloorConfigs } from "../../data/indoorMapData.js";
 
 const categories = [
   "System/App Error",
@@ -26,7 +26,16 @@ const categories = [
   "Other Technical Concern",
 ];
 
-const priorities = ["Low", "Medium", "High", "Urgent"];
+const priorities = ["Low", "Medium", "High"];
+const assistanceRoomIds = new Set([
+  "room-501", "room-502", "room-503", "room-504", "room-505",
+  "comp-lab-1", "comp-lab-2", "comp-lab-3", "computer-lab-4", "computer-lab-5",
+  "mac-lab", "soci",
+]);
+const assistanceRooms = Object.values(indoorFloorConfigs)
+  .flatMap((floor) => floor.rooms)
+  .filter((room) => assistanceRoomIds.has(room.id))
+  .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
 type AssistanceStatus = "Pending" | "In Progress" | "Resolved" | "Rejected/Closed";
 
@@ -96,14 +105,10 @@ export function Assistance() {
     category: categories[0],
     description: "",
     location: "",
-    priority: "Medium",
+    priority: "",
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
-
-  const openCount = useMemo(
-    () => requests.filter((item) => item.status !== "Resolved").length,
-    [requests],
-  );
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const loadRequests = useCallback(async () => {
     if (!currentUser.id) return;
@@ -133,6 +138,10 @@ export function Assistance() {
     }
     if (!form.title.trim() || !form.description.trim()) {
       setError("Issue title and description are required.");
+      return;
+    }
+    if (!priorities.includes(form.priority)) {
+      setError("Please select a priority: Low, Medium, or High.");
       return;
     }
 
@@ -213,9 +222,10 @@ export function Assistance() {
       category: categories[0],
       description: "",
       location: "",
-      priority: "Medium",
+      priority: "",
     });
     setImageFile(null);
+    if (imageInputRef.current) imageInputRef.current.value = "";
     await loadRequests();
     if (requestId) {
       window.setTimeout(() => {
@@ -232,41 +242,6 @@ export function Assistance() {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <TopBar title="Assistance" subtitle="Report CCS technical problems" showBack />
       <div style={{ flex: 1, overflowY: "auto", background: c.creamLight, padding: 16 }}>
-        <div
-          style={{
-            background: g.header,
-            borderRadius: 16,
-            padding: 16,
-            color: c.cream,
-            boxShadow: shadow.card,
-            marginBottom: 14,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: 12,
-                background: "rgba(255,240,196,0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Wrench size={21} />
-            </div>
-            <div>
-              <p style={{ margin: 0, fontFamily: fonts.display, fontSize: 18, fontWeight: 700 }}>
-                CCS Assistance
-              </p>
-              <p style={{ margin: "2px 0 0", fontFamily: fonts.ui, fontSize: 12, color: c.warmGrayLight }}>
-                {openCount} active request{openCount === 1 ? "" : "s"}
-              </p>
-            </div>
-          </div>
-        </div>
-
         {canSubmit && (
           <div
             style={{
@@ -306,46 +281,53 @@ export function Assistance() {
               placeholder="Describe the problem"
               style={{ ...fieldStyle, minHeight: 104, paddingTop: 12, resize: "vertical" }}
             />
-            <input
-              value={form.location}
-              onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
-              placeholder="Location or room (optional)"
-              style={fieldStyle}
-            />
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.1fr) 46px", gap: 8, alignItems: "center" }}>
+              <select
+                aria-label="Room (optional)"
+                title={form.location || "Select Room (optional)"}
+                value={form.location}
+                onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
+                style={{ ...fieldStyle, minWidth: 0, borderColor: c.baseRed, outline: undefined }}
+              >
+                <option value="">Select Room</option>
+                {assistanceRooms.map((room) => (
+                  <option key={room.id} value={room.name}>{room.name}</option>
+                ))}
+              </select>
             <select
+              aria-label="Priority"
+              required
               value={form.priority}
               onChange={(event) => setForm((prev) => ({ ...prev, priority: event.target.value }))}
-              style={fieldStyle}
+              style={{ ...fieldStyle, minWidth: 0, borderColor: c.baseRed, outline: undefined }}
             >
+              <option value="" disabled>Priority</option>
               {priorities.map((priority) => (
                 <option key={priority}>{priority}</option>
               ))}
             </select>
-            <label
-              style={{
-                border: "1.5px dashed rgba(139,115,85,0.35)",
-                borderRadius: 12,
-                padding: "12px",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                cursor: "pointer",
-                color: c.warmGray,
-                fontFamily: fonts.ui,
-                fontSize: 12,
-              }}
-            >
-              <Camera size={17} color={c.baseRed} />
-              <span style={{ flex: 1 }}>
-                {imageFile ? imageFile.name : "Upload image evidence (optional)"}
-              </span>
+              <button
+                type="button"
+                aria-label={imageFile ? `Change image: ${imageFile.name}` : "Upload image evidence (optional)"}
+                title={imageFile ? `Change image: ${imageFile.name}` : "Upload image evidence (optional)"}
+                onClick={() => imageInputRef.current?.click()}
+                style={{ ...fieldStyle, padding: 0, display: "grid", placeItems: "center", cursor: "pointer", color: c.baseRed, borderColor: c.baseRed, background: imageFile ? `${c.baseRed}0F` : c.white, outline: undefined }}
+              >
+                <Camera size={20} aria-hidden="true" />
+              </button>
+            </div>
               <input
+                ref={imageInputRef}
                 type="file"
                 accept="image/*"
                 onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
                 style={{ display: "none" }}
               />
-            </label>
+            {imageFile && (
+              <p role="status" style={{ margin: 0, fontFamily: fonts.ui, fontSize: 12, color: c.darkBrown, overflowWrap: "anywhere" }}>
+                Image: {imageFile.name}
+              </p>
+            )}
 
             {(error || feedback) && (
               <p

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ChevronDown,
+  Filter,
   LocateFixed,
   Navigation,
   PauseCircle,
@@ -777,43 +778,6 @@ function RoomSymbol({ room, color }: { room: Room; color: string }) {
   return null;
 }
 
-function RoomHitbox({
-  room,
-  setSelectedId,
-  canSelect,
-}: {
-  room: Room;
-  setSelectedId: (id: string) => void;
-  canSelect: () => boolean;
-}) {
-  const padX = Math.max(12, Math.min(24, room.w * 0.12));
-  const padY = Math.max(12, Math.min(24, room.h * 0.16));
-
-  return (
-    <rect
-      x={room.x - padX}
-      y={room.y - padY}
-      width={room.w + padX * 2}
-      height={room.h + padY * 2}
-      fill="transparent"
-      pointerEvents="all"
-      style={{ cursor: "pointer" }}
-      onPointerDown={(event) => {
-        event.stopPropagation();
-      }}
-      onClick={(event) => {
-        event.stopPropagation();
-        if (canSelect()) setSelectedId(room.id);
-      }}
-      onTouchEnd={(event) => {
-        event.stopPropagation();
-        if (canSelect()) setSelectedId(room.id);
-      }}
-      aria-label={room.name}
-    />
-  );
-}
-
 function IsoRoom({
   room,
   selectedId,
@@ -852,10 +816,10 @@ function IsoRoom({
         pointerEvents: "auto",
       }}
       role="button"
+      data-room-id={room.id}
       aria-label={room.name}
       aria-pressed={isSelected}
       tabIndex={0}
-      pointerEvents="none"
     >
       <polygon
         points={`${room.x},${room.y + room.h} ${room.x + room.w},${room.y + room.h} ${room.x + room.w + depth},${room.y + room.h - depth} ${room.x + depth},${room.y + room.h - depth}`}
@@ -1474,6 +1438,24 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
     }
   };
 
+  const finishTouch = (event: React.TouchEvent<HTMLDivElement>) => {
+    const isTap = event.touches.length === 0 && mapPanRef.current.active &&
+      !mapPanRef.current.moved && !touchPinchRef.current.active;
+    const touch = event.changedTouches[0];
+    stopTouchPinch();
+    if (!isTap || !touch) return;
+
+    // Touch browsers can retarget a synthetic click to a larger adjacent room.
+    // Resolve the actual painted SVG face under the finger's screen coordinates.
+    const target = document.elementFromPoint(touch.clientX, touch.clientY)
+      ?.closest<SVGGElement>("[data-room-id]");
+    const roomId = target?.getAttribute("data-room-id");
+    if (roomId && target && constraintsRef.current?.contains(target) && rooms.some(room => room.id === roomId)) {
+      event.preventDefault(); // Do not let a retargeted compatibility click undo this selection.
+      setSelectedId(roomId);
+    }
+  };
+
   return (
     <div
       style={{
@@ -1540,6 +1522,34 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
           outline-offset: 2px;
         }
 
+        .ccs-indoor-filter {
+          position: relative;
+          flex: 0 0 46px;
+          height: 46px;
+          display: grid;
+          place-items: center;
+          border: 1px solid rgba(102, 11, 5, 0.16);
+          border-radius: 14px;
+          background: #FFFBEF;
+          color: #660B05;
+        }
+
+        .ccs-indoor-filter:hover { background: #FFF0C4; }
+        .ccs-indoor-filter[data-active="true"] { background: #660B05; color: #FFF0C4; }
+        .ccs-indoor-filter:has(:focus-visible),
+        .ccs-indoor-search:focus-visible { outline: 2px solid #8C1007; outline-offset: 2px; }
+
+        .ccs-indoor-filter-select {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          opacity: 0;
+          cursor: pointer;
+          touch-action: manipulation;
+        }
+
+        .ccs-indoor-filter-select option,
         .ccs-indoor-select option {
           color: #3E0703;
           background: #FFFBEF;
@@ -1629,7 +1639,8 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
             gap: 10,
           }}
         >
-          <div style={{ position: "relative" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
             <Search
               size={17}
               color="#8C1007"
@@ -1648,6 +1659,25 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
               placeholder="Search rooms, labs, offices..."
               aria-label="Search indoor rooms and facilities"
             />
+          </div>
+          <div className="ccs-indoor-filter" data-active={activeCategory !== "all"}>
+            <Filter size={19} aria-hidden="true" />
+            <select
+              className="ccs-indoor-filter-select"
+              value={activeCategory}
+              onChange={(event) =>
+                setActiveCategory(event.target.value as RoomCategory)
+              }
+              aria-label="Filter rooms by category"
+              title={`Filter: ${categoryOptions.find((category) => category.value === activeCategory)?.label}`}
+            >
+              {categoryOptions.map((category) => (
+                <option key={category.value} value={category.value}>
+                  {category.label}
+                </option>
+              ))}
+            </select>
+          </div>
           </div>
 
           {searchResults.length > 0 && (
@@ -1708,33 +1738,7 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
             </p>
           )}
 
-          <div style={{ position: "relative" }}>
-            <select
-              className="ccs-indoor-select"
-              value={activeCategory}
-              onChange={(event) =>
-                setActiveCategory(event.target.value as RoomCategory)
-              }
-              aria-label="Filter rooms by category"
-            >
-              {categoryOptions.map((category) => (
-                <option key={category.value} value={category.value}>
-                  Filter: {category.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={18}
-              color="#660B05"
-              style={{
-                position: "absolute",
-                right: 13,
-                top: "50%",
-                transform: "translateY(-50%)",
-                pointerEvents: "none",
-              }}
-            />
-          </div>
+
 
           {!hasCategoryMatches && (
             <p
@@ -1811,7 +1815,7 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
           onMouseLeave={stopMouseRotation}
           onTouchStart={startTouchPinch}
           onTouchMove={zoomWithTouch}
-          onTouchEnd={stopTouchPinch}
+          onTouchEnd={finishTouch}
           onTouchCancel={stopTouchPinch}
           style={{
             position: "relative",
@@ -1839,6 +1843,8 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
               translateX: "-50%",
               translateY: "-50%",
               cursor: isGestureTransforming ? "move" : "grab",
+              // The flat wrapper must not intercept rooms projected behind its plane.
+              pointerEvents: "none",
               transformStyle: "preserve-3d",
               perspective: 1200,
               transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px) scale(${scale})`,
@@ -1873,6 +1879,7 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
                     aria-label={`${activeFloor.label} Saint Benedict Hall indoor map`}
                     style={{
                       display: "block",
+                      pointerEvents: "auto",
                       width: "100%",
                       height: "100%",
                       overflow: "visible",
@@ -1924,16 +1931,6 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
                       />
                     )}
 
-                    <g>
-                      {rooms.map((room) => (
-                        <RoomHitbox
-                          key={`${room.id}-hitbox`}
-                          room={room}
-                          setSelectedId={setSelectedId}
-                          canSelect={() => !suppressSelectRef.current}
-                        />
-                      ))}
-                    </g>
                   </svg>
                 </motion.div>
               </AnimatePresence>

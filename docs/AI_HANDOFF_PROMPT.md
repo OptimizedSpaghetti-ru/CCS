@@ -98,6 +98,7 @@ Key files:
 
 ## Read these feature docs
 
+- `docs/indoor-room-interactions.md` for the room input layer. Keep the CSS 3D wrapper noninteractive and the SVG interactive; use visible room faces rather than overlapping padded rectangles. Touch completion resolves the room at actual screen coordinates and excludes drag/pinch gestures.
 - `docs/ANIMATED_SPLASH.md`
 - `docs/offline-recovery.md`
 - `docs/room-qr-checkpoints.md`

@@ -146,46 +146,50 @@ function LegalContent({
               >
                 {title}
               </p>
-              <p
-                style={{
-                  margin: "4px 0 0",
-                  fontFamily: fonts.ui,
-                  fontSize: 12,
-                  color: c.warmGrayLight,
-                  lineHeight: 1.4,
-                }}
-              >
-                Placeholder policy for CCS Connect prototype use.
-              </p>
+              {kind === "privacy" && (
+                <p
+                  style={{
+                    margin: "4px 0 0",
+                    fontFamily: fonts.ui,
+                    fontSize: 12,
+                    color: c.warmGrayLight,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  Placeholder policy for CCS Connect prototype use.
+                </p>
+              )}
             </div>
           </div>
         </div>
 
-        <div
-          style={{
-            background: c.white,
-            borderRadius: 16,
-            padding: 14,
-            boxShadow: shadow.card,
-            marginBottom: 14,
-            border: "1px solid rgba(102,11,5,0.08)",
-          }}
-        >
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-            <ShieldCheck size={18} color="#8C1007" style={{ flexShrink: 0, marginTop: 1 }} />
-            <p
-              style={{
-                margin: 0,
-                fontFamily: fonts.ui,
-                fontSize: 12,
-                lineHeight: 1.5,
-                color: c.warmGray,
-              }}
-            >
-              This content is provided as realistic placeholder text and should be reviewed by authorized CCS personnel before official publication.
-            </p>
+        {kind === "privacy" && (
+          <div
+            style={{
+              background: c.white,
+              borderRadius: 16,
+              padding: 14,
+              boxShadow: shadow.card,
+              marginBottom: 14,
+              border: "1px solid rgba(102,11,5,0.08)",
+            }}
+          >
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <ShieldCheck size={18} color="#8C1007" style={{ flexShrink: 0, marginTop: 1 }} />
+              <p
+                style={{
+                  margin: 0,
+                  fontFamily: fonts.ui,
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  color: c.warmGray,
+                }}
+              >
+                This content is provided as realistic placeholder text and should be reviewed by authorized CCS personnel before official publication.
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
         <div style={{ display: "grid", gap: 10 }}>
           {sections.map((section, index) => (
@@ -245,45 +249,47 @@ function LegalContent({
           ))}
         </div>
 
-        <div
-          style={{
-            background: c.white,
-            borderRadius: 16,
-            padding: 14,
-            boxShadow: shadow.card,
-            marginTop: 14,
-            marginBottom: 6,
-            border: "1px solid rgba(102,11,5,0.08)",
-          }}
-        >
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <Mail size={17} color="#8C1007" />
-            <div>
-              <p
-                style={{
-                  margin: 0,
-                  fontFamily: fonts.ui,
-                  fontSize: 12,
-                  fontWeight: 900,
-                  color: c.darkBrown,
-                }}
-              >
-                Need clarification?
-              </p>
-              <p
-                style={{
-                  margin: "3px 0 0",
-                  fontFamily: fonts.ui,
-                  fontSize: 11,
-                  color: c.warmGray,
-                  lineHeight: 1.4,
-                }}
-              >
-                Contact the College of Computer Studies office or your CCS Connect administrator.
-              </p>
+        {kind === "privacy" && (
+          <div
+            style={{
+              background: c.white,
+              borderRadius: 16,
+              padding: 14,
+              boxShadow: shadow.card,
+              marginTop: 14,
+              marginBottom: 6,
+              border: "1px solid rgba(102,11,5,0.08)",
+            }}
+          >
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <Mail size={17} color="#8C1007" />
+              <div>
+                <p
+                  style={{
+                    margin: 0,
+                    fontFamily: fonts.ui,
+                    fontSize: 12,
+                    fontWeight: 900,
+                    color: c.darkBrown,
+                  }}
+                >
+                  Need clarification?
+                </p>
+                <p
+                  style={{
+                    margin: "3px 0 0",
+                    fontFamily: fonts.ui,
+                    fontSize: 11,
+                    color: c.warmGray,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  Contact the College of Computer Studies office or your CCS Connect administrator.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

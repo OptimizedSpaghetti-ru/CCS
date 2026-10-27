@@ -11,7 +11,6 @@ import {
   MessageSquare,
   Megaphone,
   Volume2,
-  SlidersHorizontal,
   Palette,
   Shield,
   FileText,
@@ -332,24 +331,6 @@ export function Settings() {
             label="Sound"
             iconColor={isDark ? c.cream : c.baseRed}
             rightEl={<Toggle value={s.sound} onChange={toggle("sound")} />}
-          />
-          <SettingRow
-            icon={<SlidersHorizontal size={18} />}
-            label="Notification Settings"
-            sublabel="Manage categories & quiet hours"
-            iconColor={isDark ? c.cream : c.baseRed}
-            rightEl={
-              <button
-                onClick={() => navigate("/app/notifications/settings")}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                <ChevronRight size={16} color={c.warmGray} />
-              </button>
-            }
           />
         </SectionCard>
 

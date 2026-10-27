@@ -6,7 +6,6 @@ import {
   Calendar,
   Trash2,
   CheckCircle,
-  Settings,
   Wrench,
   LoaderCircle,
 } from "lucide-react";
@@ -845,23 +844,6 @@ export function Notifications() {
               <span style={{ fontFamily: fonts.ui, fontSize: 12 }}>
                 {readAllDone ? "Done" : "Read all"}
               </span>
-            </button>
-            <button
-              className="hover-press"
-              onClick={() => navigate("/app/notifications/settings")}
-              style={{
-                background: "rgba(255,240,196,0.15)",
-                border: "none",
-                borderRadius: 8,
-                width: 32,
-                height: 32,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-              }}
-            >
-              <Settings size={15} color={c.cream} />
             </button>
           </div>
         }

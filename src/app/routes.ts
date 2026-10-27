@@ -19,7 +19,6 @@ import { Settings } from "./screens/Settings";
 import { PrivacyPolicy, TermsOfService } from "./screens/LegalPage";
 import { Security } from "./screens/Security";
 import { Notifications } from "./screens/Notifications";
-import { NotificationSettings } from "./screens/NotificationSettings";
 import { PendingApproval } from "./screens/PendingApproval";
 import { AdminDashboard } from "./screens/AdminDashboard";
 import { AdminAnalytics } from "./screens/AdminAnalytics";
@@ -79,7 +78,6 @@ export const router = createBrowserRouter([
           { path: "map/search", Component: MapSearch },
           { path: "map/location/:id", Component: LocationDetail },
           { path: "notifications", Component: Notifications },
-          { path: "notifications/settings", Component: NotificationSettings },
           { path: "assistance", Component: Assistance },
           { path: "profile", Component: Profile },
           { path: "help-support", Component: HelpSupport },
