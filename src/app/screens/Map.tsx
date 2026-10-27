@@ -58,6 +58,13 @@ type RouteInstruction = {
   voicePrompt: string;
 };
 
+type RoutePoint = { x: number; y: number };
+
+// This is the existing hallway polyline, shared by rendering and guidance shortcuts.
+function getRouteLeg(from: RoutePoint, to: RoutePoint): RoutePoint[] {
+  return [from, { x: (from.x + to.x) / 2, y: 310 }, to];
+}
+
 type NavigationPin = {
   floorId: FloorId;
   x: number;
@@ -883,6 +890,7 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
   );
   const [routeStartLocation, setRouteStartLocation] =
     useState<NavigationPin | null>(null);
+  const [selectedInstructionId, setSelectedInstructionId] = useState<string | null>(null);
   const constraintsRef = useRef<HTMLDivElement | null>(null);
   const mapPanRef = useRef({
     active: false,
@@ -976,7 +984,30 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
     navigationTarget,
     navigationTargetRoom,
   ]);
-  const activeInstructionIndex = Math.max(
+  const guidanceSteps = useMemo(() => {
+    if (!navigationTarget || !navigationTargetRoom) return [];
+    const destination = getRoomCenter(navigationTargetRoom);
+    const sameFloor = navigationTarget.floorId === activeRouteStart.floorId;
+    const approach = getRouteLeg(activeRouteStart, sameFloor ? destination :
+      getRoomCenter(getTransitionRoom(floorConfigs[activeRouteStart.floorId].rooms)));
+    const arrival = sameFloor ? approach : getRouteLeg(
+      getRoomCenter(getTransitionRoom(floorConfigs[navigationTarget.floorId].rooms)), destination,
+    );
+    return routeInstructions.map((instruction) => {
+      const leg = instruction.floorId === activeRouteStart.floorId ? approach : arrival;
+      const isStart = instruction.id.startsWith("start-");
+      const isArrival = instruction.id.startsWith("arrive-");
+      const isTransition = instruction.id === "floor-change";
+      const waypoint = isStart || instruction.id === "exit-transition" ? leg[0] :
+        isArrival || isTransition || instruction.id === "transition-approach" ? leg[2] : leg[1];
+      const segment = isStart ? leg.slice(0, 2) : isArrival || isTransition ? leg.slice(1) : leg;
+      return { ...instruction, waypoint, segment };
+    });
+  }, [routeInstructions, navigationTarget, navigationTargetRoom, activeRouteStart]);
+  const explicitInstructionIndex = guidanceSteps.findIndex(
+    (instruction) => instruction.id === selectedInstructionId && instruction.floorId === selectedFloor,
+  );
+  const activeInstructionIndex = explicitInstructionIndex >= 0 ? explicitInstructionIndex : Math.max(
     0,
     routeInstructions.findIndex(
       (instruction) => instruction.floorId === selectedFloor,
@@ -989,29 +1020,17 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
 
     if (navigationTarget.floorId === activeRouteStart.floorId) {
       if (selectedFloor !== activeRouteStart.floorId) return [];
-      return [
-        { x: activeRouteStart.x, y: activeRouteStart.y },
-        { x: (activeRouteStart.x + destination.x) / 2, y: 310 },
-        destination,
-      ];
+      return getRouteLeg(activeRouteStart, destination);
     }
 
     if (selectedFloor === activeRouteStart.floorId) {
       const transition = getRoomCenter(getTransitionRoom(rooms));
-      return [
-        { x: activeRouteStart.x, y: activeRouteStart.y },
-        { x: (activeRouteStart.x + transition.x) / 2, y: 310 },
-        transition,
-      ];
+      return getRouteLeg(activeRouteStart, transition);
     }
 
     if (selectedFloor === navigationTarget.floorId) {
       const transition = getRoomCenter(getTransitionRoom(rooms));
-      return [
-        transition,
-        { x: (transition.x + destination.x) / 2, y: 310 },
-        destination,
-      ];
+      return getRouteLeg(transition, destination);
     }
 
     return [];
@@ -1051,6 +1070,7 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
   };
 
   const startNavigation = (floorId = selectedFloor, roomId = selectedId) => {
+    setSelectedInstructionId(null);
     const routeStart = currentLocation;
     setRouteStartLocation(routeStart);
     setNavigationTarget({ floorId, roomId });
@@ -1071,17 +1091,18 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
   };
 
   const clearNavigation = () => {
+    setSelectedInstructionId(null);
     setNavigationTarget(null);
     setRouteStartLocation(null);
     stopVoiceGuidance();
   };
 
-  const completeNavigation = () => {
-    if (!navigationTarget || !navigationTargetRoom) return;
+  const setRoomAsStartPoint = (floorId: FloorId, room: Room) => {
+    setSelectedInstructionId(null);
 
     const nextLocation = getRoomNavigationPin(
-      navigationTarget.floorId,
-      navigationTargetRoom,
+      floorId,
+      room,
     );
     setCurrentLocation(nextLocation);
     persistNavigationPin(nextLocation);
@@ -1097,6 +1118,11 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
         ),
       );
     }, 0);
+  };
+
+  const completeNavigation = () => {
+    if (!navigationTarget || !navigationTargetRoom) return;
+    setRoomAsStartPoint(navigationTarget.floorId, navigationTargetRoom);
   };
 
   const speakInstruction = (text: string, onEnd?: () => void) => {
@@ -1233,6 +1259,25 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
       x: Math.max(-maxX, Math.min(maxX, x)),
       y: Math.max(-maxY, Math.min(maxY, y)),
     };
+  };
+
+  const focusGuidanceStep = (instruction: (typeof guidanceSteps)[number]) => {
+    // Keep the route origin, destination, room selection, and user's viewing angles intact.
+    hasManualViewAdjustmentRef.current = true;
+    setSelectedInstructionId(instruction.id);
+    setSelectedFloor(instruction.floorId);
+    const angle = rotation * Math.PI / 180;
+    const pitch = tilt * Math.PI / 180;
+    const dx = instruction.waypoint.x - 560;
+    const dy = instruction.waypoint.y - 310;
+    const rotatedX = dx * Math.cos(angle) - dy * Math.sin(angle);
+    const rotatedY = dx * Math.sin(angle) + dy * Math.cos(angle);
+    const perspective = 1200 / (1200 - rotatedY * Math.sin(pitch));
+    setPosition(clampPosition(
+      -rotatedX * perspective * scale,
+      -rotatedY * Math.cos(pitch) * perspective * scale,
+    ));
+    constraintsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   const updatePosition = (deltaX: number, deltaY: number) => {
@@ -1480,7 +1525,7 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
 
         .ccs-indoor-scan { background: #FFFBEF; }
         .ccs-indoor-scan:hover { background: #FFF0C4; }
-        .ccs-indoor-scan:focus-visible { outline: 3px solid #8C1007; outline-offset: 3px; }
+        .ccs-indoor-scan:focus-visible, .ccs-guidance-step:focus-visible, .ccs-mark-arrived:focus-visible { outline: 3px solid #8C1007; outline-offset: 3px; }
 
         .ccs-indoor-select {
           width: 100%;
@@ -1798,7 +1843,7 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
                 className="ccs-indoor-floor-button"
                 aria-label={floor.label}
                 aria-pressed={selectedFloor === floor.id}
-                onClick={() => setSelectedFloor(floor.id)}
+                onClick={() => { setSelectedInstructionId(null); setSelectedFloor(floor.id); }}
               >
                 {index + 1}F
               </button>
@@ -1905,6 +1950,7 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
 
                     <RoutePath points={routePoints} />
 
+
                     {rooms.map((room) => (
                       <IsoRoom
                         key={room.id}
@@ -1922,6 +1968,22 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
                         }
                       />
                     ))}
+
+                    {guidanceSteps[activeInstructionIndex]?.floorId === selectedFloor && (
+                      <g pointerEvents="none" data-guidance-segment={guidanceSteps[activeInstructionIndex].id}>
+                        <polyline
+                          points={guidanceSteps[activeInstructionIndex].segment.map(point => `${point.x},${point.y}`).join(" ")}
+                          fill="none" stroke="#D68A00" strokeWidth="13"
+                          strokeLinecap="round" strokeLinejoin="round"
+                        />
+                        <circle
+                          data-guidance-waypoint={guidanceSteps[activeInstructionIndex].id}
+                          cx={guidanceSteps[activeInstructionIndex].waypoint.x}
+                          cy={guidanceSteps[activeInstructionIndex].waypoint.y}
+                          r="17" fill="#FFFBEF" stroke="#D68A00" strokeWidth="6"
+                        />
+                      </g>
+                    )}
 
                     {selectedFloor === activeRouteStart.floorId && (
                       <NavigationMarker
@@ -2034,7 +2096,7 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: navigationTarget ? "1fr 44px" : "1fr",
+              gridTemplateColumns: navigationTarget ? "minmax(0, 1fr) 44px 44px" : "minmax(0, 1fr) 44px",
               gap: 8,
             }}
           >
@@ -2060,6 +2122,27 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
             >
               <Navigation size={16} />
               Navigate to Selected Area
+            </button>
+            <button
+              type="button"
+              onClick={() => setRoomAsStartPoint(selectedFloor, selected)}
+              aria-label="Mark Arrived and Set as Start Point"
+              title="Mark Arrived and Set as Start Point"
+              className="ccs-mark-arrived"
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 10,
+                border: "1px solid #1D4ED8",
+                background: "#1D4ED8",
+                color: "#FFFFFF",
+                display: "grid",
+                placeItems: "center",
+                touchAction: "manipulation",
+                cursor: "pointer",
+              }}
+            >
+              <LocateFixed size={18} aria-hidden="true" />
             </button>
             {navigationTarget && (
               <button
@@ -2133,13 +2216,23 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
                   gap: 7,
                 }}
               >
-                {routeInstructions.map((instruction, index) => {
+                {guidanceSteps.map((instruction, index) => {
                   const active = index === activeInstructionIndex;
 
                   return (
-                    <div
+                    <button
                       key={instruction.id}
+                      type="button"
+                      className="ccs-guidance-step"
+                      data-guidance-step={instruction.id}
+                      aria-pressed={active}
+                      aria-label={`Step ${index + 1}: ${instruction.title}. ${floorConfigs[instruction.floorId].label}`}
+                      onClick={() => focusGuidanceStep(instruction)}
                       style={{
+                        width: "100%",
+                        textAlign: "left",
+                        fontFamily: "inherit",
+                        cursor: "pointer",
                         display: "grid",
                         gridTemplateColumns: "26px 1fr",
                         gap: 8,
@@ -2195,7 +2288,7 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
                           {instruction.detail}
                         </span>
                       </span>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -2269,28 +2362,6 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={completeNavigation}
-                style={{
-                  minHeight: 40,
-                  borderRadius: 12,
-                  border: "1px solid rgba(29, 78, 216, 0.24)",
-                  background: "rgba(29, 78, 216, 0.1)",
-                  color: "#1D4ED8",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  fontSize: 11,
-                  fontWeight: 900,
-                  touchAction: "manipulation",
-                }}
-              >
-                <LocateFixed size={15} />
-                Mark Arrived and Set as Start Point
-              </button>
-
               <p
                 style={{
                   margin: 0,
@@ -2300,9 +2371,8 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
                   lineHeight: 1.35,
                 }}
               >
-                The blue pin is the current start point. Mark arrival after a
-                successful route to use this destination as the next starting
-                point.
+                The blue pin is the current start point. Select a room and use
+                the blue target button beside Navigate to set a new start point.
               </p>
             </div>
           )}
