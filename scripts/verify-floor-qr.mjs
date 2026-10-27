@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import QRCode from 'qrcode';
+import { FLOOR_CHECKPOINTS, floorMapPath } from '../src/lib/floor-checkpoints.ts';
 import { ROOM_CHECKPOINTS, roomMapPath } from '../src/lib/room-checkpoints.ts';
 
 const baseURL = process.env.CCS_QR_URL || 'http://127.0.0.1:5173';
@@ -115,7 +116,20 @@ try {
     assert.equal(await f.page.getByRole('button', { name: 'Clear navigation route' }).count(), 0);
   }
   assert.equal(await f.page.evaluate(() => localStorage.getItem('ccs-indoor-current-location')), storedPin, 'room scans never move the stored location pin');
-  console.log('PASS all 11 actual room camera-frame decodes, highlight, floor selection, and cleanup');
+  console.log('PASS all 14 actual room camera-frame decodes, highlight, floor selection, and cleanup');
+  for (const floor of [...FLOOR_CHECKPOINTS, FLOOR_CHECKPOINTS[4]]) {
+    // Exercise old relative payloads and same-origin absolute links, including repeat scans.
+    await showPayload(f.page, floor.id === '2nd' ? `${baseURL}${floorMapPath(floor.id)}` : floorMapPath(floor.id));
+    await f.page.getByRole('button', { name: 'Scan QR', exact: true }).click();
+    await f.page.getByRole('dialog').waitFor({ state: 'detached' });
+    await expectFloor(f.page, floor.id);
+    assert.equal(new URL(f.page.url()).searchParams.has('room'), false, 'floor scans clear the room target');
+    await assertCameraStopped(f.page);
+    assert.equal(await f.page.getByRole('button', { name: 'Clear navigation route' }).count(), 0);
+  }
+  assert.equal(await f.page.evaluate(() => localStorage.getItem('ccs-indoor-current-location')), storedPin);
+  console.log('PASS all five legacy floor codes, repeated scans, room-to-floor switching, and preserved location pin');
+
 
   await f.page.getByRole('button', { name: '1st Floor', exact: true }).click();
   await expectFloor(f.page, '1st');
@@ -158,12 +172,10 @@ try {
 
   await showPayload(f.page, 'https://evil.example/app/map?view=indoor&floor=2nd');
   await f.page.getByRole('button', { name: 'Scan QR', exact: true }).click();
-  await f.page.getByRole('alert').filter({ hasText: 'not a supported CCS Connect room code' }).waitFor();
+  await f.page.getByRole('alert').filter({ hasText: 'not a supported CCS Connect code' }).waitFor();
   assert.equal(new URL(f.page.url()).pathname, '/app/map');
-  await showPayload(f.page, '/app/map?view=indoor&floor=2nd');
-  await f.page.getByRole('alert').filter({ hasText: 'not a supported CCS Connect room code' }).waitFor();
   await showPayload(f.page, '/app/map?view=indoor&room=room-506-a');
-  await f.page.getByRole('alert').filter({ hasText: 'not a supported CCS Connect room code' }).waitFor();
+  await f.page.getByRole('alert').filter({ hasText: 'not a supported CCS Connect code' }).waitFor();
   await showPayload(f.page, roomMapPath('computer-lab-4'));
   await f.page.getByRole('dialog').waitFor({ state: 'detached' });
   await expectFloor(f.page, '2nd');
@@ -171,19 +183,19 @@ try {
 
   await showPayload(f.page, '');
   await f.page.getByRole('button', { name: 'Scan QR', exact: true }).click();
-  await f.page.getByText('Point your camera at a room QR code.').waitFor();
+  await f.page.getByText('Point your camera at a floor or room QR code.').waitFor();
   await f.page.keyboard.press('Escape');
   await assertCameraStopped(f.page);
   await f.page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
   assert.equal(await f.page.getByRole('button', { name: 'Scan QR', exact: true }).evaluate(el => document.activeElement === el), true, 'closing the scanner restores keyboard focus to its action');
   await f.page.getByRole('button', { name: 'Scan QR', exact: true }).click();
-  await f.page.getByText('Point your camera at a room QR code.').waitFor();
+  await f.page.getByText('Point your camera at a floor or room QR code.').waitFor();
   await f.page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); });
   await assertCameraStopped(f.page);
   await f.page.getByRole('button', { name: 'Resume Camera' }).waitFor();
   await f.page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
   await f.page.getByRole('button', { name: 'Resume Camera' }).click();
-  await f.page.getByText('Point your camera at a room QR code.').waitFor();
+  await f.page.getByText('Point your camera at a floor or room QR code.').waitFor();
   // The previous scanner must never release the replacement stream via stale cleanup.
   await f.page.waitForTimeout(400);
   assert.equal(await f.page.locator('video').evaluate(video => video.srcObject?.getTracks().some(track => track.readyState === 'live') ?? false), true, 'fast resume keeps the replacement camera stream alive');
@@ -195,7 +207,7 @@ try {
   await mkdir('artifacts/room-qr', { recursive: true });
   await f.page.screenshot({ path: 'artifacts/room-qr/map-mobile.png', fullPage: true });
   await f.page.getByRole('button', { name: 'Scan QR', exact: true }).click();
-  await f.page.getByText('Point your camera at a room QR code.').waitFor();
+  await f.page.getByText('Point your camera at a floor or room QR code.').waitFor();
   await f.page.screenshot({ path: 'artifacts/room-qr/scanner-mobile.png', fullPage: true });
   await f.context.close();
 

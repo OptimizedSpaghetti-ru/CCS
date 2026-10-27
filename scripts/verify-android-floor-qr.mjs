@@ -5,6 +5,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import QRCode from 'qrcode';
+import { FLOOR_CHECKPOINTS, floorMapPath } from '../src/lib/floor-checkpoints.ts';
 import { ROOM_CHECKPOINTS, roomMapPath } from '../src/lib/room-checkpoints.ts';
 
 const adbPath = process.env.CCS_ADB || path.join(process.env.LOCALAPPDATA, 'Android/Sdk/platform-tools/adb.exe');
@@ -52,7 +53,7 @@ try {
   await page.locator('[data-startup-splash]').waitFor({ state: 'detached' });
   assert.equal(await page.getByRole('button', { name: '5th Floor', exact: true }).getAttribute('aria-pressed'), 'true');
   await page.getByRole('button', { name: 'Scan QR', exact: true }).click();
-  await page.getByText('Point your camera at a room QR code.').waitFor({ timeout: 30000 });
+  await page.getByText('Point your camera at a floor or room QR code.').waitFor({ timeout: 30000 });
   await page.waitForFunction(() => { const video = document.querySelector('video'); return video?.videoWidth > 0 && video.srcObject?.getTracks().some(track => track.readyState === 'live'); });
   await page.evaluate(() => { window.nativeQrTracks = document.querySelector('video').srcObject.getTracks(); });
   await mkdir('artifacts/room-qr', { recursive: true });
@@ -63,7 +64,7 @@ try {
   console.log('PASS Android WebView: selected 5th floor, actual emulator camera preview, close releases tracks.');
 
   await page.getByRole('button', { name: 'Scan QR', exact: true }).click();
-  await page.getByText('Point your camera at a room QR code.').waitFor();
+  await page.getByText('Point your camera at a floor or room QR code.').waitFor();
   await page.evaluate(() => {
     window.nativeVisibilityEvents = [];
     document.addEventListener('visibilitychange', () => window.nativeVisibilityEvents.push(document.hidden));
@@ -79,7 +80,7 @@ try {
   await page.waitForFunction(() => window.nativeQrTracks.every(track => track.readyState === 'ended'), null, { polling: 100 });
   await page.getByRole('button', { name: 'Resume Camera' }).waitFor();
   await page.getByRole('button', { name: 'Resume Camera' }).click();
-  await page.getByText('Point your camera at a room QR code.').waitFor();
+  await page.getByText('Point your camera at a floor or room QR code.').waitFor();
   await page.waitForTimeout(400);
   assert.equal(await page.locator('video').evaluate(video => video.srcObject?.getTracks().some(track => track.readyState === 'live')), true);
   await page.getByRole('button', { name: 'Choose Floor Manually' }).click();
@@ -124,8 +125,18 @@ try {
     }), room.name);
     await page.waitForFunction(() => window.roomQrTracks.every(track => track.readyState === 'ended'));
   }
+  for (const floor of [...FLOOR_CHECKPOINTS, FLOOR_CHECKPOINTS[4]]) {
+    const image = await QRCode.toDataURL(floorMapPath(floor.id), { width: 440, margin: 4 });
+    await page.evaluate(image => { window.roomQrImage = image; }, image);
+    await page.getByRole('button', { name: 'Scan QR', exact: true }).click();
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
+    await page.getByRole('button', { name: floor.id + ' Floor', exact: true }).and(page.locator('[aria-pressed="true"]')).waitFor();
+    assert.equal(new URL(page.url()).searchParams.has('room'), false);
+    await page.waitForFunction(() => window.roomQrTracks.every(track => track.readyState === 'ended'));
+  }
+  console.log('PASS Android: all five legacy floor codes and repeated floor scans');
   assert.equal(await page.evaluate(() => localStorage.getItem('ccs-indoor-current-location')), saved.pin);
-  console.log('PASS Android packaged WebView: all 11 room QR decodes, correct floors/highlights, camera cleanup, and preserved location pin.');
+  console.log('PASS Android packaged WebView: all 14 room QR decodes, correct floors/highlights, camera cleanup, and preserved location pin.');
 } catch (error) {
   console.log('Native failure state:', await page.evaluate(() => ({ path: location.pathname, hidden: document.hidden, status: document.querySelector('.floor-qr-status')?.textContent, visibility: window.nativeVisibilityEvents, video: [...document.querySelectorAll('video')].map(v => ({ ready: v.readyState, width: v.videoWidth, tracks: v.srcObject?.getTracks().map(t => t.readyState) })) })).catch(() => 'WebView unavailable'));
   throw error;

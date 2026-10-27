@@ -7,6 +7,7 @@ export type RoomCheckpoint = Readonly<{ id: string; floorId: FloorId; name: stri
 const enabledRoomIds = new Set([
   'comp-lab-1', 'comp-lab-2', 'comp-lab-3', 'computer-lab-4', 'computer-lab-5',
   'soci', 'room-501', 'room-502', 'room-503', 'room-504', 'room-505',
+  'ccs-office', 'it-ojt-room', 'tamaraw-library',
 ]);
 
 export const ROOM_CHECKPOINTS: ReadonlyArray<RoomCheckpoint> = Object.values(indoorFloorConfigs)

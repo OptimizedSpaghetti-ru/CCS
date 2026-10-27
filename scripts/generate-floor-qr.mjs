@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import QRCode from 'qrcode';
+import './generate-floor-only-qr.mjs';
 import { ROOM_CHECKPOINTS, roomMapPath } from '../src/lib/room-checkpoints.ts';
 
 const directory = new URL('../public/room-qr/', import.meta.url);
@@ -31,7 +32,7 @@ img { display: block; width: 180px; max-width: 100%; height: auto; margin: 4px a
 @media screen and (max-width: 480px) { .qr-page { grid-template-columns: 1fr; } }
 </style></head><body><header><h1>CCS Connect Room QR Codes</h1>
 <p>Saint Benedict Hall · Print at actual size. Place each code only at its matching room.</p></header>
-<main>${[manifest.slice(0, 6), manifest.slice(6)].map(rooms => `<section class="qr-page">${rooms.map(room => `<article><h2>${room.name}</h2><p>${room.floorLabel} &middot; Saint Benedict Hall</p>
+<main>${Array.from({ length: Math.ceil(manifest.length / 6) }, (_, index) => manifest.slice(index * 6, (index + 1) * 6)).map(rooms => `<section class="qr-page">${rooms.map(room => `<article><h2>${room.name}</h2><p>${room.floorLabel} &middot; Saint Benedict Hall</p>
 <img src="${room.svg}" alt="CCS Connect ${room.name} QR code" width="180" height="180">
 <p>CCS Connect &rarr; Indoor Map &rarr; Scan QR.</p><p>Scan to highlight this room.</p></article>`).join('\n')}</section>`).join('\n')}</main></body></html>\n`);
-console.log('Generated 11 room QR codes (PNG + SVG), manifest, and two-page printable sheet in public/room-qr/.');
+console.log(`Generated ${manifest.length} room QR codes (PNG + SVG), manifest, and printable sheet in public/room-qr/.`);

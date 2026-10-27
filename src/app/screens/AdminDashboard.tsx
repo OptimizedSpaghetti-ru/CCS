@@ -1,14 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { useNavigate } from "react-router";
 import { createClient } from "@supabase/supabase-js";
 import {
-  BarChart3,
   Megaphone,
   MapPinned,
   Image as ImageIcon,
   Loader2,
-  Shield,
   Users,
   CheckCircle2,
   XCircle,
@@ -185,7 +182,6 @@ const adminAuthSupabase = createClient(
 
 export function AdminDashboard() {
   const { currentUser } = useApp();
-  const navigate = useNavigate();
 
   /* ---------- State ---------- */
   const [pendingUsers, setPendingUsers] = useState<PendingProfile[]>([]);
@@ -248,6 +244,19 @@ export function AdminDashboard() {
 
   const [announcementImageFile, setAnnouncementImageFile] =
     useState<File | null>(null);
+  const announcementImageInput = useRef<HTMLInputElement>(null);
+  const [announcementImagePreview, setAnnouncementImagePreview] = useState("");
+
+  useEffect(() => {
+    if (!announcementImageFile) {
+      setAnnouncementImagePreview("");
+      return;
+    }
+    const preview = URL.createObjectURL(announcementImageFile);
+    setAnnouncementImagePreview(preview);
+    return () => URL.revokeObjectURL(preview);
+  }, [announcementImageFile]);
+
   const [notificationDeleteTarget, setNotificationDeleteTarget] = useState<{
     id: string;
     title: string;
@@ -1027,50 +1036,7 @@ export function AdminDashboard() {
           >
             Admin Panel
           </h1>
-          <div
-            style={{
-              background: "rgba(59,82,128,0.7)",
-              borderRadius: 20,
-              padding: "3px 9px",
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-            }}
-          >
-            <Shield size={10} color={c.white} />
-            <span
-              style={{
-                fontFamily: fonts.ui,
-                fontSize: 9,
-                fontWeight: 700,
-                color: c.cream,
-              }}
-            >
-              Admin
-            </span>
-          </div>
-          <button
-            onClick={() => navigate("/app/admin/analytics")}
-            style={{
-              marginLeft: "auto",
-              border: "1px solid rgba(255,240,196,0.18)",
-              background: "rgba(255,240,196,0.12)",
-              color: c.cream,
-              borderRadius: 10,
-              padding: "8px 10px",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontFamily: fonts.ui,
-              fontSize: 11,
-              fontWeight: 800,
-              cursor: "pointer",
-              flexShrink: 0,
-            }}
-          >
-            <BarChart3 size={14} />
-            Analytics
-          </button>
+
         </div>
 
         {/* Tab bar */}
@@ -1237,7 +1203,8 @@ export function AdminDashboard() {
                       lineHeight: 1.6,
                     }}
                   />
-                  <div style={{ position: "relative" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
                     <select
                       value={announcementTargetRole}
                       onChange={(e) =>
@@ -1250,7 +1217,7 @@ export function AdminDashboard() {
                             | "",
                         )
                       }
-                      style={selectStyle}
+                      style={{ ...selectStyle, height: 44 }}
                     >
                       <option value="">All roles</option>
                       <option value="student">Students only</option>
@@ -1270,49 +1237,56 @@ export function AdminDashboard() {
                       }}
                     />
                   </div>
-                  <div
+                  <input
+                    ref={announcementImageInput}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setAnnouncementImageFile(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    aria-label={announcementImageFile ? "Replace pubmat image" : "Attach pubmat image (optional)"}
+                    title={announcementImageFile ? "Replace pubmat image" : "Attach pubmat image (optional)"}
+                    onClick={() => announcementImageInput.current?.click()}
                     style={{
+                      position: "relative",
+                      width: 44,
+                      height: 44,
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                       border: `1px solid ${c.warmGray}33`,
                       borderRadius: 10,
-                      padding: "10px 12px",
                       background: c.cream,
+                      color: c.warmGray,
+                      cursor: "pointer",
                     }}
                   >
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        fontFamily: fonts.ui,
-                        fontSize: 12,
-                        color: c.warmGray,
-                        cursor: "pointer",
-                      }}
-                    >
-                      <ImageIcon size={14} />
-                      Attach pubmat image (optional)
-                      <input
-                        type="file"
-                        accept="image/*"
-                        style={{ display: "none" }}
-                        onChange={(e) =>
-                          setAnnouncementImageFile(e.target.files?.[0] ?? null)
-                        }
-                      />
-                    </label>
+                    <ImageIcon size={18} />
                     {announcementImageFile && (
-                      <p
-                        style={{
-                          margin: "6px 0 0",
-                          fontFamily: fonts.ui,
-                          fontSize: 11,
-                          color: c.darkBrown,
-                        }}
-                      >
-                        Selected: {announcementImageFile.name}
-                      </p>
+                      <CheckCircle2 size={12} color={c.darkBrown} style={{ position: "absolute", top: 4, right: 4 }} />
                     )}
+                  </button>
                   </div>
+                  {announcementImageFile && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                      {announcementImagePreview && (
+                        <img src={announcementImagePreview} alt="Selected pubmat preview" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8 }} />
+                      )}
+                      <span role="status" style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere", fontFamily: fonts.ui, fontSize: 11, color: c.darkBrown }}>
+                        {announcementImageFile.name}
+                      </span>
+                      <button type="button" aria-label="Remove pubmat image" onClick={() => setAnnouncementImageFile(null)} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, flexShrink: 0, border: "none", borderRadius: 10, background: "transparent", color: c.warmGray, cursor: "pointer" }}>
+                        <X size={16} />
+                      </button>
+                    </div>
+                  )}
                   <button
                     onClick={postAnnouncement}
                     disabled={isSaving}

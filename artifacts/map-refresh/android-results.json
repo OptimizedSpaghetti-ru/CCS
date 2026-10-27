@@ -1,0 +1,8 @@
+{
+  "indoorRefreshBlocked": true,
+  "outdoorRefreshBlocked": true,
+  "indoorGestures": true,
+  "outdoorPan": true,
+  "homeRefresh": true,
+  "returnToMap": true
+}

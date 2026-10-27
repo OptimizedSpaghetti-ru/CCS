@@ -40,6 +40,36 @@
     "svg": "room-soci.svg"
   },
   {
+    "id": "ccs-office",
+    "floorId": "2nd",
+    "name": "College of Computer Studies Office",
+    "floorLabel": "2nd Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&room=ccs-office",
+    "png": "room-ccs-office.png",
+    "svg": "room-ccs-office.svg"
+  },
+  {
+    "id": "it-ojt-room",
+    "floorId": "2nd",
+    "name": "IT / OJT Room",
+    "floorLabel": "2nd Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&room=it-ojt-room",
+    "png": "room-it-ojt-room.png",
+    "svg": "room-it-ojt-room.svg"
+  },
+  {
+    "id": "tamaraw-library",
+    "floorId": "2nd",
+    "name": "Tamaraw Library",
+    "floorLabel": "2nd Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&room=tamaraw-library",
+    "png": "room-tamaraw-library.png",
+    "svg": "room-tamaraw-library.svg"
+  },
+  {
     "id": "computer-lab-4",
     "floorId": "2nd",
     "name": "Computer Lab 4",

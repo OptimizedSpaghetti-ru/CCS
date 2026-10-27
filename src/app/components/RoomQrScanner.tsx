@@ -5,6 +5,7 @@ import type QrScanner from "qr-scanner";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { App } from "@capacitor/app";
 import { parseRoomCheckpoint, type RoomCheckpoint } from "../../lib/room-checkpoints";
+import { parseFloorCheckpoint, type FloorId } from "../../lib/floor-checkpoints";
 import { c, fonts } from "../theme";
 import "./FloorQrScanner.css";
 
@@ -23,8 +24,9 @@ function cameraError(error: unknown): string {
   return "Unable to start the camera. Check camera access and retry, or choose your floor manually.";
 }
 
-export function RoomQrScanner({ onRoom, onClose, onManual, onReturnFocus }: {
+export function RoomQrScanner({ onRoom, onFloor, onClose, onManual, onReturnFocus }: {
   onRoom: (room: RoomCheckpoint) => void;
+  onFloor: (floor: FloorId) => void;
   onClose: () => void;
   onManual: () => void;
   onReturnFocus: () => void;
@@ -104,12 +106,14 @@ export function RoomQrScanner({ onRoom, onClose, onManual, onReturnFocus }: {
             const result = await Scanner.scanImage(video, { qrEngine: nextEngine, returnDetailedScanResult: true });
             if (disposed || handled || document.hidden) return;
             const room = parseRoomCheckpoint(result.data, window.location.origin);
-            if (!room) {
-              setMessage("This is not a supported CCS Connect room code. Scan a code for Computer Labs 1–5, EMC Laboratory, or Rooms 501–505.");
+            const floor = room ? null : parseFloorCheckpoint(result.data, window.location.origin);
+            if (!room && !floor) {
+              setMessage("This is not a supported CCS Connect code. Scan a floor or supported room QR code for Saint Benedict Hall.");
             } else {
               handled = true;
               stop();
-              onRoom(room);
+              if (room) onRoom(room);
+              else if (floor) onFloor(floor);
               return;
             }
           } catch {
@@ -131,7 +135,7 @@ export function RoomQrScanner({ onRoom, onClose, onManual, onReturnFocus }: {
       window.removeEventListener("pagehide", pause);
       stop();
     };
-  }, [attempt, onRoom, video]);
+  }, [attempt, onRoom, onFloor, video]);
 
   const style = {
     "--floor-qr-surface": c.white,
@@ -151,14 +155,14 @@ export function RoomQrScanner({ onRoom, onClose, onManual, onReturnFocus }: {
             <Dialog.Close className="floor-qr-close" aria-label="Close Scanner"><X size={22} /></Dialog.Close>
           </div>
           <Dialog.Description className="floor-qr-description">
-            Scan a room code for Computer Labs 1–5, EMC Laboratory, or Rooms 501–505 in Saint Benedict Hall.
+            Scan a floor code (1F–5F) or a supported room code in Saint Benedict Hall. Room codes open the correct floor and highlight the room.
           </Dialog.Description>
           <div className="floor-qr-preview" aria-busy={status === "starting"}>
-            <video ref={setVideo} muted playsInline aria-label="Room QR camera preview" />
+            <video ref={setVideo} muted playsInline aria-label="Floor and room QR camera preview" />
             {status !== "scanning" && <div className="floor-qr-camera-state"><Camera size={36} aria-hidden="true" /></div>}
           </div>
           <p className="floor-qr-status" role="status">
-            {status === "starting" ? "Starting camera…" : status === "scanning" ? "Point your camera at a room QR code." : status === "paused" ? "Camera paused while CCS Connect was in the background." : "Camera could not start."}
+            {status === "starting" ? "Starting camera…" : status === "scanning" ? "Point your camera at a floor or room QR code." : status === "paused" ? "Camera paused while CCS Connect was in the background." : "Camera could not start."}
           </p>
           {message && <p className="floor-qr-error" role="alert">{message}</p>}
           {(status === "error" || status === "paused") && (

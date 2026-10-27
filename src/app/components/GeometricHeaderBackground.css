@@ -1,0 +1,75 @@
+.geometric-header {
+  isolation: isolate;
+}
+
+.geometric-header-background {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  background: #4a0c09;
+}
+
+.geometric-header-background > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Only transform/opacity animate. No filters, path morphing, or frame callbacks. */
+.geometric-header-background__sweep,
+.geometric-header-background__outer-orb,
+.geometric-header-background__inner-orb,
+.geometric-header-background__lines {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: geometric-header-drift 29s ease-in-out infinite;
+}
+
+.geometric-header-background__outer-orb {
+  animation-name: geometric-header-orbit;
+  animation-duration: 27s;
+  transform-origin: 90% 30%;
+}
+
+.geometric-header-background__inner-orb {
+  animation-duration: 23s;
+  animation-direction: reverse;
+}
+
+.geometric-header-background__lines {
+  animation-name: geometric-header-flow;
+  animation-duration: 19s;
+}
+
+.geometric-header-background__dots {
+  animation: geometric-header-breathe 17s ease-in-out infinite;
+}
+
+@keyframes geometric-header-drift {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(4px, -3px) rotate(0.4deg); }
+}
+
+@keyframes geometric-header-orbit {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(-5px, 4px) rotate(-0.6deg); }
+}
+
+@keyframes geometric-header-flow {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(5px, -4px); }
+}
+
+@keyframes geometric-header-breathe {
+  0%, 100% { opacity: 0.82; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .geometric-header-background g {
+    animation: none;
+  }
+}

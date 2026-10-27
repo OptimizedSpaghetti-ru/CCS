@@ -17,6 +17,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { c, g, fonts, shadow } from "../theme";
+import { GeometricHeaderBackground } from "../components/GeometricHeaderBackground";
 import { useApp } from "../context/AppContext";
 import type { ReactNode } from "react";
 
@@ -202,35 +203,14 @@ export function Profile() {
       <div style={{ overflowY: "auto", flex: 1 }}>
         {/* Header */}
         <div
+          className="geometric-header"
           style={{
-            background: g.header,
             padding: "16px 20px 32px",
             position: "relative",
             overflow: "hidden",
           }}
         >
-          <div
-            style={{
-              position: "absolute",
-              top: -40,
-              right: -40,
-              width: 150,
-              height: 150,
-              borderRadius: "50%",
-              background: "rgba(255,240,196,0.07)",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              bottom: -30,
-              left: -20,
-              width: 100,
-              height: 100,
-              borderRadius: "50%",
-              background: "rgba(255,240,196,0.05)",
-            }}
-          />
+          <GeometricHeaderBackground variant="profile" />
 
           <div
             style={{

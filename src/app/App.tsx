@@ -67,9 +67,25 @@ function AppShell() {
   const touchStartYRef = useRef<number | null>(null);
   const canPullRef = useRef(false);
   const isNativeMobile = Capacitor.isNativePlatform();
+  const pathname = useSyncExternalStore(
+    router.subscribe,
+    () => router.state.location.pathname,
+  );
+  // Both map modes share this route. Leave their touch events to the map on Android.
+  const pullToRefreshEnabled = isNativeMobile && !(
+    Capacitor.getPlatform() === "android" && /^\/app\/map\/?$/.test(pathname)
+  );
+
+  useEffect(() => {
+    if (!pullToRefreshEnabled) {
+      touchStartYRef.current = null;
+      canPullRef.current = false;
+      setPullDistance(0);
+    }
+  }, [pullToRefreshEnabled]);
 
   const triggerRefresh = async () => {
-    if (isRefreshing) return;
+    if (!pullToRefreshEnabled || isRefreshing) return;
     setIsRefreshing(true);
     try {
       await refreshAppData();
@@ -86,7 +102,7 @@ function AppShell() {
     <div
       className="app-container"
       onTouchStart={(event) => {
-        if (!isNativeMobile || event.touches.length !== 1) return;
+        if (!pullToRefreshEnabled || event.touches.length !== 1) return;
         const target = event.target as HTMLElement | null;
         if (target?.closest("input, textarea, select, button")) return;
 
@@ -96,7 +112,7 @@ function AppShell() {
         touchStartYRef.current = event.touches[0].clientY;
       }}
       onTouchMove={(event) => {
-        if (!isNativeMobile || !canPullRef.current || touchStartYRef.current === null) {
+        if (!pullToRefreshEnabled || !canPullRef.current || touchStartYRef.current === null) {
           return;
         }
 
@@ -112,7 +128,7 @@ function AppShell() {
         setPullDistance(Math.min(74, Math.pow(delta, 0.82)));
       }}
       onTouchEnd={() => {
-        if (!isNativeMobile || !canPullRef.current) return;
+        if (!pullToRefreshEnabled || !canPullRef.current) return;
         const shouldRefresh = pullDistance > 54;
         touchStartYRef.current = null;
         canPullRef.current = false;
@@ -129,7 +145,7 @@ function AppShell() {
         if (!isRefreshing) setPullDistance(0);
       }}
     >
-      {isNativeMobile && (pullDistance > 0 || isRefreshing) && (
+      {pullToRefreshEnabled && (pullDistance > 0 || isRefreshing) && (
         <div
           aria-hidden="true"
           style={{

@@ -1,0 +1,72 @@
+[
+  {
+    "variant": "home",
+    "height": 113.5,
+    "tracks": [
+      {
+        "time": 6149.917000000057,
+        "duration": 29000,
+        "state": "running"
+      },
+      {
+        "time": 6149.917000000057,
+        "duration": 27000,
+        "state": "running"
+      },
+      {
+        "time": 6149.917000000057,
+        "duration": 23000,
+        "state": "running"
+      },
+      {
+        "time": 6149.917000000057,
+        "duration": 19000,
+        "state": "running"
+      },
+      {
+        "time": 6149.917000000057,
+        "duration": 17000,
+        "state": "running"
+      }
+    ],
+    "platform": "android",
+    "motionAdvances": true,
+    "reducedMotion": true,
+    "buttonsWork": true
+  },
+  {
+    "variant": "profile",
+    "height": 271.3095397949219,
+    "tracks": [
+      {
+        "time": 2083.3979999999997,
+        "duration": 29000,
+        "state": "running"
+      },
+      {
+        "time": 2083.3979999999997,
+        "duration": 27000,
+        "state": "running"
+      },
+      {
+        "time": 2083.3979999999997,
+        "duration": 23000,
+        "state": "running"
+      },
+      {
+        "time": 2083.3979999999997,
+        "duration": 19000,
+        "state": "running"
+      },
+      {
+        "time": 2083.3419999999423,
+        "duration": 17000,
+        "state": "running"
+      }
+    ],
+    "platform": "android",
+    "motionAdvances": true,
+    "reducedMotion": true,
+    "buttonsWork": true
+  }
+]

@@ -1,6 +1,6 @@
-import { FileText, Lock, Mail, ShieldCheck } from "lucide-react";
+import { Mail } from "lucide-react";
 import { TopBar } from "../components/TopBar";
-import { c, fonts, g, shadow } from "../theme";
+import { c, fonts, shadow } from "../theme";
 
 type LegalSection = {
   title: string;
@@ -104,93 +104,10 @@ function LegalContent({
   subtitle: string;
   sections: LegalSection[];
 }) {
-  const Icon = kind === "terms" ? FileText : Lock;
-
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <TopBar title={title} subtitle={subtitle} showBack backPath="/app/settings" />
       <div style={{ flex: 1, overflowY: "auto", background: c.creamLight, padding: 16 }}>
-        <div
-          style={{
-            background: g.header,
-            borderRadius: 18,
-            padding: 16,
-            boxShadow: shadow.card,
-            color: c.cream,
-            marginBottom: 14,
-          }}
-        >
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <div
-              style={{
-                width: 46,
-                height: 46,
-                borderRadius: 14,
-                background: "rgba(255,240,196,0.16)",
-                display: "grid",
-                placeItems: "center",
-                flexShrink: 0,
-              }}
-            >
-              <Icon size={23} />
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <p
-                style={{
-                  margin: 0,
-                  fontFamily: fonts.display,
-                  fontSize: 20,
-                  fontWeight: 800,
-                  lineHeight: 1.15,
-                }}
-              >
-                {title}
-              </p>
-              {kind === "privacy" && (
-                <p
-                  style={{
-                    margin: "4px 0 0",
-                    fontFamily: fonts.ui,
-                    fontSize: 12,
-                    color: c.warmGrayLight,
-                    lineHeight: 1.4,
-                  }}
-                >
-                  Placeholder policy for CCS Connect prototype use.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {kind === "privacy" && (
-          <div
-            style={{
-              background: c.white,
-              borderRadius: 16,
-              padding: 14,
-              boxShadow: shadow.card,
-              marginBottom: 14,
-              border: "1px solid rgba(102,11,5,0.08)",
-            }}
-          >
-            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-              <ShieldCheck size={18} color="#8C1007" style={{ flexShrink: 0, marginTop: 1 }} />
-              <p
-                style={{
-                  margin: 0,
-                  fontFamily: fonts.ui,
-                  fontSize: 12,
-                  lineHeight: 1.5,
-                  color: c.warmGray,
-                }}
-              >
-                This content is provided as realistic placeholder text and should be reviewed by authorized CCS personnel before official publication.
-              </p>
-            </div>
-          </div>
-        )}
-
         <div style={{ display: "grid", gap: 10 }}>
           {sections.map((section, index) => (
             <section

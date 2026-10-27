@@ -14,12 +14,15 @@ const destinations = [
   ['computer-lab-4', '2nd', 'Computer Lab 4'],
   ['computer-lab-5', '5th', 'Computer Lab 5'],
   ['soci', '1st', 'EMC Laboratory'],
+  ['ccs-office', '2nd', 'College of Computer Studies Office'],
+  ['it-ojt-room', '2nd', 'IT / OJT Room'],
+  ['tamaraw-library', '2nd', 'Tamaraw Library'],
   ...['501', '502', '503', '504', '505'].map(number => [`room-${number}`, '5th', `Room ${number}`]),
 ];
 
-test('QR destinations are exactly the five Computer Labs, EMC, and Rooms 501–505 on their real floors', () => {
+test('QR destinations include all existing rooms and three additional locations on their real floors', () => {
   assert.ok(Array.isArray(contract.ROOM_CHECKPOINTS), 'room QR catalogue must exist');
-  assert.equal(contract.ROOM_CHECKPOINTS.length, 11);
+  assert.equal(contract.ROOM_CHECKPOINTS.length, 14);
   assert.deepEqual(contract.ROOM_CHECKPOINTS.map(room => room.id).sort(), destinations.map(([id]) => id).sort());
   for (const [id, floorId, name] of destinations) {
     assert.deepEqual(contract.ROOM_CHECKPOINTS.find(room => room.id === id), { id, floorId, name });
@@ -45,7 +48,7 @@ test('unsupported, floor-only, foreign, duplicated, and malformed codes cannot s
   for (const input of [
     '', 'hello', 'room-501', 'javascript:alert(1)', '/app/map?view=indoor&floor=5th',
     '/app/map?view=indoor&room=room-506-a', '/app/map?view=indoor&room=mac-lab',
-    '/app/map?view=indoor&room=ccs-office', '/app/map?view=indoor&room=chemistry-lab',
+    '/app/map?view=indoor&room=chemistry-lab',
     '/app/map?view=indoor&room=pt-lab', '/app/map?view=indoor&room=psychology-lab',
     '/app/map?view=indoor&room=entrance', '/app/map?view=indoor&room=__proto__',
     '/app/map?view=indoor&room=room-501&room=room-502',

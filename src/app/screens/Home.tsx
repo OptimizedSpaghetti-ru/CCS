@@ -9,7 +9,8 @@ import {
   Megaphone,
   Wrench,
 } from "lucide-react";
-import { c, g, fonts, shadow } from "../theme";
+import { c, fonts, shadow } from "../theme";
+import { GeometricHeaderBackground } from "../components/GeometricHeaderBackground";
 import { supabase } from "../../lib/supabase";
 import { useApp } from "../context/AppContext";
 import {
@@ -294,38 +295,15 @@ export function Home() {
     <div style={{ flex: 1, overflowY: "auto", background: c.creamLight }}>
       {/* ── Hero Header ── */}
       <div
+        className="geometric-header"
         style={{
-          background: g.header,
           padding: "0 20px 28px",
           flexShrink: 0,
           position: "relative",
           overflow: "hidden",
         }}
       >
-        <div
-          style={{
-            position: "absolute",
-            top: -30,
-            right: -30,
-            width: 120,
-            height: 120,
-            borderRadius: "50%",
-            background: "rgba(255,240,196,0.06)",
-            pointerEvents: "none",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            bottom: -20,
-            left: -20,
-            width: 80,
-            height: 80,
-            borderRadius: "50%",
-            background: "rgba(255,240,196,0.04)",
-            pointerEvents: "none",
-          }}
-        />
+        <GeometricHeaderBackground variant="home" />
         <div
           style={{
             display: "flex",

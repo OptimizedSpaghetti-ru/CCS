@@ -15,7 +15,7 @@ import { c, fonts, g, shadow } from "../theme";
 import { campusLocations } from "../../data/campusLocations";
 import { Map } from "./Map";
 import { RoomQrScanner } from "../components/RoomQrScanner";
-import { FLOOR_CHECKPOINTS, floorFromSearch } from "../../lib/floor-checkpoints";
+import { FLOOR_CHECKPOINTS, floorFromSearch, floorMapPath, type FloorId } from "../../lib/floor-checkpoints";
 import { roomFromSearch, roomMapPath, type RoomCheckpoint } from "../../lib/room-checkpoints";
 
 interface MapLocation {
@@ -223,6 +223,13 @@ export function MapView() {
     setCheckpointVersion(value => value + 1);
     setFloorMessage(`Showing ${room.name} · ${FLOOR_CHECKPOINTS.find(item => item.id === room.floorId)!.label}.`);
   }, [setSearchParams]);
+  const applyFloorCheckpoint = useCallback((floor: FloorId) => {
+    setScannerOpen(false);
+    setSearchParams(floorMapPath(floor).split("?")[1], { replace: true });
+    setActiveTab("building");
+    setCheckpointVersion(value => value + 1);
+    setFloorMessage(`Showing ${FLOOR_CHECKPOINTS.find(item => item.id === floor)!.label}.`);
+  }, [setSearchParams]);
   useEffect(() => { if (requestedFloor) setActiveTab("building"); }, [requestedFloor]);
   useEffect(() => {
     if (!floorMessage) return;
@@ -338,7 +345,7 @@ export function MapView() {
         </button>
       </div>
 
-      {scannerOpen && <RoomQrScanner onRoom={applyCheckpoint} onClose={() => setScannerOpen(false)} onManual={() => { setScannerOpen(false); setActiveTab("building"); }} onReturnFocus={() => scannerButton.current?.focus()} />}
+      {scannerOpen && <RoomQrScanner onRoom={applyCheckpoint} onFloor={applyFloorCheckpoint} onClose={() => setScannerOpen(false)} onManual={() => { setScannerOpen(false); setActiveTab("building"); }} onReturnFocus={() => scannerButton.current?.focus()} />}
       {floorMessage && <p role="status" aria-live="polite" style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", zIndex: 1100, margin: 0, padding: "10px 16px", borderRadius: 10, background: c.darkBrown, color: c.creamLight, fontFamily: fonts.ui, fontSize: 14, pointerEvents: "none", maxWidth: "calc(100% - 24px)", textAlign: "center" }}>{floorMessage}</p>}
 
       {activeTab === "realtime" ? (

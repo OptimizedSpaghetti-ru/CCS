@@ -1,0 +1,42 @@
+[
+  {
+    "id": "1st",
+    "label": "1st Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&floor=1st",
+    "png": "floor-1st.png",
+    "svg": "floor-1st.svg"
+  },
+  {
+    "id": "2nd",
+    "label": "2nd Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&floor=2nd",
+    "png": "floor-2nd.png",
+    "svg": "floor-2nd.svg"
+  },
+  {
+    "id": "3rd",
+    "label": "3rd Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&floor=3rd",
+    "png": "floor-3rd.png",
+    "svg": "floor-3rd.svg"
+  },
+  {
+    "id": "4th",
+    "label": "4th Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&floor=4th",
+    "png": "floor-4th.png",
+    "svg": "floor-4th.svg"
+  },
+  {
+    "id": "5th",
+    "label": "5th Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&floor=5th",
+    "png": "floor-5th.png",
+    "svg": "floor-5th.svg"
+  }
+]
