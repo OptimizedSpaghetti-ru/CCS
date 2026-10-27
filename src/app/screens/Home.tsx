@@ -303,7 +303,7 @@ export function Home() {
           overflow: "hidden",
         }}
       >
-        <GeometricHeaderBackground variant="home" />
+        <GeometricHeaderBackground variant="home" dark={isDark} />
         <div
           style={{
             display: "flex",

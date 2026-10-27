@@ -1,0 +1,146 @@
+[
+  {
+    "role": "student",
+    "variant": "home",
+    "height": 113.5,
+    "tracks": [
+      {
+        "time": 6016.657999999474,
+        "duration": 29000,
+        "state": "running"
+      },
+      {
+        "time": 6016.657999999474,
+        "duration": 27000,
+        "state": "running"
+      },
+      {
+        "time": 6016.657999999474,
+        "duration": 23000,
+        "state": "running"
+      },
+      {
+        "time": 6016.657999999474,
+        "duration": 19000,
+        "state": "running"
+      },
+      {
+        "time": 6016.657999999474,
+        "duration": 17000,
+        "state": "running"
+      }
+    ],
+    "platform": "android",
+    "motionAdvances": true,
+    "reducedMotion": true,
+    "buttonsWork": true
+  },
+  {
+    "role": "faculty",
+    "variant": "home",
+    "height": 113.5,
+    "tracks": [
+      {
+        "time": 2033.2620000000006,
+        "duration": 29000,
+        "state": "running"
+      },
+      {
+        "time": 2033.2620000000006,
+        "duration": 27000,
+        "state": "running"
+      },
+      {
+        "time": 2033.2620000000006,
+        "duration": 23000,
+        "state": "running"
+      },
+      {
+        "time": 2033.2620000000006,
+        "duration": 19000,
+        "state": "running"
+      },
+      {
+        "time": 2033.3080000006528,
+        "duration": 17000,
+        "state": "running"
+      }
+    ],
+    "platform": "android",
+    "motionAdvances": true,
+    "reducedMotion": true,
+    "buttonsWork": true
+  },
+  {
+    "role": "it_support",
+    "variant": "home",
+    "height": 113.5,
+    "tracks": [
+      {
+        "time": 2049.9539999993253,
+        "duration": 29000,
+        "state": "running"
+      },
+      {
+        "time": 2049.9539999993253,
+        "duration": 27000,
+        "state": "running"
+      },
+      {
+        "time": 2049.9539999993253,
+        "duration": 23000,
+        "state": "running"
+      },
+      {
+        "time": 2049.9539999993253,
+        "duration": 19000,
+        "state": "running"
+      },
+      {
+        "time": 2049.9539999993253,
+        "duration": 17000,
+        "state": "running"
+      }
+    ],
+    "platform": "android",
+    "motionAdvances": true,
+    "reducedMotion": true,
+    "buttonsWork": true
+  },
+  {
+    "role": "admin",
+    "variant": "home",
+    "height": 113.5,
+    "tracks": [
+      {
+        "time": 2133.3399999998423,
+        "duration": 29000,
+        "state": "running"
+      },
+      {
+        "time": 2133.3399999998423,
+        "duration": 27000,
+        "state": "running"
+      },
+      {
+        "time": 2133.3399999998423,
+        "duration": 23000,
+        "state": "running"
+      },
+      {
+        "time": 2133.3399999998423,
+        "duration": 19000,
+        "state": "running"
+      },
+      {
+        "time": 2133.3399999998423,
+        "duration": 17000,
+        "state": "running"
+      }
+    ],
+    "platform": "android",
+    "motionAdvances": true,
+    "reducedMotion": true,
+    "buttonsWork": true
+  }
+]

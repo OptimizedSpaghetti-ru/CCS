@@ -172,7 +172,8 @@ function SettingRow({
 
 export function Profile() {
   const navigate = useNavigate();
-  const { currentUser, signOut } = useApp();
+  const { currentUser, signOut, resolvedThemeMode } = useApp();
+  const isDark = resolvedThemeMode === "dark";
 
   const [phone, setPhone] = useState("");
   const [isAvatarViewerOpen, setIsAvatarViewerOpen] = useState(false);
@@ -210,7 +211,7 @@ export function Profile() {
             overflow: "hidden",
           }}
         >
-          <GeometricHeaderBackground variant="profile" />
+          <GeometricHeaderBackground variant="profile" dark={isDark} />
 
           <div
             style={{

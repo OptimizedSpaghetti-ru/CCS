@@ -18,6 +18,11 @@
   height: 100%;
 }
 
+.geometric-header-background--dark-home,
+.geometric-header-background--dark-profile {
+  background: #220205;
+}
+
 /* Only transform/opacity animate. No filters, path morphing, or frame callbacks. */
 .geometric-header-background__sweep,
 .geometric-header-background__outer-orb,

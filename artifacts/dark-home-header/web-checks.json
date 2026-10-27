@@ -1,0 +1,77 @@
+[
+  {
+    "role": "student",
+    "variant": "home",
+    "width": 320,
+    "headerWidth": 320,
+    "headerHeight": 113.5,
+    "animations": [
+      29000,
+      27000,
+      23000,
+      19000,
+      17000
+    ],
+    "checks": "clipping, pointer passthrough, seamless endpoints, moving transforms, reduced motion"
+  },
+  {
+    "role": "faculty",
+    "variant": "home",
+    "width": 390,
+    "headerWidth": 390,
+    "headerHeight": 113.5,
+    "animations": [
+      29000,
+      27000,
+      23000,
+      19000,
+      17000
+    ],
+    "checks": "clipping, pointer passthrough, seamless endpoints, moving transforms, reduced motion"
+  },
+  {
+    "role": "it_support",
+    "variant": "home",
+    "width": 430,
+    "headerWidth": 430,
+    "headerHeight": 113.5,
+    "animations": [
+      29000,
+      27000,
+      23000,
+      19000,
+      17000
+    ],
+    "checks": "clipping, pointer passthrough, seamless endpoints, moving transforms, reduced motion"
+  },
+  {
+    "role": "admin",
+    "variant": "home",
+    "width": 390,
+    "headerWidth": 390,
+    "headerHeight": 113.5,
+    "animations": [
+      29000,
+      27000,
+      23000,
+      19000,
+      17000
+    ],
+    "checks": "clipping, pointer passthrough, seamless endpoints, moving transforms, reduced motion"
+  },
+  {
+    "role": "admin",
+    "variant": "home",
+    "width": 768,
+    "headerWidth": 430,
+    "headerHeight": 113.5,
+    "animations": [
+      29000,
+      27000,
+      23000,
+      19000,
+      17000
+    ],
+    "checks": "clipping, pointer passthrough, seamless endpoints, moving transforms, reduced motion"
+  }
+]

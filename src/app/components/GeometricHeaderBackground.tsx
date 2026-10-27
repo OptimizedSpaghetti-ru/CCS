@@ -4,34 +4,38 @@ import "./GeometricHeaderBackground.css";
 /** Edge-weighted geometry traced in the reference's Home/Profile proportions. */
 export function GeometricHeaderBackground({
   variant,
+  dark = false,
 }: {
   variant: "home" | "profile";
+  dark?: boolean;
 }) {
   const id = `header-${useId().replace(/:/g, "")}`;
   const isHome = variant === "home";
   const height = isHome ? 276 : 520;
 
+  if (isHome && dark) return <DarkHomeBackground id={id} />;
+
   return (
-    <div className="geometric-header-background" aria-hidden="true">
+    <div className={`geometric-header-background${dark ? " geometric-header-background--dark-profile" : ""}`} aria-hidden="true">
       <svg
-        data-header-background={variant}
+        data-header-background={dark ? `${variant}-dark` : variant}
         viewBox={`0 0 740 ${height}`}
-        preserveAspectRatio="xMidYMax slice"
+        preserveAspectRatio={dark ? "none" : "xMidYMax slice"}
         focusable="false"
       >
         <defs>
           <linearGradient id={`${id}-base`} x1="0" y1="0" x2="1" y2="1">
-            <stop stopColor={isHome ? "#340805" : "#510E0C"} />
-            <stop offset="0.56" stopColor={isHome ? "#4A0C09" : "#5B1411"} />
-            <stop offset="1" stopColor={isHome ? "#601611" : "#440B08"} />
+            <stop stopColor={dark ? "#35070C" : isHome ? "#340805" : "#510E0C"} />
+            <stop offset="0.56" stopColor={dark ? "#220205" : isHome ? "#4A0C09" : "#5B1411"} />
+            <stop offset="1" stopColor={dark ? "#170104" : isHome ? "#601611" : "#440B08"} />
           </linearGradient>
           <radialGradient id={`${id}-glow`} cx="0" cy="1" r="1">
-            <stop stopColor="#AA302B" stopOpacity="0.28" />
+            <stop stopColor="#AA302B" stopOpacity={dark ? "0.09" : "0.28"} />
             <stop offset="0.72" stopColor="#AA302B" stopOpacity="0" />
           </radialGradient>
           <linearGradient id={`${id}-orb`} x1="0" y1="0" x2="1" y2="1">
-            <stop stopColor="#B47877" stopOpacity="0.48" />
-            <stop offset="1" stopColor="#8E3032" stopOpacity="0.18" />
+            <stop stopColor={dark ? "#A44551" : "#B47877"} stopOpacity={dark ? "0.32" : "0.48"} />
+            <stop offset="1" stopColor={dark ? "#6C1828" : "#8E3032"} stopOpacity={dark ? "0.08" : "0.18"} />
           </linearGradient>
           <linearGradient id={`${id}-veil`} x1="0" y1="0" x2="1" y2="1">
             <stop stopColor="#9E3D3E" stopOpacity="0.18" />
@@ -39,7 +43,7 @@ export function GeometricHeaderBackground({
           </linearGradient>
           <linearGradient id={`${id}-line`} x1="0" y1="1" x2="1" y2="0">
             <stop stopColor="#DC5149" stopOpacity="0.26" />
-            <stop offset="0.48" stopColor="#F49A84" stopOpacity="0.9" />
+            <stop offset="0.48" stopColor={dark ? "#FFADB6" : "#F49A84"} stopOpacity="0.9" />
             <stop offset="1" stopColor="#D94A42" stopOpacity="0.16" />
           </linearGradient>
           <pattern id={`${id}-dots`} width="18.5" height="20.5" patternUnits="userSpaceOnUse">
@@ -134,6 +138,62 @@ export function GeometricHeaderBackground({
             </g>
           </>
         )}
+      </svg>
+    </div>
+  );
+}
+
+/** Reference Home artwork, independent of account role and header content. */
+function DarkHomeBackground({ id }: { id: string }) {
+  return (
+    <div className="geometric-header-background geometric-header-background--dark-home" aria-hidden="true">
+      <svg data-header-background="home-dark" viewBox="0 0 1110 334" preserveAspectRatio="none" focusable="false">
+        <defs>
+          <linearGradient id={`${id}-dark-base`} x1="0" y1="0" x2="1" y2="1">
+            <stop stopColor="#3B080E" />
+            <stop offset="0.48" stopColor="#220205" />
+            <stop offset="0.76" stopColor="#170104" />
+            <stop offset="1" stopColor="#34070C" />
+          </linearGradient>
+          <linearGradient id={`${id}-dark-circle`} x1="0" y1="0" x2="1" y2="1">
+            <stop stopColor="#A44551" stopOpacity="0.32" />
+            <stop offset="1" stopColor="#6C1828" stopOpacity="0.08" />
+          </linearGradient>
+          <linearGradient id={`${id}-dark-left`} x1="0" y1="0" x2="1" y2="1">
+            <stop stopColor="#6C1525" stopOpacity="0.12" />
+            <stop offset="1" stopColor="#210104" stopOpacity="0.5" />
+          </linearGradient>
+          <linearGradient id={`${id}-dark-line`} x1="0" y1="1" x2="1" y2="0">
+            <stop stopColor="#D33750" stopOpacity="0.2" />
+            <stop offset="0.25" stopColor="#F38D9D" stopOpacity="0.9" />
+            <stop offset="0.48" stopColor="#C72A44" stopOpacity="0.55" />
+            <stop offset="0.76" stopColor="#FFADB6" stopOpacity="0.95" />
+            <stop offset="1" stopColor="#D23B51" stopOpacity="0.38" />
+          </linearGradient>
+          <pattern id={`${id}-dark-dots`} width="25" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="5" cy="5" r="2.6" fill="#B92B45" />
+          </pattern>
+        </defs>
+        <path d="M0 0H1110V334H0Z" fill={`url(#${id}-dark-base)`} />
+        <g className="geometric-header-background__sweep">
+          <circle cx="62" cy="147" r="240" fill={`url(#${id}-dark-left)`} />
+          <path d="M-35 206C174 310 267 378 414 296L456 380H-35Z" fill={`url(#${id}-dark-circle)`} opacity="0.8" />
+        </g>
+        <g className="geometric-header-background__outer-orb">
+          <circle cx="1000" cy="164" r="262" fill={`url(#${id}-dark-circle)`} />
+          <circle cx="1114" cy="38" r="168" fill={`url(#${id}-dark-circle)`} opacity="0.82" />
+        </g>
+        <g className="geometric-header-background__inner-orb">
+          <ellipse cx="845" cy="480" rx="382" ry="318" fill={`url(#${id}-dark-circle)`} />
+        </g>
+        <g className="geometric-header-background__lines" fill="none" stroke={`url(#${id}-dark-line)`} strokeWidth="0.7">
+          <path d="M-35 180C149 189 292 130 455-18" vectorEffect="non-scaling-stroke" />
+          <path d="M-30 210C174 310 297 403 470 247C613 118 678 58 849-18" vectorEffect="non-scaling-stroke" />
+          <path d="M664 355C826 244 932 224 1140 268" vectorEffect="non-scaling-stroke" />
+        </g>
+        <g className="geometric-header-background__dots">
+          <path d="M995 242H1110V334H995Z" fill={`url(#${id}-dark-dots)`} opacity="0.55" />
+        </g>
       </svg>
     </div>
   );
