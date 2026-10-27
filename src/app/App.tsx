@@ -6,7 +6,8 @@ import { AppProvider, useApp } from "./context/AppContext";
 import { StartupSplashScreen } from "./components/StartupSplashScreen";
 import { OfflineBoundary } from './components/OfflineBoundary';
 import { connectivity } from '../lib/connectivity';
-import { consumeFloorCheckpoint, floorFromSearch, rememberFloorCheckpoint } from '../lib/floor-checkpoints';
+import { roomFromSearch } from '../lib/room-checkpoints';
+import { consumeMapCheckpoint, floorFromSearch, rememberMapCheckpoint } from '../lib/floor-checkpoints';
 
 function AppStartup() {
   const { offline } = useSyncExternalStore(connectivity.subscribe, connectivity.getSnapshot);
@@ -30,9 +31,9 @@ function AppStartup() {
       setDestinationReady(true);
       return;
     }
-    const incomingFloor = pathname === "/app/map" ? floorFromSearch(search) : null;
-    if (incomingFloor && (!isAuthenticated || !isApproved)) rememberFloorCheckpoint(search);
-    const pendingFloor = isAuthenticated && isApproved ? consumeFloorCheckpoint() : null;
+    const incomingFloor = pathname === "/app/map" ? roomFromSearch(search) ?? floorFromSearch(search) : null;
+    if (incomingFloor && (!isAuthenticated || !isApproved)) rememberMapCheckpoint(search);
+    const pendingFloor = isAuthenticated && isApproved ? consumeMapCheckpoint() : null;
     const destination = isAuthenticated
       ? (isApproved ? (pathname.startsWith('/app/') ? pathname + search + hash : pendingFloor ?? "/app/home") : "/pending-approval")
       : (incomingFloor ? "/login" : ['/login', '/register'].includes(pathname) ? pathname + search + hash : "/");

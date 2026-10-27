@@ -112,13 +112,13 @@ const buildingMapData = {
     },
     {
       id: "soci",
-      name: "SoCi and Co-Curricular Office",
-      category: "office",
+      name: "EMC Laboratory",
+      category: "lab",
       x: 422,
       y: 240,
       width: 110,
       height: 90,
-      description: "Student organizations and co-curricular activities",
+      description: "EMC Laboratory in Saint Benedict Hall",
       hours: "Mon-Fri 8am-5pm",
     },
     {

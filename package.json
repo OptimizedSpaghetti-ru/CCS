@@ -28,7 +28,11 @@
     "android:build:release": "npm run cap:sync:android && npm run android:prepare-sdk && node scripts/run-gradle.mjs bundleRelease",
     "icon:prepare": "node scripts/prepare-app-icon.mjs",
     "icon:generate": "npm run icon:prepare && npx @capacitor/assets generate --assetPath assets --android --ios --iconBackgroundColor \"#FFF0C4\" --iconBackgroundColorDark \"#3E0703\" --splashBackgroundColor \"#FFFBEF\" --splashBackgroundColorDark \"#3E0703\"",
-    "icon:generate:android": "npm run icon:prepare && npx @capacitor/assets generate --assetPath assets --android --iconBackgroundColor \"#FFF0C4\" --iconBackgroundColorDark \"#3E0703\" --splashBackgroundColor \"#FFFBEF\" --splashBackgroundColorDark \"#3E0703\""
+    "icon:generate:android": "npm run icon:prepare && npx @capacitor/assets generate --assetPath assets --android --iconBackgroundColor \"#FFF0C4\" --iconBackgroundColorDark \"#3E0703\" --splashBackgroundColor \"#FFFBEF\" --splashBackgroundColorDark \"#3E0703\"",
+    "test:room-qr": "node --experimental-strip-types --test scripts/test-room-checkpoints.mjs scripts/test-floor-checkpoints.mjs",
+    "verify:room-qr": "node scripts/verify-floor-qr.mjs",
+    "verify:room-qr-assets": "node scripts/verify-floor-qr-assets.mjs",
+    "verify:android-room-qr": "node scripts/verify-android-floor-qr.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",

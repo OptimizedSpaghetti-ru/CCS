@@ -1,3 +1,5 @@
+import { ROOM_CHECKPOINTS, roomFromSearch, roomMapPath } from './room-checkpoints.ts';
+
 export type FloorId = "1st" | "2nd" | "3rd" | "4th" | "5th";
 
 export const FLOOR_CHECKPOINTS: ReadonlyArray<{ id: FloorId; label: string }> = [
@@ -38,19 +40,30 @@ export function parseFloorCheckpoint(text: string, origin: string): FloorId | nu
 
 type CheckpointStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 const PENDING_FLOOR_KEY = "ccs-connect-pending-floor";
+const PENDING_ROOM_KEY = "ccs-connect-pending-room";
 
-// Access storage inside the try as some browsers block even the storage getter.
-export function rememberFloorCheckpoint(search: string, storage?: CheckpointStorage): void {
-  const floor = floorFromSearch(search);
-  if (!floor) return;
-  try { (storage ?? window.sessionStorage).setItem(PENDING_FLOOR_KEY, floor); } catch { /* Storage is optional. */ }
-}
-
-export function consumeFloorCheckpoint(storage?: CheckpointStorage): string | null {
+// Storage is optional; never retain arbitrary redirect URLs.
+export function rememberMapCheckpoint(search: string, storage?: CheckpointStorage): void {
+  const room = roomFromSearch(search);
+  const floor = new URLSearchParams(search).has('room') ? null : floorFromSearch(search);
+  if (!room && !floor) return;
   try {
     const target = storage ?? window.sessionStorage;
-    const floor = target.getItem(PENDING_FLOOR_KEY);
+    target.removeItem(PENDING_ROOM_KEY);
     target.removeItem(PENDING_FLOOR_KEY);
+    if (room) target.setItem(PENDING_ROOM_KEY, room.id);
+    else if (floor) target.setItem(PENDING_FLOOR_KEY, floor);
+  } catch { /* Storage is optional. */ }
+}
+
+export function consumeMapCheckpoint(storage?: CheckpointStorage): string | null {
+  try {
+    const target = storage ?? window.sessionStorage;
+    const roomId = target.getItem(PENDING_ROOM_KEY);
+    const floor = target.getItem(PENDING_FLOOR_KEY);
+    target.removeItem(PENDING_ROOM_KEY);
+    target.removeItem(PENDING_FLOOR_KEY);
+    if (roomId !== null) return ROOM_CHECKPOINTS.some(room => room.id === roomId) ? roomMapPath(roomId) : null;
     return FLOOR_CHECKPOINTS.some(item => item.id === floor) ? floorMapPath(floor as FloorId) : null;
   } catch {
     return null;

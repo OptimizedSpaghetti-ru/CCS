@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import QRCode from 'qrcode';
+import { ROOM_CHECKPOINTS, roomMapPath } from '../src/lib/room-checkpoints.ts';
 
 const baseURL = process.env.CCS_QR_URL || 'http://127.0.0.1:5173';
 const browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--autoplay-policy=no-user-gesture-required'] });
@@ -73,67 +74,116 @@ async function expectFloor(page, floor) {
   await page.getByRole('button', { name: `${floor} Floor`, exact: true }).and(page.locator('[aria-pressed="true"]')).waitFor();
 }
 
+async function expectRoom(page, room) {
+  await expectFloor(page, room.floorId);
+  const shape = page.locator('svg[aria-label]').getByRole('button', { name: room.name, exact: true });
+  await shape.waitFor();
+  await page.waitForFunction(name => [...document.querySelectorAll('svg g[role="button"]')].some(el => el.getAttribute('aria-label') === name && el.querySelector('rect[stroke-width="5"]')), room.name);
+  await page.waitForFunction(name => [...document.querySelectorAll('svg g[role="button"]')].some(el => {
+    if (el.getAttribute('aria-label') !== name) return false;
+    const room = el.querySelector('rect').getBoundingClientRect();
+    const viewport = el.closest('section').getBoundingClientRect();
+    return Math.abs(room.x + room.width / 2 - (viewport.x + viewport.width / 2)) < 32 &&
+      Math.abs(room.y + room.height / 2 - (viewport.y + viewport.height / 2)) < 32;
+  }), room.name);
+  assert.equal(new URL(page.url()).searchParams.get('room'), room.id);
+}
+
 try {
   const f = await fixture();
-  await openMap(f.page, '/app/map?view=indoor&floor=4th');
-  await expectFloor(f.page, '4th');
-  console.log('PASS floor-link selection');
+  await openMap(f.page, roomMapPath('room-505'));
+  await expectRoom(f.page, ROOM_CHECKPOINTS.find(room => room.id === 'room-505'));
+  console.log('PASS room deep-link floor selection and visible room highlight');
   const mapSwitcher = f.page.getByRole('button', { name: 'Indoor Map', exact: true }).locator('..');
   assert.equal(await mapSwitcher.getByRole('button').count(), 2, 'the top map switch contains only Outdoor Map and Indoor Map');
-  assert.equal(await f.page.getByRole('region', { name: 'Floor picker', exact: true }).getByRole('button', { name: 'Scan Floor QR', exact: true }).count(), 1, 'scan action belongs with indoor floor controls');
+  assert.equal(await f.page.getByRole('region', { name: 'Floor picker', exact: true }).getByRole('button', { name: 'Scan QR', exact: true }).count(), 1, 'scan action belongs with indoor floor controls');
   await f.page.getByRole('button', { name: 'Outdoor Map', exact: true }).click();
-  assert.equal(await f.page.getByRole('button', { name: 'Scan Floor QR', exact: true }).count(), 0, 'outdoor map does not show the indoor QR action');
+  assert.equal(await f.page.getByRole('button', { name: 'Scan QR', exact: true }).count(), 0, 'outdoor map does not show the indoor QR action');
   await f.page.getByRole('button', { name: 'Indoor Map', exact: true }).click();
-  await f.page.getByRole('button', { name: 'Scan Floor QR', exact: true }).waitFor();
+  await f.page.getByRole('button', { name: 'Scan QR', exact: true }).waitFor();
   console.log('PASS two-button map switch and QR action inside the indoor floor picker');
   const storedPin = await f.page.evaluate(() => localStorage.getItem('ccs-indoor-current-location'));
   await f.page.getByRole('button', { name: 'Navigate to Selected Area', exact: true }).click();
   await f.page.getByRole('button', { name: 'Clear navigation route' }).waitFor();
-  for (const floor of ['1st', '2nd', '3rd', '4th', '5th']) {
-    await showPayload(f.page, `/app/map?view=indoor&floor=${floor}`);
-    await f.page.getByRole('button', { name: 'Scan Floor QR', exact: true }).click();
-    await f.page.getByRole('dialog', { name: 'Scan Floor QR' }).waitFor({ state: 'detached' });
-    await expectFloor(f.page, floor);
-    await f.page.getByRole('status').filter({ hasText: `Showing ${floor} Floor` }).waitFor();
+  for (const room of ROOM_CHECKPOINTS) {
+    await showPayload(f.page, roomMapPath(room.id));
+    await f.page.getByRole('button', { name: 'Scan QR', exact: true }).click();
+    await f.page.getByRole('dialog', { name: 'Scan QR' }).waitFor({ state: 'detached' });
+    await expectRoom(f.page, room);
+    await f.page.getByRole('status').filter({ hasText: `Showing ${room.name}` }).waitFor();
     await assertCameraStopped(f.page);
     assert.equal(await f.page.getByRole('button', { name: 'Clear navigation route' }).count(), 0);
   }
-  assert.equal(await f.page.evaluate(() => localStorage.getItem('ccs-indoor-current-location')), storedPin, 'floor scans never move the stored location pin');
-  console.log('PASS five actual camera-frame QR decodes and camera cleanup');
+  assert.equal(await f.page.evaluate(() => localStorage.getItem('ccs-indoor-current-location')), storedPin, 'room scans never move the stored location pin');
+  console.log('PASS all 11 actual room camera-frame decodes, highlight, floor selection, and cleanup');
 
   await f.page.getByRole('button', { name: '1st Floor', exact: true }).click();
   await expectFloor(f.page, '1st');
   // Scanning the same link twice must still apply after a manual change.
-  await showPayload(f.page, '/app/map?view=indoor&floor=5th');
-  await f.page.getByRole('button', { name: 'Scan Floor QR', exact: true }).click();
+  await showPayload(f.page, roomMapPath('room-501'));
+  await f.page.getByRole('button', { name: 'Scan QR', exact: true }).click();
   await f.page.getByRole('dialog').waitFor({ state: 'detached' });
   await expectFloor(f.page, '5th');
-  console.log('PASS manual floor switching and rescanning the same floor');
+  await expectRoom(f.page, ROOM_CHECKPOINTS.find(room => room.id === 'room-501'));
+  console.log('PASS manual floor switching and rescanning the same room');
+
+  await f.page.getByLabel('Search indoor rooms and facilities').fill('EMC');
+  await f.page.getByRole('button', { name: 'EMC Laboratory 1st Floor', exact: true }).click();
+  await expectFloor(f.page, '1st');
+  await f.page.getByLabel('Filter rooms by category').selectOption('computer-lab');
+  const emc = f.page.locator('svg').getByRole('button', { name: 'EMC Laboratory', exact: true });
+  await f.page.waitForFunction(() => [...document.querySelectorAll('svg g[role="button"]')].some(el => el.getAttribute('aria-label') === 'EMC Laboratory' && getComputedStyle(el).opacity === '1'));
+  assert.equal(await emc.locator('rect').first().getAttribute('stroke-width'), '5');
+  await f.page.getByLabel('Filter rooms by category').selectOption('all');
+  console.log('PASS renamed EMC search, laboratory filtering, and selection');
+
+  // Exercise the existing gesture handlers against their rendered transforms.
+  const viewport = f.page.locator('.ccs-indoor-map section').filter({ has: f.page.locator('svg[aria-label]') }).last();
+  const transform = () => viewport.locator(':scope > div').first().evaluate(el => el.style.transform);
+  const beforePan = await transform();
+  await viewport.dispatchEvent('mousedown', { button: 0, clientX: 150, clientY: 150 });
+  await viewport.dispatchEvent('mousemove', { buttons: 1, clientX: 190, clientY: 175 });
+  await viewport.dispatchEvent('mouseup');
+  assert.notEqual(await transform(), beforePan, 'drag-to-pan remains functional');
+  const beforeZoom = await transform();
+  await viewport.evaluate(el => {
+    const fire = (type, points) => el.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: points.map(([x, y], identifier) => new Touch({ identifier, target: el, clientX: x, clientY: y })) }));
+    fire('touchstart', [[100,100],[200,100]]);
+    fire('touchmove', [[80,100],[220,100]]);
+    fire('touchend', []);
+  });
+  assert.notEqual(await transform(), beforeZoom, 'pinch-to-zoom remains functional');
+  assert.equal(await f.page.getByRole('group', { name: 'Choose floor' }).getByRole('button').count(), 5);
+  console.log('PASS drag-to-pan, pinch-to-zoom, and all five manual floor buttons');
 
   await showPayload(f.page, 'https://evil.example/app/map?view=indoor&floor=2nd');
-  await f.page.getByRole('button', { name: 'Scan Floor QR', exact: true }).click();
-  await f.page.getByRole('alert').filter({ hasText: 'not a CCS Connect floor code' }).waitFor();
+  await f.page.getByRole('button', { name: 'Scan QR', exact: true }).click();
+  await f.page.getByRole('alert').filter({ hasText: 'not a supported CCS Connect room code' }).waitFor();
   assert.equal(new URL(f.page.url()).pathname, '/app/map');
   await showPayload(f.page, '/app/map?view=indoor&floor=2nd');
+  await f.page.getByRole('alert').filter({ hasText: 'not a supported CCS Connect room code' }).waitFor();
+  await showPayload(f.page, '/app/map?view=indoor&room=room-506-a');
+  await f.page.getByRole('alert').filter({ hasText: 'not a supported CCS Connect room code' }).waitFor();
+  await showPayload(f.page, roomMapPath('computer-lab-4'));
   await f.page.getByRole('dialog').waitFor({ state: 'detached' });
   await expectFloor(f.page, '2nd');
   console.log('PASS invalid QR rejection followed by valid recovery');
 
   await showPayload(f.page, '');
-  await f.page.getByRole('button', { name: 'Scan Floor QR', exact: true }).click();
-  await f.page.getByText('Point your camera at a floor QR code.').waitFor();
+  await f.page.getByRole('button', { name: 'Scan QR', exact: true }).click();
+  await f.page.getByText('Point your camera at a room QR code.').waitFor();
   await f.page.keyboard.press('Escape');
   await assertCameraStopped(f.page);
   await f.page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
-  assert.equal(await f.page.getByRole('button', { name: 'Scan Floor QR', exact: true }).evaluate(el => document.activeElement === el), true, 'closing the scanner restores keyboard focus to its action');
-  await f.page.getByRole('button', { name: 'Scan Floor QR', exact: true }).click();
-  await f.page.getByText('Point your camera at a floor QR code.').waitFor();
+  assert.equal(await f.page.getByRole('button', { name: 'Scan QR', exact: true }).evaluate(el => document.activeElement === el), true, 'closing the scanner restores keyboard focus to its action');
+  await f.page.getByRole('button', { name: 'Scan QR', exact: true }).click();
+  await f.page.getByText('Point your camera at a room QR code.').waitFor();
   await f.page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); });
   await assertCameraStopped(f.page);
   await f.page.getByRole('button', { name: 'Resume Camera' }).waitFor();
   await f.page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
   await f.page.getByRole('button', { name: 'Resume Camera' }).click();
-  await f.page.getByText('Point your camera at a floor QR code.').waitFor();
+  await f.page.getByText('Point your camera at a room QR code.').waitFor();
   // The previous scanner must never release the replacement stream via stale cleanup.
   await f.page.waitForTimeout(400);
   assert.equal(await f.page.locator('video').evaluate(video => video.srcObject?.getTracks().some(track => track.readyState === 'live') ?? false), true, 'fast resume keeps the replacement camera stream alive');
@@ -142,17 +192,17 @@ try {
   assert.deepEqual(f.errors, []);
   console.log('PASS close, background pause, explicit resume, and manual fallback');
 
-  await mkdir('artifacts/floor-qr', { recursive: true });
-  await f.page.screenshot({ path: 'artifacts/floor-qr/map-mobile.png', fullPage: true });
-  await f.page.getByRole('button', { name: 'Scan Floor QR', exact: true }).click();
-  await f.page.getByText('Point your camera at a floor QR code.').waitFor();
-  await f.page.screenshot({ path: 'artifacts/floor-qr/scanner-mobile.png', fullPage: true });
+  await mkdir('artifacts/room-qr', { recursive: true });
+  await f.page.screenshot({ path: 'artifacts/room-qr/map-mobile.png', fullPage: true });
+  await f.page.getByRole('button', { name: 'Scan QR', exact: true }).click();
+  await f.page.getByText('Point your camera at a room QR code.').waitFor();
+  await f.page.screenshot({ path: 'artifacts/room-qr/scanner-mobile.png', fullPage: true });
   await f.context.close();
 
   for (const camera of ['denied', 'missing', 'busy', 'unsupported', 'delayed']) {
     const c = await fixture({ camera, viewport: { width: 1440, height: 1000 } });
     await openMap(c.page);
-    await c.page.getByRole('button', { name: 'Scan Floor QR', exact: true }).click();
+    await c.page.getByRole('button', { name: 'Scan QR', exact: true }).click();
     if (camera === 'delayed') {
       await c.page.waitForFunction(() => typeof window.resolveQrCamera === 'function');
       await c.page.getByRole('button', { name: 'Close Scanner' }).click();
@@ -163,7 +213,7 @@ try {
       await c.page.getByRole('alert').waitFor();
       const expected = { denied: /Camera access was denied/, missing: /No camera was found/, busy: /in use by another app/, unsupported: /HTTPS/ };
       assert.match(await c.page.getByRole('alert').innerText(), expected[camera]);
-      await c.page.screenshot({ path: `artifacts/floor-qr/scanner-${camera}-desktop.png`, fullPage: true });
+      await c.page.screenshot({ path: `artifacts/room-qr/scanner-${camera}-desktop.png`, fullPage: true });
       await c.page.getByRole('button', { name: 'Choose Floor Manually' }).click();
       await c.page.getByRole('button', { name: '3rd Floor', exact: true }).click();
       await expectFloor(c.page, '3rd');
@@ -173,38 +223,58 @@ try {
     console.log(`PASS ${camera} camera recovery`);
   }
 
+
+  const desktop = await fixture({ viewport: { width: 1440, height: 1000 } });
+  await openMap(desktop.page, roomMapPath('soci'));
+  await expectRoom(desktop.page, ROOM_CHECKPOINTS.find(room => room.id === 'soci'));
+  await showPayload(desktop.page, roomMapPath('room-502'));
+  await desktop.page.getByRole('button', { name: 'Scan QR', exact: true }).click();
+  await desktop.page.waitForURL(url => url.searchParams.get('room') === 'room-502');
+  await expectRoom(desktop.page, ROOM_CHECKPOINTS.find(room => room.id === 'room-502'));
+  await desktop.page.screenshot({ path: 'artifacts/room-qr/map-desktop.png', fullPage: true });
+  assert.deepEqual(desktop.errors, []);
+  await desktop.context.close();
+  console.log('PASS desktop room link and camera-frame scan');
+
   const auth = await fixture({ authenticated: false });
-  await auth.page.goto(`${baseURL}/app/map?view=indoor&floor=3rd`);
+  await auth.page.goto(`${baseURL}${roomMapPath('soci')}`);
   await auth.page.waitForURL('**/login');
   await auth.page.getByPlaceholder('Enter your email').fill(user.email);
   await auth.page.getByPlaceholder('Enter your password').fill('local-fixture-only');
   await auth.page.getByRole('button', { name: 'Log In', exact: true }).click();
   await auth.page.getByRole('heading', { name: 'Indoor Map Navigation' }).waitFor();
-  await expectFloor(auth.page, '3rd');
+  await expectRoom(auth.page, ROOM_CHECKPOINTS.find(room => room.id === 'soci'));
   assert.deepEqual(auth.errors, []);
   await auth.context.close();
-  console.log('PASS logged-out floor link through login');
+  console.log('PASS logged-out room link through login');
 
   const pending = await fixture({ status: 'pending' });
-  await pending.page.goto(`${baseURL}/app/map?view=indoor&floor=5th`);
+  await pending.page.goto(`${baseURL}${roomMapPath('room-501')}`);
   await pending.page.waitForURL('**/pending-approval');
   assert.equal(await pending.page.getByRole('heading', { name: 'Indoor Map Navigation' }).count(), 0);
   pending.approve();
   await pending.page.getByRole('heading', { name: 'Indoor Map Navigation' }).waitFor();
-  await expectFloor(pending.page, '5th');
+  await expectRoom(pending.page, ROOM_CHECKPOINTS.find(room => room.id === 'room-501'));
   assert.deepEqual(pending.errors, []);
   await pending.context.close();
-  console.log('PASS pending approval retains floor without bypassing guard');
+  console.log('PASS pending approval retains room without bypassing guard');
 } catch (error) {
   if (activePage && !activePage.isClosed()) {
     console.log('Failure diagnostics:', await activePage.evaluate(() => ({
+      url: location.pathname + location.search,
+      selectedRooms: [...document.querySelectorAll('svg g[role="button"][aria-pressed="true"]')].map(el => ({
+        name: el.getAttribute('aria-label'),
+        room: el.querySelector('rect').getBoundingClientRect().toJSON(),
+        viewport: el.closest('section').getBoundingClientRect().toJSON(),
+        transform: el.closest('section').firstElementChild.style.transform,
+      })),
       status: document.querySelector('.floor-qr-status')?.textContent,
       message: document.querySelector('.floor-qr-error')?.textContent,
       video: [...document.querySelectorAll('video')].map(v => ({ width: v.videoWidth, height: v.videoHeight, paused: v.paused, ready: v.readyState })),
       tracks: window.qrStreams?.map(s => s.getTracks().map(t => ({ state: t.readyState, muted: t.muted }))),
     })).catch(() => ({ unavailable: 'page navigated during failure capture' })));
-    await mkdir('artifacts/floor-qr', { recursive: true });
-    await activePage.screenshot({ path: 'artifacts/floor-qr/failure.png', fullPage: true }).catch(() => {});
+    await mkdir('artifacts/room-qr', { recursive: true });
+    await activePage.screenshot({ path: 'artifacts/room-qr/failure.png', fullPage: true }).catch(() => {});
   }
   throw error;
 } finally {

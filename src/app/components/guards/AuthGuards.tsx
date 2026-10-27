@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { useApp } from "../../context/AppContext";
-import { rememberFloorCheckpoint } from "../../../lib/floor-checkpoints";
+import { rememberMapCheckpoint } from "../../../lib/floor-checkpoints";
 
 export function AuthGuard() {
   const { isLoadingAuth, isAuthenticated } = useApp();
@@ -22,7 +22,7 @@ export function ApprovedGuard() {
   const { pathname, search } = useLocation();
   useEffect(() => {
     if (!isLoadingAuth && (!isAuthenticated || !isApproved) && pathname === "/app/map") {
-      rememberFloorCheckpoint(search);
+      rememberMapCheckpoint(search);
     }
   }, [isLoadingAuth, isAuthenticated, isApproved, pathname, search]);
 

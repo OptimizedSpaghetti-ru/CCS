@@ -1,0 +1,125 @@
+// Shared indoor geometry. Keep room IDs, positions, dimensions, and visual types stable.
+const firstFloorRooms = [
+  { id: "pt-lecture", name: "Physical Therapy Lecture Room", x: 40, y: 40, w: 220, h: 120, type: "room", h3d: 32 },
+  { id: "pt-lab", name: "PT Laboratory 1", x: 265, y: 40, w: 150, h: 120, type: "lab", h3d: 34 },
+  { id: "mac-lab", name: "MAC Laboratory", x: 420, y: 40, w: 150, h: 120, type: "lab", h3d: 34 },
+  { id: "comp-lab-2", name: "Computer Lab 2", x: 575, y: 40, w: 150, h: 120, type: "lab", h3d: 34 },
+  { id: "comp-lab-1", name: "Computer Lab 1", x: 730, y: 40, w: 150, h: 120, type: "lab", h3d: 34 },
+  { id: "stairs-west", name: "Stairs to 2F", x: -35, y: 95, w: 65, h: 95, type: "stairs", h3d: 24 },
+  { id: "comp-lab-3", name: "Computer Lab 3", x: 40, y: 410, w: 150, h: 145, type: "lab", h3d: 34 },
+  { id: "female-cr", name: "Female Restroom", x: 200, y: 390, w: 95, h: 80, type: "restroom", h3d: 24 },
+  { id: "male-cr", name: "Male Restroom", x: 200, y: 475, w: 95, h: 80, type: "restroom", h3d: 24 },
+  { id: "pwd-cr", name: "PWD / All Gender CR", x: 310, y: 430, w: 110, h: 125, type: "restroom", h3d: 24 },
+  { id: "stock", name: "Stock Room", x: 425, y: 430, w: 90, h: 125, type: "utility", h3d: 26 },
+  { id: "soci", name: "EMC Laboratory", x: 520, y: 430, w: 150, h: 125, type: "office", h3d: 30 },
+  { id: "cafeteria", name: "Cafeteria", x: 675, y: 405, w: 120, h: 150, type: "cafeteria", h3d: 30 },
+  { id: "parking", name: "To Parking Lot", x: 800, y: 505, w: 120, h: 70, type: "exit", h3d: 12 },
+  { id: "elevator", name: "Elevator", x: 925, y: 450, w: 70, h: 105, type: "elevator", h3d: 35 },
+  { id: "stairs-south", name: "Stairs to 2F", x: 1010, y: 455, w: 70, h: 100, type: "stairs", h3d: 24 },
+  { id: "entrance", name: "Entrance", x: 1005, y: 190, w: 60, h: 80, type: "entrance", h3d: 16 },
+];
+
+const secondFloorRooms = [
+  { id: "ccs-office", name: "College of Computer Studies Office", x: 40, y: 40, w: 280, h: 120, type: "office", h3d: 32 },
+  { id: "it-ojt-room", name: "IT / OJT Room", x: 325, y: 40, w: 150, h: 120, type: "room", h3d: 30 },
+  { id: "clinic", name: "Clinic", x: 480, y: 40, w: 150, h: 120, type: "office", h3d: 30 },
+  { id: "tamaraw-library", name: "Tamaraw Library", x: 635, y: 40, w: 270, h: 120, type: "room", h3d: 32 },
+  { id: "general-office", name: "General Office", x: 910, y: 40, w: 170, h: 120, type: "office", h3d: 30 },
+  { id: "stairs-west", name: "Stairs to 3F", x: -35, y: 95, w: 65, h: 95, type: "stairs", h3d: 24 },
+  { id: "computer-lab-4", name: "Computer Lab 4", x: 40, y: 410, w: 210, h: 145, type: "lab", h3d: 34 },
+  { id: "female-cr", name: "Female Restroom", x: 290, y: 390, w: 110, h: 80, type: "restroom", h3d: 24 },
+  { id: "male-cr", name: "Male Restroom", x: 290, y: 475, w: 110, h: 80, type: "restroom", h3d: 24 },
+  { id: "elevator", name: "Elevator", x: 925, y: 455, w: 130, h: 100, type: "elevator", h3d: 35 },
+  { id: "stairs-east-upper", name: "Stairs to 3F", x: 1030, y: 185, w: 70, h: 90, type: "stairs", h3d: 24 },
+  { id: "stairs-east-lower", name: "Stairs to 3F", x: 1030, y: 315, w: 70, h: 95, type: "stairs", h3d: 24 },
+];
+
+const thirdFloorRooms = [
+  { id: "faculty-room-west", name: "Faculty Room", x: 40, y: 40, w: 110, h: 120, type: "faculty", h3d: 30 },
+  { id: "room-306", name: "Room 306", x: 155, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
+  { id: "room-305-b", name: "Room 305 B", x: 270, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
+  { id: "room-305-a", name: "Room 305 A", x: 385, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
+  { id: "room-304-b", name: "Room 304 B", x: 500, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
+  { id: "room-304-a", name: "Room 304 A", x: 615, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
+  { id: "faculty-room", name: "Faculty Room", x: 730, y: 40, w: 210, h: 120, type: "faculty", h3d: 30 },
+  { id: "room-302", name: "Room 302", x: 945, y: 40, w: 70, h: 120, type: "room", h3d: 28 },
+  { id: "room-301", name: "Room 301", x: 1020, y: 40, w: 70, h: 120, type: "room", h3d: 28 },
+  { id: "stairs-west", name: "Stairs to 4F", x: -35, y: 95, w: 65, h: 95, type: "stairs", h3d: 24 },
+  { id: "room-307", name: "Room 307", x: 40, y: 410, w: 210, h: 145, type: "room", h3d: 32 },
+  { id: "female-cr", name: "Female Restroom", x: 290, y: 390, w: 110, h: 80, type: "restroom", h3d: 24 },
+  { id: "male-cr", name: "Male Restroom", x: 290, y: 475, w: 110, h: 80, type: "restroom", h3d: 24 },
+  { id: "elevator", name: "Elevator", x: 925, y: 455, w: 130, h: 100, type: "elevator", h3d: 35 },
+  { id: "stairs-east-upper", name: "Stairs to 4F", x: 1030, y: 185, w: 70, h: 90, type: "stairs", h3d: 24 },
+  { id: "stairs-east-lower", name: "Stairs to 4F", x: 1030, y: 315, w: 70, h: 95, type: "stairs", h3d: 24 },
+];
+
+const fourthFloorRooms = [
+  { id: "room-407-b", name: "Room 407 B", x: 40, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
+  { id: "room-407-a", name: "Room 407 A", x: 155, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
+  { id: "room-406-b", name: "Room 406 B", x: 270, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
+  { id: "room-406-a", name: "Room 406 A", x: 385, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
+  { id: "room-405", name: "Room 405", x: 500, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
+  { id: "psychology-lab", name: "Psychology Laboratory", x: 615, y: 40, w: 195, h: 120, type: "lab", h3d: 34 },
+  { id: "room-403", name: "Room 403", x: 815, y: 40, w: 90, h: 120, type: "room", h3d: 28 },
+  { id: "room-402", name: "Room 402", x: 910, y: 40, w: 90, h: 120, type: "room", h3d: 28 },
+  { id: "room-401", name: "Room 401", x: 1005, y: 40, w: 85, h: 120, type: "room", h3d: 28 },
+  { id: "stairs-west", name: "Stairs to 5F", x: -35, y: 95, w: 65, h: 95, type: "stairs", h3d: 24 },
+  { id: "room-408", name: "Room 408", x: 40, y: 410, w: 210, h: 145, type: "room", h3d: 32 },
+  { id: "female-cr", name: "Female Restroom", x: 290, y: 390, w: 110, h: 80, type: "restroom", h3d: 24 },
+  { id: "male-cr", name: "Male Restroom", x: 290, y: 475, w: 110, h: 80, type: "restroom", h3d: 24 },
+  { id: "elevator", name: "Elevator", x: 925, y: 455, w: 130, h: 100, type: "elevator", h3d: 35 },
+  { id: "stairs-east-upper", name: "Stairs to 5F", x: 1030, y: 185, w: 70, h: 90, type: "stairs", h3d: 24 },
+  { id: "stairs-east-lower", name: "Stairs to 5F", x: 1030, y: 315, w: 70, h: 95, type: "stairs", h3d: 24 },
+];
+
+const fifthFloorRooms = [
+  { id: "chemistry-lab", name: "Chemistry Laboratory", x: 40, y: 40, w: 195, h: 120, type: "lab", h3d: 34 },
+  { id: "room-507", name: "Room 507", x: 240, y: 40, w: 105, h: 120, type: "room", h3d: 30 },
+  { id: "room-506-b", name: "Room 506 B", x: 350, y: 40, w: 105, h: 120, type: "room", h3d: 30 },
+  { id: "room-506-a", name: "Room 506 A", x: 460, y: 40, w: 105, h: 120, type: "room", h3d: 30 },
+  { id: "room-505", name: "Room 505", x: 570, y: 40, w: 105, h: 120, type: "room", h3d: 30 },
+  { id: "room-504", name: "Room 504", x: 680, y: 40, w: 105, h: 120, type: "room", h3d: 30 },
+  { id: "room-503", name: "Room 503", x: 790, y: 40, w: 105, h: 120, type: "room", h3d: 30 },
+  { id: "room-502", name: "Room 502", x: 900, y: 40, w: 90, h: 120, type: "room", h3d: 28 },
+  { id: "room-501", name: "Room 501", x: 995, y: 40, w: 95, h: 120, type: "room", h3d: 28 },
+  { id: "stairs-west", name: "Stairs to 4F", x: -35, y: 95, w: 65, h: 95, type: "stairs", h3d: 24 },
+  { id: "computer-lab-5", name: "Computer Lab 5", x: 40, y: 410, w: 210, h: 145, type: "lab", h3d: 34 },
+  { id: "female-cr", name: "Female Restroom", x: 290, y: 390, w: 110, h: 80, type: "restroom", h3d: 24 },
+  { id: "male-cr", name: "Male Restroom", x: 290, y: 475, w: 110, h: 80, type: "restroom", h3d: 24 },
+  { id: "elevator", name: "Elevator", x: 925, y: 455, w: 130, h: 100, type: "elevator", h3d: 35 },
+  { id: "stairs-east", name: "Stairs to 4F", x: 1030, y: 215, w: 70, h: 105, type: "stairs", h3d: 24 },
+];
+
+export const indoorFloorConfigs = {
+  "1st": {
+    id: "1st",
+    label: "1st Floor",
+    title: "ST. BENEDICT HALL 1ST FLOOR",
+    rooms: firstFloorRooms,
+  },
+  "2nd": {
+    id: "2nd",
+    label: "2nd Floor",
+    title: "ST. BENEDICT HALL 2ND FLOOR",
+    rooms: secondFloorRooms,
+  },
+  "3rd": {
+    id: "3rd",
+    label: "3rd Floor",
+    title: "ST. BENEDICT HALL 3RD FLOOR",
+    rooms: thirdFloorRooms,
+  },
+  "4th": {
+    id: "4th",
+    label: "4th Floor",
+    title: "ST. BENEDICT HALL 4TH FLOOR",
+    rooms: fourthFloorRooms,
+  },
+  "5th": {
+    id: "5th",
+    label: "5th Floor",
+    title: "ST. BENEDICT HALL 5TH FLOOR",
+    rooms: fifthFloorRooms,
+  },
+};
+

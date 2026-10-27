@@ -12,7 +12,9 @@ import {
   X,
 } from "lucide-react";
 import { c, fonts, shadow } from "../theme";
+import { indoorFloorConfigs, type IndoorRoom as Room, type IndoorRoomType as RoomType, type IndoorFloorConfig as FloorConfig } from "../../data/indoorMapData.js";
 import type { FloorId } from "../../lib/floor-checkpoints";
+import type { RoomCheckpoint } from "../../lib/room-checkpoints";
 
 declare global {
   interface Window {
@@ -27,37 +29,6 @@ declare global {
     };
   }
 }
-
-type RoomType =
-  | "room"
-  | "lab"
-  | "stairs"
-  | "restroom"
-  | "utility"
-  | "office"
-  | "faculty"
-  | "cafeteria"
-  | "exit"
-  | "elevator"
-  | "entrance";
-
-type Room = {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  type: RoomType;
-  h3d: number;
-};
-
-type FloorConfig = {
-  id: FloorId;
-  label: string;
-  title: string;
-  rooms: Room[];
-};
 
 type RoomCategory =
   | "all"
@@ -102,129 +73,7 @@ type VoiceNavigationArchitecture = {
   futureExpansion: string[];
 };
 
-const firstFloorRooms: Room[] = [
-  { id: "pt-lecture", name: "Physical Therapy Lecture Room", x: 40, y: 40, w: 220, h: 120, type: "room", h3d: 32 },
-  { id: "pt-lab", name: "PT Laboratory 1", x: 265, y: 40, w: 150, h: 120, type: "lab", h3d: 34 },
-  { id: "mac-lab", name: "MAC Laboratory", x: 420, y: 40, w: 150, h: 120, type: "lab", h3d: 34 },
-  { id: "comp-lab-2", name: "Computer Lab 2", x: 575, y: 40, w: 150, h: 120, type: "lab", h3d: 34 },
-  { id: "comp-lab-1", name: "Computer Lab 1", x: 730, y: 40, w: 150, h: 120, type: "lab", h3d: 34 },
-  { id: "stairs-west", name: "Stairs to 2F", x: -35, y: 95, w: 65, h: 95, type: "stairs", h3d: 24 },
-  { id: "comp-lab-3", name: "Computer Lab 3", x: 40, y: 410, w: 150, h: 145, type: "lab", h3d: 34 },
-  { id: "female-cr", name: "Female Restroom", x: 200, y: 390, w: 95, h: 80, type: "restroom", h3d: 24 },
-  { id: "male-cr", name: "Male Restroom", x: 200, y: 475, w: 95, h: 80, type: "restroom", h3d: 24 },
-  { id: "pwd-cr", name: "PWD / All Gender CR", x: 310, y: 430, w: 110, h: 125, type: "restroom", h3d: 24 },
-  { id: "stock", name: "Stock Room", x: 425, y: 430, w: 90, h: 125, type: "utility", h3d: 26 },
-  { id: "soci", name: "SOCI & Co-Curricular Office", x: 520, y: 430, w: 150, h: 125, type: "office", h3d: 30 },
-  { id: "cafeteria", name: "Cafeteria", x: 675, y: 405, w: 120, h: 150, type: "cafeteria", h3d: 30 },
-  { id: "parking", name: "To Parking Lot", x: 800, y: 505, w: 120, h: 70, type: "exit", h3d: 12 },
-  { id: "elevator", name: "Elevator", x: 925, y: 450, w: 70, h: 105, type: "elevator", h3d: 35 },
-  { id: "stairs-south", name: "Stairs to 2F", x: 1010, y: 455, w: 70, h: 100, type: "stairs", h3d: 24 },
-  { id: "entrance", name: "Entrance", x: 1005, y: 190, w: 60, h: 80, type: "entrance", h3d: 16 },
-];
-
-const secondFloorRooms: Room[] = [
-  { id: "ccs-office", name: "College of Computer Studies Office", x: 40, y: 40, w: 280, h: 120, type: "office", h3d: 32 },
-  { id: "it-ojt-room", name: "IT / OJT Room", x: 325, y: 40, w: 150, h: 120, type: "room", h3d: 30 },
-  { id: "clinic", name: "Clinic", x: 480, y: 40, w: 150, h: 120, type: "office", h3d: 30 },
-  { id: "tamaraw-library", name: "Tamaraw Library", x: 635, y: 40, w: 270, h: 120, type: "room", h3d: 32 },
-  { id: "general-office", name: "General Office", x: 910, y: 40, w: 170, h: 120, type: "office", h3d: 30 },
-  { id: "stairs-west", name: "Stairs to 3F", x: -35, y: 95, w: 65, h: 95, type: "stairs", h3d: 24 },
-  { id: "computer-lab-4", name: "Computer Lab 4", x: 40, y: 410, w: 210, h: 145, type: "lab", h3d: 34 },
-  { id: "female-cr", name: "Female Restroom", x: 290, y: 390, w: 110, h: 80, type: "restroom", h3d: 24 },
-  { id: "male-cr", name: "Male Restroom", x: 290, y: 475, w: 110, h: 80, type: "restroom", h3d: 24 },
-  { id: "elevator", name: "Elevator", x: 925, y: 455, w: 130, h: 100, type: "elevator", h3d: 35 },
-  { id: "stairs-east-upper", name: "Stairs to 3F", x: 1030, y: 185, w: 70, h: 90, type: "stairs", h3d: 24 },
-  { id: "stairs-east-lower", name: "Stairs to 3F", x: 1030, y: 315, w: 70, h: 95, type: "stairs", h3d: 24 },
-];
-
-const thirdFloorRooms: Room[] = [
-  { id: "faculty-room-west", name: "Faculty Room", x: 40, y: 40, w: 110, h: 120, type: "faculty", h3d: 30 },
-  { id: "room-306", name: "Room 306", x: 155, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
-  { id: "room-305-b", name: "Room 305 B", x: 270, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
-  { id: "room-305-a", name: "Room 305 A", x: 385, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
-  { id: "room-304-b", name: "Room 304 B", x: 500, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
-  { id: "room-304-a", name: "Room 304 A", x: 615, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
-  { id: "faculty-room", name: "Faculty Room", x: 730, y: 40, w: 210, h: 120, type: "faculty", h3d: 30 },
-  { id: "room-302", name: "Room 302", x: 945, y: 40, w: 70, h: 120, type: "room", h3d: 28 },
-  { id: "room-301", name: "Room 301", x: 1020, y: 40, w: 70, h: 120, type: "room", h3d: 28 },
-  { id: "stairs-west", name: "Stairs to 4F", x: -35, y: 95, w: 65, h: 95, type: "stairs", h3d: 24 },
-  { id: "room-307", name: "Room 307", x: 40, y: 410, w: 210, h: 145, type: "room", h3d: 32 },
-  { id: "female-cr", name: "Female Restroom", x: 290, y: 390, w: 110, h: 80, type: "restroom", h3d: 24 },
-  { id: "male-cr", name: "Male Restroom", x: 290, y: 475, w: 110, h: 80, type: "restroom", h3d: 24 },
-  { id: "elevator", name: "Elevator", x: 925, y: 455, w: 130, h: 100, type: "elevator", h3d: 35 },
-  { id: "stairs-east-upper", name: "Stairs to 4F", x: 1030, y: 185, w: 70, h: 90, type: "stairs", h3d: 24 },
-  { id: "stairs-east-lower", name: "Stairs to 4F", x: 1030, y: 315, w: 70, h: 95, type: "stairs", h3d: 24 },
-];
-
-const fourthFloorRooms: Room[] = [
-  { id: "room-407-b", name: "Room 407 B", x: 40, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
-  { id: "room-407-a", name: "Room 407 A", x: 155, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
-  { id: "room-406-b", name: "Room 406 B", x: 270, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
-  { id: "room-406-a", name: "Room 406 A", x: 385, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
-  { id: "room-405", name: "Room 405", x: 500, y: 40, w: 110, h: 120, type: "room", h3d: 30 },
-  { id: "psychology-lab", name: "Psychology Laboratory", x: 615, y: 40, w: 195, h: 120, type: "lab", h3d: 34 },
-  { id: "room-403", name: "Room 403", x: 815, y: 40, w: 90, h: 120, type: "room", h3d: 28 },
-  { id: "room-402", name: "Room 402", x: 910, y: 40, w: 90, h: 120, type: "room", h3d: 28 },
-  { id: "room-401", name: "Room 401", x: 1005, y: 40, w: 85, h: 120, type: "room", h3d: 28 },
-  { id: "stairs-west", name: "Stairs to 5F", x: -35, y: 95, w: 65, h: 95, type: "stairs", h3d: 24 },
-  { id: "room-408", name: "Room 408", x: 40, y: 410, w: 210, h: 145, type: "room", h3d: 32 },
-  { id: "female-cr", name: "Female Restroom", x: 290, y: 390, w: 110, h: 80, type: "restroom", h3d: 24 },
-  { id: "male-cr", name: "Male Restroom", x: 290, y: 475, w: 110, h: 80, type: "restroom", h3d: 24 },
-  { id: "elevator", name: "Elevator", x: 925, y: 455, w: 130, h: 100, type: "elevator", h3d: 35 },
-  { id: "stairs-east-upper", name: "Stairs to 5F", x: 1030, y: 185, w: 70, h: 90, type: "stairs", h3d: 24 },
-  { id: "stairs-east-lower", name: "Stairs to 5F", x: 1030, y: 315, w: 70, h: 95, type: "stairs", h3d: 24 },
-];
-
-const fifthFloorRooms: Room[] = [
-  { id: "chemistry-lab", name: "Chemistry Laboratory", x: 40, y: 40, w: 195, h: 120, type: "lab", h3d: 34 },
-  { id: "room-507", name: "Room 507", x: 240, y: 40, w: 105, h: 120, type: "room", h3d: 30 },
-  { id: "room-506-b", name: "Room 506 B", x: 350, y: 40, w: 105, h: 120, type: "room", h3d: 30 },
-  { id: "room-506-a", name: "Room 506 A", x: 460, y: 40, w: 105, h: 120, type: "room", h3d: 30 },
-  { id: "room-505", name: "Room 505", x: 570, y: 40, w: 105, h: 120, type: "room", h3d: 30 },
-  { id: "room-504", name: "Room 504", x: 680, y: 40, w: 105, h: 120, type: "room", h3d: 30 },
-  { id: "room-503", name: "Room 503", x: 790, y: 40, w: 105, h: 120, type: "room", h3d: 30 },
-  { id: "room-502", name: "Room 502", x: 900, y: 40, w: 90, h: 120, type: "room", h3d: 28 },
-  { id: "room-501", name: "Room 501", x: 995, y: 40, w: 95, h: 120, type: "room", h3d: 28 },
-  { id: "stairs-west", name: "Stairs to 4F", x: -35, y: 95, w: 65, h: 95, type: "stairs", h3d: 24 },
-  { id: "computer-lab-5", name: "Computer Lab 5", x: 40, y: 410, w: 210, h: 145, type: "lab", h3d: 34 },
-  { id: "female-cr", name: "Female Restroom", x: 290, y: 390, w: 110, h: 80, type: "restroom", h3d: 24 },
-  { id: "male-cr", name: "Male Restroom", x: 290, y: 475, w: 110, h: 80, type: "restroom", h3d: 24 },
-  { id: "elevator", name: "Elevator", x: 925, y: 455, w: 130, h: 100, type: "elevator", h3d: 35 },
-  { id: "stairs-east", name: "Stairs to 4F", x: 1030, y: 215, w: 70, h: 105, type: "stairs", h3d: 24 },
-];
-
-const floorConfigs: Record<FloorId, FloorConfig> = {
-  "1st": {
-    id: "1st",
-    label: "1st Floor",
-    title: "ST. BENEDICT HALL 1ST FLOOR",
-    rooms: firstFloorRooms,
-  },
-  "2nd": {
-    id: "2nd",
-    label: "2nd Floor",
-    title: "ST. BENEDICT HALL 2ND FLOOR",
-    rooms: secondFloorRooms,
-  },
-  "3rd": {
-    id: "3rd",
-    label: "3rd Floor",
-    title: "ST. BENEDICT HALL 3RD FLOOR",
-    rooms: thirdFloorRooms,
-  },
-  "4th": {
-    id: "4th",
-    label: "4th Floor",
-    title: "ST. BENEDICT HALL 4TH FLOOR",
-    rooms: fourthFloorRooms,
-  },
-  "5th": {
-    id: "5th",
-    label: "5th Floor",
-    title: "ST. BENEDICT HALL 5TH FLOOR",
-    rooms: fifthFloorRooms,
-  },
-};
+const floorConfigs = indoorFloorConfigs as Record<FloorId, FloorConfig>;
 
 const floorOptions = Object.values(floorConfigs);
 const DEFAULT_NAVIGATION_PIN: NavigationPin = {
@@ -321,7 +170,7 @@ function getRoomCategory(room: Room): RoomCategory {
   if (room.type === "restroom") return "comfort-room";
   if (room.type === "faculty") return "faculty";
   if (name.includes("library")) return "library";
-  if (room.type === "lab" || name.includes("computer lab")) return "computer-lab";
+  if (room.id === "soci" || room.type === "lab" || name.includes("computer lab")) return "computer-lab";
   if (room.type === "office" || name.includes("office")) return "office";
   if (room.type === "room" || name.includes("lecture")) return "lecture";
 
@@ -329,6 +178,8 @@ function getRoomCategory(room: Room): RoomCategory {
 }
 
 function getRoomCategoryStyle(room: Room) {
+  // EMC is a laboratory now; retain its existing room color and geometry.
+  if (room.id === "soci") return categoryRoomStyles.office;
   const category = getRoomCategory(room);
   return category === "all" ? categoryRoomStyles.facility : categoryRoomStyles[category];
 }
@@ -1002,6 +853,7 @@ function IsoRoom({
       }}
       role="button"
       aria-label={room.name}
+      aria-pressed={isSelected}
       tabIndex={0}
       pointerEvents="none"
     >
@@ -1042,14 +894,15 @@ function IsoRoom({
   );
 }
 
-export function Map({ checkpointFloor = null, checkpointVersion = 0, onScanFloor, scanButtonRef }: {
+export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointVersion = 0, onScanQr, scanButtonRef }: {
   checkpointFloor?: FloorId | null;
+  checkpointRoom?: RoomCheckpoint | null;
   checkpointVersion?: number;
-  onScanFloor?: () => void;
+  onScanQr?: () => void;
   scanButtonRef?: React.Ref<HTMLButtonElement>;
 }) {
-  const [selectedFloor, setSelectedFloor] = useState<FloorId>(checkpointFloor ?? "1st");
-  const [selectedId, setSelectedId] = useState("entrance");
+  const [selectedFloor, setSelectedFloor] = useState<FloorId>(checkpointRoom?.floorId ?? checkpointFloor ?? "1st");
+  const [selectedId, setSelectedId] = useState(checkpointRoom?.id ?? "entrance");
   const [activeCategory, setActiveCategory] = useState<RoomCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [navigationTarget, setNavigationTarget] = useState<{
@@ -1212,7 +1065,10 @@ export function Map({ checkpointFloor = null, checkpointVersion = 0, onScanFloor
     if (!floorConfigs[selectedFloor].rooms.some((room) => room.id === selectedId)) {
       setSelectedId(floorConfigs[selectedFloor].rooms[0].id);
     }
-    if (!hasManualViewAdjustmentRef.current) {
+    // The checkpoint effect already resets and focuses the incoming room.
+    // A subsequent floor-change effect must not overwrite that position.
+    const isCheckpointSelection = checkpointRoom?.floorId === selectedFloor && checkpointRoom.id === selectedId;
+    if (!hasManualViewAdjustmentRef.current && !isCheckpointSelection) {
       applyDefaultView();
     }
   }, [selectedFloor]);
@@ -1362,16 +1218,37 @@ export function Map({ checkpointFloor = null, checkpointVersion = 0, onScanFloor
   };
 
   useEffect(() => {
-    if (!checkpointFloor) return;
-    setSelectedFloor(checkpointFloor);
-    setSelectedId(floorConfigs[checkpointFloor].rooms[0].id);
+    const floorId = checkpointRoom?.floorId ?? checkpointFloor;
+    if (!floorId) return;
+    const room = checkpointRoom ? floorConfigs[floorId].rooms.find(item => item.id === checkpointRoom.id) : null;
+    setSelectedFloor(floorId);
+    setSelectedId(room?.id ?? floorConfigs[floorId].rooms[0].id);
     setSearchQuery("");
     setActiveCategory("all");
     clearNavigation();
     hasManualViewAdjustmentRef.current = false;
     applyDefaultView();
-    // Checkpoints identify a floor, so keep the stored location pin untouched.
-  }, [checkpointFloor, checkpointVersion]);
+    // Selecting a destination never claims to update the user's physical location.
+    if (room) {
+      const timer = window.setTimeout(() => {
+        const center = getRoomCenter(room);
+        // Focus in screen space: the indoor view rotates, tilts, and projects the floor.
+        const angle = DEFAULT_MAP_ROTATION * Math.PI / 180;
+        const pitch = DEFAULT_MAP_TILT * Math.PI / 180;
+        const dx = center.x - 560;
+        const dy = center.y - 310;
+        const rotatedX = dx * Math.cos(angle) - dy * Math.sin(angle);
+        const rotatedY = dx * Math.sin(angle) + dy * Math.cos(angle);
+        const perspective = 1200 / (1200 - rotatedY * Math.sin(pitch));
+        setPosition(clampPosition(
+          -rotatedX * perspective * DEFAULT_MAP_SCALE,
+          -rotatedY * Math.cos(pitch) * perspective * DEFAULT_MAP_SCALE,
+          DEFAULT_MAP_SCALE,
+        ));
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, [checkpointFloor, checkpointRoom, checkpointVersion]);
 
   useEffect(() => () => stopVoiceGuidance(), []);
 
@@ -1379,12 +1256,12 @@ export function Map({ checkpointFloor = null, checkpointVersion = 0, onScanFloor
     hasManualViewAdjustmentRef.current = true;
   };
 
-  const clampPosition = (x: number, y: number) => {
+  const clampPosition = (x: number, y: number, viewScale = scale) => {
     const viewport = constraintsRef.current?.getBoundingClientRect();
     if (!viewport) return { x, y };
 
-    const scaledWidth = 1120 * scale;
-    const scaledHeight = 620 * scale;
+    const scaledWidth = 1120 * viewScale;
+    const scaledHeight = 620 * viewScale;
     const maxX = Math.max(120, scaledWidth / 2 - viewport.width / 2 + 170);
     const maxY = Math.max(180, scaledHeight / 2 - viewport.height / 2 + 360);
 
@@ -1889,16 +1766,16 @@ export function Map({ checkpointFloor = null, checkpointVersion = 0, onScanFloor
             <p style={{ margin: 0, color: "#8C1007", fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
               Choose Building Level
             </p>
-            {onScanFloor && <button
+            {onScanQr && <button
               ref={scanButtonRef}
               type="button"
               className="ccs-indoor-scan"
-              onClick={onScanFloor}
+              onClick={onScanQr}
               aria-haspopup="dialog"
               style={{ minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 10px", border: "1px solid rgba(102, 11, 5, 0.2)", borderRadius: 10, color: "#660B05", fontSize: 12, fontWeight: 750, cursor: "pointer", touchAction: "manipulation" }}
             >
               <QrCode size={16} aria-hidden="true" />
-              Scan Floor QR
+              Scan QR
             </button>}
           </div>
           <div

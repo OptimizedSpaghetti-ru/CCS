@@ -4,7 +4,7 @@ import { Camera, RotateCcw, X } from "lucide-react";
 import type QrScanner from "qr-scanner";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { App } from "@capacitor/app";
-import { parseFloorCheckpoint, type FloorId } from "../../lib/floor-checkpoints";
+import { parseRoomCheckpoint, type RoomCheckpoint } from "../../lib/room-checkpoints";
 import { c, fonts } from "../theme";
 import "./FloorQrScanner.css";
 
@@ -23,8 +23,8 @@ function cameraError(error: unknown): string {
   return "Unable to start the camera. Check camera access and retry, or choose your floor manually.";
 }
 
-export function FloorQrScanner({ onFloor, onClose, onManual, onReturnFocus }: {
-  onFloor: (floor: FloorId) => void;
+export function RoomQrScanner({ onRoom, onClose, onManual, onReturnFocus }: {
+  onRoom: (room: RoomCheckpoint) => void;
   onClose: () => void;
   onManual: () => void;
   onReturnFocus: () => void;
@@ -103,13 +103,13 @@ export function FloorQrScanner({ onFloor, onClose, onManual, onReturnFocus }: {
           try {
             const result = await Scanner.scanImage(video, { qrEngine: nextEngine, returnDetailedScanResult: true });
             if (disposed || handled || document.hidden) return;
-            const floor = parseFloorCheckpoint(result.data, window.location.origin);
-            if (!floor) {
-              setMessage("This is not a CCS Connect floor code. Scan a floor code for Saint Benedict Hall.");
+            const room = parseRoomCheckpoint(result.data, window.location.origin);
+            if (!room) {
+              setMessage("This is not a supported CCS Connect room code. Scan a code for Computer Labs 1–5, EMC Laboratory, or Rooms 501–505.");
             } else {
               handled = true;
               stop();
-              onFloor(floor);
+              onRoom(room);
               return;
             }
           } catch {
@@ -131,7 +131,7 @@ export function FloorQrScanner({ onFloor, onClose, onManual, onReturnFocus }: {
       window.removeEventListener("pagehide", pause);
       stop();
     };
-  }, [attempt, onFloor, video]);
+  }, [attempt, onRoom, video]);
 
   const style = {
     "--floor-qr-surface": c.white,
@@ -147,18 +147,18 @@ export function FloorQrScanner({ onFloor, onClose, onManual, onReturnFocus }: {
         <Dialog.Overlay className="floor-qr-overlay" />
         <Dialog.Content className="floor-qr-dialog" style={style} onCloseAutoFocus={event => { event.preventDefault(); onReturnFocus(); }}>
           <div className="floor-qr-heading">
-            <Dialog.Title>Scan Floor QR</Dialog.Title>
+            <Dialog.Title>Scan QR</Dialog.Title>
             <Dialog.Close className="floor-qr-close" aria-label="Close Scanner"><X size={22} /></Dialog.Close>
           </div>
           <Dialog.Description className="floor-qr-description">
-            Scan a code posted on your floor in Saint Benedict Hall to open its indoor map.
+            Scan a room code for Computer Labs 1–5, EMC Laboratory, or Rooms 501–505 in Saint Benedict Hall.
           </Dialog.Description>
           <div className="floor-qr-preview" aria-busy={status === "starting"}>
-            <video ref={setVideo} muted playsInline aria-label="Floor QR camera preview" />
+            <video ref={setVideo} muted playsInline aria-label="Room QR camera preview" />
             {status !== "scanning" && <div className="floor-qr-camera-state"><Camera size={36} aria-hidden="true" /></div>}
           </div>
           <p className="floor-qr-status" role="status">
-            {status === "starting" ? "Starting camera…" : status === "scanning" ? "Point your camera at a floor QR code." : status === "paused" ? "Camera paused while CCS Connect was in the background." : "Camera could not start."}
+            {status === "starting" ? "Starting camera…" : status === "scanning" ? "Point your camera at a room QR code." : status === "paused" ? "Camera paused while CCS Connect was in the background." : "Camera could not start."}
           </p>
           {message && <p className="floor-qr-error" role="alert">{message}</p>}
           {(status === "error" || status === "paused") && (

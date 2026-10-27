@@ -1,0 +1,112 @@
+[
+  {
+    "id": "comp-lab-2",
+    "floorId": "1st",
+    "name": "Computer Lab 2",
+    "floorLabel": "1st Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&room=comp-lab-2",
+    "png": "room-comp-lab-2.png",
+    "svg": "room-comp-lab-2.svg"
+  },
+  {
+    "id": "comp-lab-1",
+    "floorId": "1st",
+    "name": "Computer Lab 1",
+    "floorLabel": "1st Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&room=comp-lab-1",
+    "png": "room-comp-lab-1.png",
+    "svg": "room-comp-lab-1.svg"
+  },
+  {
+    "id": "comp-lab-3",
+    "floorId": "1st",
+    "name": "Computer Lab 3",
+    "floorLabel": "1st Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&room=comp-lab-3",
+    "png": "room-comp-lab-3.png",
+    "svg": "room-comp-lab-3.svg"
+  },
+  {
+    "id": "soci",
+    "floorId": "1st",
+    "name": "EMC Laboratory",
+    "floorLabel": "1st Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&room=soci",
+    "png": "room-soci.png",
+    "svg": "room-soci.svg"
+  },
+  {
+    "id": "computer-lab-4",
+    "floorId": "2nd",
+    "name": "Computer Lab 4",
+    "floorLabel": "2nd Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&room=computer-lab-4",
+    "png": "room-computer-lab-4.png",
+    "svg": "room-computer-lab-4.svg"
+  },
+  {
+    "id": "room-505",
+    "floorId": "5th",
+    "name": "Room 505",
+    "floorLabel": "5th Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&room=room-505",
+    "png": "room-room-505.png",
+    "svg": "room-room-505.svg"
+  },
+  {
+    "id": "room-504",
+    "floorId": "5th",
+    "name": "Room 504",
+    "floorLabel": "5th Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&room=room-504",
+    "png": "room-room-504.png",
+    "svg": "room-room-504.svg"
+  },
+  {
+    "id": "room-503",
+    "floorId": "5th",
+    "name": "Room 503",
+    "floorLabel": "5th Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&room=room-503",
+    "png": "room-room-503.png",
+    "svg": "room-room-503.svg"
+  },
+  {
+    "id": "room-502",
+    "floorId": "5th",
+    "name": "Room 502",
+    "floorLabel": "5th Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&room=room-502",
+    "png": "room-room-502.png",
+    "svg": "room-room-502.svg"
+  },
+  {
+    "id": "room-501",
+    "floorId": "5th",
+    "name": "Room 501",
+    "floorLabel": "5th Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&room=room-501",
+    "png": "room-room-501.png",
+    "svg": "room-room-501.svg"
+  },
+  {
+    "id": "computer-lab-5",
+    "floorId": "5th",
+    "name": "Computer Lab 5",
+    "floorLabel": "5th Floor",
+    "building": "Saint Benedict Hall",
+    "payload": "/app/map?view=indoor&room=computer-lab-5",
+    "png": "room-computer-lab-5.png",
+    "svg": "room-computer-lab-5.svg"
+  }
+]

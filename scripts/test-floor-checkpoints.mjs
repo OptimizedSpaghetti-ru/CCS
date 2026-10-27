@@ -40,18 +40,18 @@ function memoryStorage() {
 }
 
 test('a requested floor survives auth handoff once without storing an arbitrary redirect', () => {
-  assert.equal(typeof contract.rememberFloorCheckpoint, 'function');
+  assert.equal(typeof contract.rememberMapCheckpoint, 'function');
   const storage = memoryStorage();
-  contract.rememberFloorCheckpoint('?view=indoor&floor=4th', storage);
-  assert.equal(contract.consumeFloorCheckpoint(storage), '/app/map?view=indoor&floor=4th');
-  assert.equal(contract.consumeFloorCheckpoint(storage), null);
-  contract.rememberFloorCheckpoint('?floor=evil', storage);
-  assert.equal(contract.consumeFloorCheckpoint(storage), null);
+  contract.rememberMapCheckpoint('?view=indoor&floor=4th', storage);
+  assert.equal(contract.consumeMapCheckpoint(storage), '/app/map?view=indoor&floor=4th');
+  assert.equal(contract.consumeMapCheckpoint(storage), null);
+  contract.rememberMapCheckpoint('?floor=evil', storage);
+  assert.equal(contract.consumeMapCheckpoint(storage), null);
 });
 
 test('blocked session storage never breaks map access or auth', () => {
-  assert.equal(typeof contract.rememberFloorCheckpoint, 'function');
+  assert.equal(typeof contract.rememberMapCheckpoint, 'function');
   const storage = { getItem() { throw Error('blocked'); }, setItem() { throw Error('blocked'); }, removeItem() { throw Error('blocked'); } };
-  assert.doesNotThrow(() => contract.rememberFloorCheckpoint('?floor=2nd', storage));
-  assert.equal(contract.consumeFloorCheckpoint(storage), null);
+  assert.doesNotThrow(() => contract.rememberMapCheckpoint('?floor=2nd', storage));
+  assert.equal(contract.consumeMapCheckpoint(storage), null);
 });

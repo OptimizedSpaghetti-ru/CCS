@@ -160,7 +160,7 @@ Indoor map capabilities include:
 - Touch-friendly zoom, pan, rotation, and two-finger tilt gestures.
 - Voice route guidance with browser speech synthesis and Android native TTS fallback.
 
-The repository does not currently include a dedicated QR scanner or checkpoint verification module. The map data and navigation model can be extended for QR checkpoint support in a future iteration.
+The indoor map includes room QR scanning for Computer Labs 1–5, EMC Laboratory, and Rooms 501–505. A valid scan selects the correct floor and highlights the room while preserving the five manual floor buttons and map gestures. See [room QR checkpoints](docs/room-qr-checkpoints.md) for printable codes and verification instructions.
 
 ### Mobile Application Features
 
@@ -535,7 +535,7 @@ Planned and recommended improvements include:
 - Full iOS build validation and deployment.
 - Production push notification infrastructure.
 - More advanced indoor positioning.
-- QR-based checkpoint verification for indoor navigation.
+- Physical-device validation of printed room QR checkpoints.
 - AI-assisted route guidance.
 - Offline mode for selected campus information.
 - Expanded complaint management as a dedicated module.
