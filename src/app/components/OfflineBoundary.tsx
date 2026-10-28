@@ -1,38 +1,41 @@
 import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
-import { RefreshCw, WifiOff } from 'lucide-react';
+import { WifiOff } from 'lucide-react';
 import { connectivity } from '../../lib/connectivity';
 import './OfflineBoundary.css';
 
 export function OfflineBoundary({ children }: { children: ReactNode }) {
-  const { offline, checking } = useSyncExternalStore(connectivity.subscribe, connectivity.getSnapshot);
-  const content = useRef<HTMLDivElement>(null);
-  const retry = useRef<HTMLButtonElement>(null);
+  const { offline } = useSyncExternalStore(connectivity.subscribe, connectivity.getSnapshot);
+  const banner = useRef<HTMLElement>(null);
   useEffect(() => connectivity.start(), []);
   useEffect(() => {
     if (!offline) return;
-    const previousFocus = document.activeElement as HTMLElement | null;
-    content.current?.setAttribute('inert', '');
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    retry.current?.focus();
-    return () => {
-      content.current?.removeAttribute('inert');
-      document.body.style.overflow = previousOverflow;
-      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+    let frame = 0;
+    const observed = new Set<Element>();
+    const measure = () => {
+      let bottom = 0;
+      document.querySelectorAll('[data-offline-bottom-anchor]').forEach(control => {
+        if (!observed.has(control)) { observed.add(control); resize.observe(control); }
+        const rect = control.getBoundingClientRect();
+        if (rect.width && rect.height && rect.bottom > 0 && rect.top < innerHeight) bottom = Math.max(bottom, innerHeight - rect.top);
+      });
+      observed.forEach(control => { if (!control.isConnected) { resize.unobserve(control); observed.delete(control); } });
+      banner.current?.style.setProperty('--offline-bottom', bottom ? `${bottom}px` : 'env(safe-area-inset-bottom, 0px)');
     };
+    const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
+    const resize = new ResizeObserver(schedule);
+    const mutations = new MutationObserver(schedule);
+    mutations.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('resize', schedule);
+    measure();
+    return () => { cancelAnimationFrame(frame); resize.disconnect(); mutations.disconnect(); window.removeEventListener('resize', schedule); };
   }, [offline]);
   return <>
-    <div ref={content} aria-hidden={offline || undefined}>{children}</div>
-    {offline && <section className="offline-screen" role="dialog" aria-modal="true" aria-labelledby="offline-title" aria-describedby="offline-description">
-      <div className="offline-content">
-        <div className="offline-icon"><WifiOff size={48} strokeWidth={1.5} aria-hidden="true" /></div>
-        <h1 id="offline-title">No Internet Connection</h1>
-        <p id="offline-description">Please check your internet connection and try again.</p>
-        <button ref={retry} type="button" className="offline-retry" aria-disabled={checking} onClick={() => { if (!checking) void connectivity.check(); }}>
-          <RefreshCw size={18} aria-hidden="true" />
-          {checking ? 'Checking connection…' : 'Retry Connection'}
-        </button>
-        <p className="offline-status" role="status" aria-live="polite">{checking ? 'Checking your connection.' : 'We’ll reconnect automatically when you’re back online.'}</p>
+    {children}
+    {offline && <section ref={banner} className="offline-banner" role="status" aria-live="polite" aria-atomic="true">
+      <div className="offline-icon"><WifiOff size={27} strokeWidth={1.8} aria-hidden="true" /></div>
+      <div className="offline-copy">
+        <p className="offline-title">You're offline</p>
+        <p className="offline-description">Please check your internet connection.</p>
       </div>
     </section>}
   </>;

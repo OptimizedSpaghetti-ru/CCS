@@ -55,6 +55,7 @@ export function ChatInputBar({
 
   return (
     <div
+      data-offline-bottom-anchor
       style={{
         background: isDark ? "#190A0E" : c.white,
         padding: "10px 12px calc(12px + env(safe-area-inset-bottom))",

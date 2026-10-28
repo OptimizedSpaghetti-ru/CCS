@@ -40,17 +40,17 @@ try {
   await connection.page.locator('[data-startup-splash]').waitFor({ state: 'detached', timeout: 30000 });
   await connection.page.locator('input').first().fill('native-offline-draft@example.invalid');
   network(false, false);
-  let screen = connection.page.getByRole('dialog', { name: 'No Internet Connection' });
+  let screen = connection.page.locator('.offline-banner');
   await screen.waitFor({ timeout: 30000 });
   assert.equal(await connection.page.evaluate(async () => (await window.Capacitor.Plugins.Network.getStatus()).connected), false);
-  await connection.page.getByRole('button', { name: 'Retry Connection', exact: true }).click();
-  await connection.page.getByRole('button', { name: 'Retry Connection', exact: true }).waitFor();
+  assert.equal(await screen.getByRole('button').count(), 0);
+  assert.equal(await connection.page.locator('[inert]').count(), 0);
   assert.ok(await screen.isVisible());
   await connection.page.screenshot({ path: 'artifacts/offline/android.png' });
   network(true, false);
   await screen.waitFor({ state: 'detached', timeout: 45000 });
   assert.equal(await connection.page.locator('input').first().inputValue(), 'native-offline-draft@example.invalid');
-  console.log('PASS Android: Wi-Fi/data disabled, native disconnected status, Retry offline, automatic Wi-Fi recovery and mounted draft');
+  console.log('PASS Android: Wi-Fi/data disabled, native disconnected status, non-blocking banner, automatic Wi-Fi recovery and mounted draft');
 
   // Emulated mobile data handoff; never claims a physical carrier test.
   network(false, true);
@@ -66,7 +66,7 @@ try {
   adb('shell', 'am', 'force-stop', 'com.ccs.connect');
   adb('shell', 'am', 'start', '-n', 'com.ccs.connect/.MainActivity');
   connection = await connect();
-  screen = connection.page.getByRole('dialog', { name: 'No Internet Connection' });
+  screen = connection.page.locator('.offline-banner');
   await screen.waitFor({ timeout: 30000 });
   network(true, true);
   await screen.waitFor({ state: 'detached', timeout: 45000 });

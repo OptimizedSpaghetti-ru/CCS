@@ -72,6 +72,7 @@ export function BottomNav() {
 
   return (
     <div
+      data-offline-bottom-anchor
       style={{
         position: "fixed",
         bottom: 0,

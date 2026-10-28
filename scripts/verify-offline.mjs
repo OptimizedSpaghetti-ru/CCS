@@ -17,13 +17,13 @@ try {
     const input = page.locator('input').first();
     await input.fill('offline-draft@example.invalid');
     await context.setOffline(true);
-    const screen = page.getByRole('dialog', { name: 'No Internet Connection' });
+    const screen = page.locator('.offline-banner');
     await screen.waitFor();
-    await page.getByRole('button', { name: 'Retry Connection', exact: true }).click();
-    await page.getByRole('button', { name: 'Retry Connection', exact: true }).waitFor();
+    await input.fill('offline-draft@example.invalid');
+    assert.equal(await screen.getByRole('button').count(), 0);
     assert.ok(await screen.isVisible());
     assert.equal(await input.inputValue(), 'offline-draft@example.invalid');
-    assert.equal(await page.locator('[inert]').count(), 1);
+    assert.equal(await page.locator('[inert]').count(), 0);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await page.screenshot({ path: `artifacts/offline/web-${viewport.width}.png` });
     await context.setOffline(false);
@@ -48,7 +48,7 @@ try {
     await screen.waitFor({ state: 'detached', timeout: 25000 });
     await page.locator('[data-startup-splash]').waitFor({ state: 'detached' });
     assert.ok(page.url().endsWith('/register'));
-    console.log(`PASS ${viewport.width}px: offline overlay, retry offline, mounted draft, automatic recovery, cached offline reload/open and route preservation`);
+    console.log(`PASS ${viewport.width}px: offline banner, interactive offline draft, mounted draft, automatic recovery, cached offline reload/open and route preservation`);
     await context.close();
   }
 
@@ -69,7 +69,7 @@ try {
   });
   const page = await context.newPage();
   await page.goto(`${baseURL}/app/messages/compose`);
-  const screen = page.getByRole('dialog', { name: 'No Internet Connection' });
+  const screen = page.locator('.offline-banner');
   await screen.waitFor();
   assert.ok(await page.evaluate(() => localStorage.getItem('ccs-connect-auth')));
   await context.setOffline(false);
@@ -79,6 +79,33 @@ try {
   assert.ok(profileReads >= 2);
   assert.ok(await page.evaluate(() => localStorage.getItem('ccs-connect-auth')));
   console.log('PASS: interrupted Supabase profile read recovers, authenticated deep link and stored session preserved');
+  await page.goto(`${baseURL}/app/home`);
+  await page.locator('[data-startup-splash]').waitFor({ state: 'detached' });
+  await page.locator('[data-offline-bottom-anchor]').waitFor();
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    const before = await page.locator('[data-offline-bottom-anchor]').boundingBox();
+    await context.setOffline(true);
+    await screen.waitFor();
+    for (const dark of [false, true]) {
+      await page.evaluate(dark => document.documentElement.classList.toggle('dark', dark), dark);
+      await page.waitForTimeout(100);
+      const banner = await screen.boundingBox();
+      const nav = await page.locator('[data-offline-bottom-anchor]').boundingBox();
+      assert.ok(Math.abs(banner.y + banner.height - nav.y) < 2);
+      assert.deepEqual(nav, before);
+      assert.equal(await page.locator('[data-offline-bottom-anchor] button').count(), 5);
+      await page.screenshot({ path: `artifacts/offline/banner-${width}-${dark ? 'dark' : 'light'}.png` });
+    }
+    await page.getByRole('button', { name: 'Profile', exact: true }).click();
+    await page.waitForURL('**/app/profile');
+    assert.equal(await screen.count(), 1);
+    await page.getByRole('button', { name: 'Home', exact: true }).click();
+    await page.waitForURL('**/app/home');
+    await context.setOffline(false);
+    await screen.waitFor({ state: 'detached', timeout: 25000 });
+  }
+  console.log('PASS: light/dark banner, 320/390/1440px, unchanged nav geometry, five buttons and offline route navigation');
   await context.close();
 
   const probeContext = await browser.newContext();
@@ -93,18 +120,18 @@ try {
   const probePage = await probeContext.newPage();
   await probePage.goto(`${baseURL}/login`);
   await probePage.locator('[data-startup-splash]').waitFor({ state: 'detached' });
-  assert.equal(await probePage.getByRole('dialog', { name: 'No Internet Connection' }).count(), 0);
+  assert.equal(await probePage.locator('.offline-banner').count(), 0);
   probeMode = 'network-error';
   await probePage.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await probePage.getByRole('dialog', { name: 'No Internet Connection' }).waitFor();
+  await probePage.locator('.offline-banner').waitFor();
   assert.equal(await probePage.evaluate(() => navigator.onLine), true);
   probeMode = 'server-error';
   await probePage.evaluate(() => window.dispatchEvent(new Event('online')));
-  await probePage.getByRole('dialog', { name: 'No Internet Connection' }).waitFor({ state: 'detached' });
+  await probePage.locator('.offline-banner').waitFor({ state: 'detached' });
   probeMode = 'slow';
   await probePage.evaluate(() => window.dispatchEvent(new Event('focus')));
   await probePage.waitForTimeout(7500);
-  assert.equal(await probePage.getByRole('dialog', { name: 'No Internet Connection' }).count(), 0);
+  assert.equal(await probePage.locator('.offline-banner').count(), 0);
   console.log('PASS: actual transport failures with navigator.onLine=true show offline; HTTP 503 and slow probes do not');
   await probeContext.close();
 } finally { await browser.close(); }
