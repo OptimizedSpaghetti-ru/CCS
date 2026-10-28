@@ -922,7 +922,7 @@ export function AdminAnalytics() {
                 aria-label="End date"
               />
             </div>
-          ) : (
+          ) : filterMode === "date" ? (
             <input
               type="date"
               value={selectedDate}
@@ -930,7 +930,7 @@ export function AdminAnalytics() {
               style={inputStyle}
               aria-label="Selected date"
             />
-          )}
+          ) : null}
 
           <button
             onClick={exportAnalytics}

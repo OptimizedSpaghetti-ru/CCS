@@ -4,7 +4,7 @@ import { indoorFloorConfigs } from '../../src/data/indoorMapData.js';
 
 export async function checkRouteGuidance(page, input = 'mouse', { tap } = {}) {
   const activate = async locator => input === 'touch' ? (tap ? tap(locator) : locator.tap()) : locator.click();
-  for (const floorId of ['1st', '3rd']) {
+  for (const floorId of ['1st', '2nd', '3rd', '4th', '5th']) {
     const floor = indoorFloorConfigs[floorId];
     await activate(page.getByRole('button', { name: floor.label, exact: true }));
     const room = floor.rooms.find(room => room.type === 'room');
@@ -34,9 +34,22 @@ export async function checkRouteGuidance(page, input = 'mouse', { tap } = {}) {
         return { x: box.x + box.width / 2 - (viewport.x + viewport.width / 2), y: box.y + box.height / 2 - (viewport.y + viewport.height / 2) };
       });
       assert.ok(Math.abs(position.x) < 32 && Math.abs(position.y) < 32, `${id} focuses waypoint near camera center: ${JSON.stringify(position)}`);
-      const segment = await svg.locator('[data-guidance-segment] polyline').getAttribute('points');
-      assert.ok(segment.split(' ').length >= 2);
-      const route = await svg.locator('g.pointer-events-none > path').first().getAttribute('d');
+      const routeGroup = svg.locator('[data-navigation-route]');
+      const dashed = routeGroup.locator('path[stroke-dasharray]');
+      assert.equal(await dashed.count(), 1, 'one complete dashed navigation path');
+      assert.equal(await dashed.getAttribute('stroke'), '#8C1007');
+      assert.equal(await dashed.getAttribute('stroke-dasharray'), '18 14');
+      assert.equal(await routeGroup.locator('path').count(), 2, 'route casing and dashed path only; no arrows');
+      assert.equal(await svg.locator('[stroke="#D68A00"], [data-guidance-segment]').count(), 0, 'no orange overlay');
+      const route = await dashed.getAttribute('d');
+      assert.equal(await routeGroup.locator('path').first().getAttribute('d'), route);
+      const points = await routeGroup.locator('circle').evaluateAll(els => els.map(el => ({ x: Number(el.getAttribute('cx')), y: Number(el.getAttribute('cy')) })));
+      assert.equal(points.length, 3, 'complete start, hallway, and destination leg');
+      assert.equal(route, points.map((point, i) => `${i ? 'L' : 'M'} ${point.x} ${point.y}`).join(' '));
+      if (expectedFloor(id) === floor.label) {
+        assert.deepEqual(points.at(-1), { x: room.x + room.w / 2, y: room.y + room.h / 2 }, 'route reaches destination center');
+      }
+      assert.ok(await routeGroup.evaluate(el => [...el.parentElement.querySelectorAll('g[role="button"]')].every(room => Boolean(room.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING))), 'route paints above every room');
       if (polylineByFloor.has(expectedFloor(id))) assert.equal(route, polylineByFloor.get(expectedFloor(id)), 'step selection must preserve the calculated route');
       polylineByFloor.set(expectedFloor(id), route);
       assert.deepEqual(await steps.evaluateAll(els => els.map(el => el.dataset.guidanceStep)), ids);
@@ -56,5 +69,5 @@ export async function checkRouteGuidance(page, input = 'mouse', { tap } = {}) {
     assert.equal(await page.locator('[data-guidance-segment]').count(), 0);
     console.log(`PASS ${input}: ${floorId} route guidance shortcuts.`);
   }
-  console.log(`PASS ${input}: every same-floor and cross-floor guidance step, arbitrary ordering, camera centering, segment highlight, route stability, and cleanup.`);
+  console.log(`PASS ${input}: every same-floor and cross-floor guidance step, arbitrary ordering, camera centering, complete dashed red route on all five floors, route stability, and cleanup.`);
 }

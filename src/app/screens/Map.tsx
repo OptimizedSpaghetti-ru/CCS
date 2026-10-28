@@ -539,7 +539,7 @@ function RoutePath({ points }: { points: Array<{ x: number; y: number }> }) {
     .join(" ");
 
   return (
-    <g className="pointer-events-none">
+    <g className="pointer-events-none" data-navigation-route>
       <path
         d={path}
         fill="none"
@@ -577,42 +577,7 @@ function RoutePath({ points }: { points: Array<{ x: number; y: number }> }) {
           strokeWidth="4"
         />
       ))}
-      {points.slice(1).map((point, index) => {
-        const previous = points[index];
-        const angle =
-          (Math.atan2(point.y - previous.y, point.x - previous.x) * 180) /
-          Math.PI;
-        const arrowX = previous.x + (point.x - previous.x) * 0.62;
-        const arrowY = previous.y + (point.y - previous.y) * 0.62;
 
-        return (
-          <g
-            key={`${point.x}-${point.y}-arrow`}
-            transform={`translate(${arrowX} ${arrowY}) rotate(${angle})`}
-          >
-            <path
-              d="M -12 -9 L 12 0 L -12 9 Z"
-              fill="#8C1007"
-              stroke="#FFF0C4"
-              strokeWidth="2"
-            >
-              <animateTransform
-                attributeName="transform"
-                type="translate"
-                values="-5 0; 6 0; -5 0"
-                dur="1s"
-                repeatCount="indefinite"
-              />
-              <animate
-                attributeName="opacity"
-                values="0.58;1;0.58"
-                dur="1s"
-                repeatCount="indefinite"
-              />
-            </path>
-          </g>
-        );
-      })}
     </g>
   );
 }
@@ -1948,9 +1913,6 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
                       {activeFloor.title}
                     </text>
 
-                    <RoutePath points={routePoints} />
-
-
                     {rooms.map((room) => (
                       <IsoRoom
                         key={room.id}
@@ -1969,18 +1931,16 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
                       />
                     ))}
 
+                    {/* Paint the complete route above rooms so no leg is obscured. */}
+                    <RoutePath points={routePoints} />
+
                     {guidanceSteps[activeInstructionIndex]?.floorId === selectedFloor && (
-                      <g pointerEvents="none" data-guidance-segment={guidanceSteps[activeInstructionIndex].id}>
-                        <polyline
-                          points={guidanceSteps[activeInstructionIndex].segment.map(point => `${point.x},${point.y}`).join(" ")}
-                          fill="none" stroke="#D68A00" strokeWidth="13"
-                          strokeLinecap="round" strokeLinejoin="round"
-                        />
+                      <g pointerEvents="none">
                         <circle
                           data-guidance-waypoint={guidanceSteps[activeInstructionIndex].id}
                           cx={guidanceSteps[activeInstructionIndex].waypoint.x}
                           cy={guidanceSteps[activeInstructionIndex].waypoint.y}
-                          r="17" fill="#FFFBEF" stroke="#D68A00" strokeWidth="6"
+                          r="17" fill="#FFFBEF" stroke="#8C1007" strokeWidth="6"
                         />
                       </g>
                     )}
