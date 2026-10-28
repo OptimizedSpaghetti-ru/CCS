@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import QRCode from 'qrcode';
+import { indoorFloorConfigs } from '../src/data/indoorMapData.js';
 import { FLOOR_CHECKPOINTS, floorMapPath } from '../src/lib/floor-checkpoints.ts';
 import { ROOM_CHECKPOINTS, roomMapPath } from '../src/lib/room-checkpoints.ts';
 
@@ -88,6 +89,11 @@ async function expectRoom(page, room) {
       Math.abs(room.y + room.height / 2 - (viewport.y + viewport.height / 2)) < 32;
   }), room.name);
   assert.equal(new URL(page.url()).searchParams.get('room'), room.id);
+  const geometry = indoorFloorConfigs[room.floorId].rooms.find(item => item.id === room.id);
+  const expectedPin = { floorId: room.floorId, x: geometry.x + geometry.w / 2, y: geometry.y + geometry.h / 2, heading: 0 };
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('ccs-indoor-current-location'))), expectedPin, 'room QR automatically persists Mark Arrived');
+  const marker = page.locator('svg[aria-label] g').filter({ has: page.locator(':scope > circle[fill="#1D4ED8"][r="13"]') });
+  assert.equal(await marker.getAttribute('transform'), `translate(${expectedPin.x} ${expectedPin.y}) rotate(-90)`, 'blue pin moves immediately, before Navigate');
 }
 
 try {
@@ -103,7 +109,6 @@ try {
   await f.page.getByRole('button', { name: 'Indoor Map', exact: true }).click();
   await f.page.getByRole('button', { name: 'Scan QR', exact: true }).waitFor();
   console.log('PASS two-button map switch and QR action inside the indoor floor picker');
-  const storedPin = await f.page.evaluate(() => localStorage.getItem('ccs-indoor-current-location'));
   await f.page.getByRole('button', { name: 'Navigate to Selected Area', exact: true }).click();
   await f.page.getByRole('button', { name: 'Clear navigation route' }).waitFor();
   for (const room of ROOM_CHECKPOINTS) {
@@ -115,8 +120,17 @@ try {
     await assertCameraStopped(f.page);
     assert.equal(await f.page.getByRole('button', { name: 'Clear navigation route' }).count(), 0);
   }
-  assert.equal(await f.page.evaluate(() => localStorage.getItem('ccs-indoor-current-location')), storedPin, 'room scans never move the stored location pin');
-  console.log('PASS all 14 actual room camera-frame decodes, highlight, floor selection, and cleanup');
+  const storedPin = await f.page.evaluate(() => localStorage.getItem('ccs-indoor-current-location'));
+  // New navigation starts from the last scanned room, without pressing Mark Arrived.
+  const destination = ROOM_CHECKPOINTS.find(room => room.id === 'room-502');
+  await f.page.getByRole('button', { name: `${destination.floorId} Floor`, exact: true }).click();
+  await f.page.getByLabel('Choose room or area').selectOption(destination.id);
+  await f.page.getByRole('button', { name: 'Navigate to Selected Area', exact: true }).click();
+  const pin = JSON.parse(storedPin);
+  const route = f.page.locator('[data-navigation-route] path[stroke-dasharray]');
+  await route.waitFor();
+  assert.ok((await route.getAttribute('d')).startsWith(`M ${pin.x} ${pin.y} L `), 'next route uses scanned room as its origin');
+  console.log('PASS all 14 room camera-frame decodes, automatic arrival, blue pin, persisted origin, next route, highlight, and cleanup');
   for (const floor of [...FLOOR_CHECKPOINTS, FLOOR_CHECKPOINTS[4]]) {
     // Exercise old relative payloads and same-origin absolute links, including repeat scans.
     await showPayload(f.page, floor.id === '2nd' ? `${baseURL}${floorMapPath(floor.id)}` : floorMapPath(floor.id));

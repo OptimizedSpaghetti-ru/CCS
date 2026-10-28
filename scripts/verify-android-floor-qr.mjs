@@ -5,6 +5,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import QRCode from 'qrcode';
+import { indoorFloorConfigs } from '../src/data/indoorMapData.js';
 import { FLOOR_CHECKPOINTS, floorMapPath } from '../src/lib/floor-checkpoints.ts';
 import { ROOM_CHECKPOINTS, roomMapPath } from '../src/lib/room-checkpoints.ts';
 
@@ -124,7 +125,12 @@ try {
         Math.abs(room.y + room.height / 2 - (viewport.y + viewport.height / 2)) < 32;
     }), room.name);
     await page.waitForFunction(() => window.roomQrTracks.every(track => track.readyState === 'ended'));
+    const geometry = indoorFloorConfigs[room.floorId].rooms.find(item => item.id === room.id);
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('ccs-indoor-current-location'))), {
+      floorId: room.floorId, x: geometry.x + geometry.w / 2, y: geometry.y + geometry.h / 2, heading: 0,
+    }, 'room scan automatically marks arrival');
   }
+  const arrivedPin = await page.evaluate(() => localStorage.getItem('ccs-indoor-current-location'));
   for (const floor of [...FLOOR_CHECKPOINTS, FLOOR_CHECKPOINTS[4]]) {
     const image = await QRCode.toDataURL(floorMapPath(floor.id), { width: 440, margin: 4 });
     await page.evaluate(image => { window.roomQrImage = image; }, image);
@@ -135,8 +141,8 @@ try {
     await page.waitForFunction(() => window.roomQrTracks.every(track => track.readyState === 'ended'));
   }
   console.log('PASS Android: all five legacy floor codes and repeated floor scans');
-  assert.equal(await page.evaluate(() => localStorage.getItem('ccs-indoor-current-location')), saved.pin);
-  console.log('PASS Android packaged WebView: all 14 room QR decodes, correct floors/highlights, camera cleanup, and preserved location pin.');
+  assert.equal(await page.evaluate(() => localStorage.getItem('ccs-indoor-current-location')), arrivedPin);
+  console.log('PASS Android packaged WebView: all 14 room QR decodes, correct floors/highlights, camera cleanup, automatic arrival, and floor-only scans preserving the new location pin.');
 } catch (error) {
   console.log('Native failure state:', await page.evaluate(() => ({ path: location.pathname, hidden: document.hidden, status: document.querySelector('.floor-qr-status')?.textContent, visibility: window.nativeVisibilityEvents, video: [...document.querySelectorAll('video')].map(v => ({ ready: v.readyState, width: v.videoWidth, tracks: v.srcObject?.getTracks().map(t => t.readyState) })) })).catch(() => 'WebView unavailable'));
   throw error;

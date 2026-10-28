@@ -1062,7 +1062,7 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
     stopVoiceGuidance();
   };
 
-  const setRoomAsStartPoint = (floorId: FloorId, room: Room) => {
+  const setRoomAsStartPoint = (floorId: FloorId, room: Room, focus = true) => {
     setSelectedInstructionId(null);
 
     const nextLocation = getRoomNavigationPin(
@@ -1075,6 +1075,7 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
     setNavigationTarget(null);
     setRouteStartLocation(null);
     stopVoiceGuidance();
+    if (!focus) return;
     window.setTimeout(() => {
       setPosition(
         clampPosition(
@@ -1183,8 +1184,10 @@ export function Map({ checkpointFloor = null, checkpointRoom = null, checkpointV
     clearNavigation();
     hasManualViewAdjustmentRef.current = false;
     applyDefaultView();
-    // Selecting a destination never claims to update the user's physical location.
     if (room) {
+      // Room QR checkpoints confirm arrival; retain checkpoint camera focus below.
+      // Floor-only checkpoints never update the current location.
+      setRoomAsStartPoint(floorId, room, false);
       const timer = window.setTimeout(() => {
         const center = getRoomCenter(room);
         // Focus in screen space: the indoor view rotates, tilts, and projects the floor.
